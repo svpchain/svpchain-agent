@@ -1,0 +1,90 @@
+svpchain agent — macOS: Read Before Running
+==================================================
+
+This archive contains:
+
+  • svpchain agent.app   Graphical setup app (import keys, generate MCP config)
+  • This guide (READ-BEFORE-RUN.txt)
+  • 运行前先阅读.txt          Chinese version of this guide
+
+The .app bundle already includes svpchain-mcp; no separate download needed.
+
+
+1. Installation
+---------------
+
+1. Unzip the archive to any folder (e.g. Downloads or next to Applications).
+2. Drag svpchain agent.app into Applications for easy access (recommended).
+3. Launch the app once using the “First launch” steps below.
+4. In the app: import your key → generate MCP config → paste into Cursor (or your MCP client).
+
+
+2. First launch (important)
+---------------------------
+
+This app is not notarized with Apple. After downloading from a browser,
+macOS may block a normal double-click. That is expected — it does not mean
+the app is malware.
+
+[Common dialog — macOS Ventura and later]
+
+  Title: “svpchain agent.app” Not Opened
+  Text: Apple could not verify … is free of malware …
+  Buttons: “Move to Trash” and “Done” only — no “Open” button.
+
+  Click Done (not Move to Trash), then use Method A or B below.
+
+[Method A — recommended] Right-click → Open
+
+  1. In Finder, locate svpchain agent.app
+  2. Control-click (or two-finger click on a trackpad)
+  3. Choose “Open”
+  4. In the second dialog, click “Open” again
+  5. On the same Mac, double-click usually works from then on
+
+[Method B] Open Anyway in System Settings
+
+  1. Double-click once (when the “Not Opened” dialog appears, click Done)
+  2. Open System Settings → Privacy & Security
+  3. Scroll to the Security section; find the svpchain agent message
+  4. Click “Open Anyway”
+  5. Confirm in the follow-up dialog
+
+[Method C] Remove quarantine (if still blocked after GitHub download)
+
+  In Terminal (adjust the path):
+
+  xattr -cr "/path/to/svpchain agent.app"
+
+  Then still use Right-click → Open for the first launch.
+
+Older macOS versions may show “unidentified developer” instead; use Method A or B.
+
+
+3. Keychain access prompt
+-------------------------
+
+The first time you import a signing key, macOS may ask to allow Keychain access.
+Choose “Allow” or “Always Allow” so the app can store and read your key locally.
+Keys live in the system keychain — they are not saved in plain config files.
+
+
+4. After setup
+--------------
+
+The GUI is for one-time setup. Day to day, Cursor and other MCP clients start
+svpchain-mcp over stdio automatically — you do not need to keep the GUI running.
+
+Full documentation:
+https://github.com/svpchain/svpchain-mcp
+
+
+5. Still can’t open?
+--------------------
+
+  • macOS 11.0 or later required
+  • Verify the download against SHA256SUMS on the Release page (if provided)
+  • Download only from the official GitHub Release — avoid repacked copies
+
+If problems persist, open an Issue on the project with your macOS version and
+a screenshot of the error message.

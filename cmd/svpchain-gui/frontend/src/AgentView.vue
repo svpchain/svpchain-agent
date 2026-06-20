@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { NButton, NInput, NSelect, NScrollbar, NTag, NText } from 'naive-ui'
+import { NButton, NInput, NSelect, NScrollbar, NText } from 'naive-ui'
 import * as App from '../wailsjs/go/desktop/App'
 import { EventsOn } from '../wailsjs/runtime/runtime'
 
@@ -40,17 +40,11 @@ watch(
 let unsubs: Array<() => void> = []
 let watchdog: ReturnType<typeof setTimeout> | null = null
 
-function stepTagType(kind: string) {
-  switch (kind) {
-    case 'error':
-      return 'error'
-    case 'answer':
-      return 'success'
-    case 'tool':
-      return 'info'
-    default:
-      return 'default'
-  }
+const stepKinds = new Set(['auth', 'tool', 'think', 'answer', 'error'])
+
+// Map an emit kind to a known bubble class, falling back to a neutral default.
+function stepKindClass(kind: string) {
+  return 'kind-' + (stepKinds.has(kind) ? kind : 'default')
 }
 
 function normalizeStep(raw: Record<string, unknown>): { kind: string; title: string; detail: string } {
@@ -201,10 +195,10 @@ onUnmounted(() => {
           <pre class="chat-text">{{ line.text }}</pre>
         </template>
         <template v-else>
-          <n-tag :type="stepTagType(line.kind || '')" size="small" :bordered="false">
-            {{ line.text.split('\n')[0] }}
-          </n-tag>
-          <pre v-if="line.text.includes('\n')" class="chat-detail">{{ line.text.slice(line.text.indexOf('\n') + 1) }}</pre>
+          <div class="step-bubble" :class="stepKindClass(line.kind || '')">
+            <span class="step-title">{{ line.text.split('\n')[0] }}</span>
+            <pre v-if="line.text.includes('\n')" class="chat-detail">{{ line.text.slice(line.text.indexOf('\n') + 1) }}</pre>
+          </div>
         </template>
       </div>
       <n-text v-if="lines.length === 0" depth="3" class="empty-hint">{{ t('assistant.hint') }}</n-text>
@@ -297,6 +291,76 @@ onUnmounted(() => {
   font-family: inherit;
   font-size: 13px;
   line-height: 1.5;
+}
+
+/* Step events render as a tinted bubble with a colored left accent, so the
+   emit kind (auth / tool / think / answer / error) is identifiable at a glance. */
+.step-bubble {
+  margin: 4px 0 0;
+  padding: 6px 10px;
+  border-left: 3px solid transparent;
+  border-radius: 4px 8px 8px 4px;
+  background: #f5f5f5;
+}
+
+.step-title {
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.step-bubble.kind-auth {
+  background: #f3effc;
+  border-left-color: #7c4dff;
+}
+
+.step-bubble.kind-auth .step-title {
+  color: #5a32c4;
+}
+
+.step-bubble.kind-tool {
+  background: #eef5fd;
+  border-left-color: #2080f0;
+}
+
+.step-bubble.kind-tool .step-title {
+  color: #1763c4;
+}
+
+.step-bubble.kind-think {
+  background: #f5f3ef;
+  border-left-color: #c08a2d;
+}
+
+.step-bubble.kind-think .step-title {
+  color: #8a6420;
+}
+
+.step-bubble.kind-answer {
+  background: #ecf7f0;
+  border-left-color: #18a058;
+}
+
+.step-bubble.kind-answer .step-title {
+  color: #107a42;
+}
+
+.step-bubble.kind-error {
+  background: #fdeeee;
+  border-left-color: #d03050;
+}
+
+.step-bubble.kind-error .step-title {
+  color: #a82440;
+}
+
+.step-bubble.kind-default {
+  background: #f5f5f5;
+  border-left-color: #cfcfcf;
+}
+
+.step-bubble.kind-default .step-title {
+  color: #666;
 }
 
 .chat-detail {

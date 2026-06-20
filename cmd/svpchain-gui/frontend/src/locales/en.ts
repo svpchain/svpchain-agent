@@ -51,7 +51,7 @@ export default {
   },
   assistant: {
     you: 'You',
-    reply: 'Assistant',
+    reply: 'SVPChain Assistant',
     hint: 'Type a natural-language command, e.g. check BTC-USD price or send 1 SVP to an address.',
     ph: {
       chainId: 'Chain ID for signing',

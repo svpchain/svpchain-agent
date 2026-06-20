@@ -51,7 +51,7 @@ export default {
   },
   assistant: {
     you: '你',
-    reply: '助手',
+    reply: 'SVPChain助手',
     hint: '输入自然语言指令，例如：查询 BTC-USD 价格、给某地址转 1 个 SVP。',
     ph: {
       chainId: '选择签名用的 Chain ID',

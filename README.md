@@ -1,86 +1,114 @@
-# svpchain-mcp
+# svpchain-agent
 
-Local **signing MCP service** for svpchain — the signing side of a dual-MCP agent architecture; the other side is a remote build + broadcast MCP service.
+A local-key **trading agent** for svpchain, built around a strict separation of trust:
 
-The service runs over **stdio** (no network port; the agent process that starts it is the trust boundary). It keeps the user's signing key on the local machine and never exposes the key itself. It only signs payloads and challenges that pass strict cross-checks (matching the configured chain id).
+- **Local signing MCP service** (`svpchain-mcp`) — keeps the user's signing key on the local machine, never exposes it, and only signs payloads/challenges that pass strict cross-checks.
+- **Remote build + broadcast MCP service** — constructs unsigned transactions, serves market data, and broadcasts signed transactions. Runs off-machine (`https://indexer.svpchain.com/mcp`).
+- **Built-in LLM assistant** (`svpchain-gui`) — an OpenAI-compatible tool-calling loop that orchestrates the two: the remote side *builds* and *broadcasts*, the local side *signs*. Keys never leave the machine.
+
+The signer runs over **stdio** (no network port; the process that starts it is the trust boundary). The remote side is reached over HTTP and gated by a signed-challenge bearer token, so the remote never holds a key either.
+
+## Architecture
+
+```
+            ┌──────────────────────────────┐
+            │  LLM (DeepSeek / OpenAI API) │   tool-calling loop
+            └───────────────┬──────────────┘
+                            │
+              ┌─────────────┴──────────────┐
+   build_* / broadcast_* /        sign_transaction / sign_evm_transaction /
+   market data / whoami           sign_typed_data / sign_challenge / whoami
+              │                              │
+   ┌──────────▼───────────┐      ┌───────────▼────────────┐
+   │  Remote MCP (HTTP)   │      │  Local signer (stdio)  │
+   │  builds + broadcasts │      │  holds the key locally │
+   └──────────────────────┘      └────────────┬───────────┘
+                                               │
+                                    OS credential store
+                              (Keychain / Cred Mgr / Secret Service)
+```
+
+On-chain write flow the assistant follows: remote `build_*` → local `sign_*` → remote `broadcast_*`, passing `signed_tx` fields verbatim. Authentication uses a signed `svpchain-mcp-auth-v1:` challenge (signed locally), exchanged for a bearer token.
 
 ## Project layout
 
 ```
 cmd/
-  svpchain-mcp/   # MCP signing CLI entry (serve / import / delete / list)
-  svpchain-gui/   # Wails graphical setup tool: Go entry + embedded Vue frontend/
+  svpchain-mcp/   # stdio signing MCP CLI: serve (default) / import / delete / list
+  svpchain-gui/   # Wails GUI: Go entry + embedded Vue frontend (setup + assistant chat)
 internal/
-  desktop/               # Wails app bindings (keys, MCP config, settings, update) exposed to the frontend
-  mcp/                   # MCP tool handlers (sign_transaction / sign_evm_transaction / sign_challenge / whoami)
-  manage/                # Key import, list, delete, MCP config generation
-  signer/                # Transaction and challenge signing
-  keystore/              # OS credential store read/write
-  payload/               # TxPayload / SignedTx types
-  update/                # macOS in-app update (GitHub releases, verify, install)
-packaging/macos/         # .app assets (Info.plist, icon, en/zh-Hans localization, user guides, etc.)
-scripts/                 # macOS packaging and icon generation scripts
+  agent/          # LLM tool-calling loop: remote MCP client + in-process local signer
+  mcp/            # MCP tool handlers (sign_transaction / sign_evm_transaction / sign_typed_data / sign_challenge / whoami)
+  signer/         # transaction + challenge signing (eth_secp256k1)
+  manage/         # key import / list / delete, MCP config generation, remote URL
+  keystore/       # OS credential store read/write
+  payload/        # TxPayload / SignedTx / EvmTxPayload types
+  desktop/        # Wails app bindings (keys, MCP config, settings, assistant, update)
+  update/         # macOS in-app update (GitHub releases, verify, install)
+packaging/macos/  # .app assets: Info.plist, icon, en/zh-Hans localization, user guides
+scripts/          # macOS packaging and icon generation
 ```
 
-## Tools
+## Signing tools
+
+These run in the local signer (and in-process inside the GUI assistant). Every tool is bound to the configured chain and refuses cross-chain use.
 
 | Tool | Input → Output | Description |
 |------|----------------|-------------|
-| `sign_transaction` | `payload` (a `TxPayload` from remote `build_*` tools) → `signed_tx` | Signs a **Cosmos** transaction with `eth_secp256k1` + `SIGN_MODE_DIRECT`. Rejects payloads whose `chain_id` ≠ configured `--chain-id` (cross-chain replay guard) and payloads whose `signer_address` ≠ the loaded key. Returns a `TxRaw` ready for `broadcast_signed_tx`. |
-| `sign_evm_transaction` | `payload` (an `EvmTxPayload` from remote EVM `build_*` tools) → `signed_tx` | Signs a raw **Ethereum** transaction (EIP-1559 or legacy) with the **same key**, built from structured fields. Rejects payloads whose `evm_chain_id` ≠ the signer's configured chain and payloads whose `signer_address` (0x) ≠ the loaded key. Returns RLP `raw_tx_hex` for `eth_sendRawTransaction`. |
-| `sign_typed_data` | `typed_data` (EIP-712 / `eth_signTypedData_v4` shape) → `{signature, signer}` | Signs **x402** gasless payments via EIP-3009 `TransferWithAuthorization` (USDC) or Permit2 `PermitWitnessTransferFrom` (ERC-20 fallback). Allowed `primaryType` values only; `domain.chainId` must match the signer's EVM chain. Returns a `0x` signature for x402 payment payloads. |
-| `sign_challenge` | `challenge` (text) → `{signature, owner}` | Signs an svpchain self-service auth challenge. **Refuses** any text that does not start with `svpchain-mcp-auth-v1:` plus a matching chain id — this signer is never a generic message-signing oracle. |
-| `whoami` | none → `{owner, chain_id, evm_owner, evm_chain_id}` | Returns the bech32 `svp1…` address **and** the corresponding `0x` EVM address (same key) derived from the loaded key, plus the configured Cosmos and EVM chain ids, so the agent can confirm which key is in use. The key itself is never exposed. |
+| `sign_transaction` | `payload` (a `TxPayload` from remote `build_*`) → `signed_tx` | Signs a **Cosmos** transaction with `eth_secp256k1` + `SIGN_MODE_DIRECT`. Rejects payloads whose `chain_id` ≠ configured `--chain-id` and whose `signer_address` ≠ the loaded key. Returns a `TxRaw` for `broadcast_signed_tx`. |
+| `sign_evm_transaction` | `payload` (an `EvmTxPayload` from remote EVM `build_*`) → `signed_tx` | Signs a raw **Ethereum** transaction (EIP-1559 or legacy) with the **same key**. Rejects payloads whose `evm_chain_id` ≠ the configured EVM chain and whose `signer_address` (0x) ≠ the loaded key. Returns RLP `raw_tx_hex` for `eth_sendRawTransaction`. |
+| `sign_typed_data` | `typed_data` (EIP-712 / `eth_signTypedData_v4`) → `{signature, signer}` | Signs **x402** gasless payments via EIP-3009 `TransferWithAuthorization` (USDC) or Permit2 `PermitWitnessTransferFrom` (ERC-20 fallback). Allowed `primaryType` values only; `domain.chainId` must match the signer's EVM chain. |
+| `sign_challenge` | `challenge` (text) → `{signature, owner}` | Signs an svpchain self-service auth challenge. **Refuses** any text that does not start with `svpchain-mcp-auth-v1:` plus a matching chain id — never a generic message-signing oracle. |
+| `whoami` | none → `{owner, chain_id, evm_owner, evm_chain_id}` | Returns the bech32 `svp1…` address **and** the corresponding `0x` EVM address (same key), plus the configured Cosmos/EVM chain ids. The key itself is never exposed. |
 
-`v0.1` auto-approves: every well-formed payload that passes chain-id and signer-address cross-checks is signed. Per-tool limits, allowlists, prompt modes, MCP elicitation, and other approval/policy hooks are planned for later.
+`v0.1` auto-approves: every well-formed payload that passes chain-id and signer-address cross-checks is signed. Per-tool limits, allowlists, prompt modes, and MCP elicitation are planned.
 
 ## Build
 
 ```sh
-make build          # → build/svpchain-mcp
-# or
-go build -o build/svpchain-mcp ./cmd/svpchain-mcp
+make build          # → build/svpchain-mcp  (stdio signer)
+make build-gui      # → cmd/svpchain-gui/build/bin/svpchain-gui(.app)
+make build-all      # both
 ```
 
-macOS and Linux build natively; Windows is not supported.
+macOS and Linux build natively; Windows is not supported (the `eth_secp256k1` signing path needs CGO/libsecp256k1).
 
-The GUI is a [Wails](https://wails.io) app (Go + an embedded Vue frontend). Building it requires the `wails` CLI and Node:
+The GUI is a [Wails](https://wails.io) app (Go + embedded Vue). Building it needs the `wails` CLI and Node:
 
 ```sh
 go install github.com/wailsapp/wails/v2/cmd/wails@latest
-make build-gui      # → cmd/svpchain-gui/build/bin/svpchain-gui(.app)
 ```
 
-On macOS the GUI uses the system WebKit (no bundled browser engine); on Linux it needs GTK3 + WebKit2GTK dev packages (`libgtk-3-dev libwebkit2gtk-4.1-dev`).
+On macOS the GUI uses the system WebKit; on Linux it needs GTK3 + WebKit2GTK dev packages (`libgtk-3-dev libwebkit2gtk-4.1-dev`).
 
-## Graphical setup (svpchain-gui)
+## Graphical app (svpchain-gui)
 
-If you prefer not to use the CLI, build and open the standalone setup app:
+The GUI does first-time setup **and** hosts the assistant chat:
 
-```sh
-make build-gui
-open cmd/svpchain-gui/build/bin/svpchain-gui.app    # macOS
-# ./cmd/svpchain-gui/build/bin/svpchain-gui          # Linux
-```
+- **Import / list / delete** signing keys in the OS credential store and view derived `svp1…` addresses.
+- **Generate** MCP client JSON snippets (paste into Cursor and other MCP clients).
+- **Assistant** — chat-driven trading: configure an LLM API key + chain id, then issue natural-language instructions that drive the build → sign → broadcast loop.
 
-**macOS `.app` bundle (double-click to open):**
+The assistant uses an OpenAI-compatible API (default base `https://api.deepseek.com`, model `deepseek-v4-flash`); set your own key, base URL, and model on the Settings tab. The remote MCP endpoint defaults to `https://indexer.svpchain.com/mcp` and is overridable.
+
+The app supports **English and Chinese** (switch on the Settings tab; persisted). Override first-launch detection with `SVPCHAIN_AGENT_LANG=zh|en`.
+
+### macOS `.app` bundle
 
 ```sh
 make package-macos-app
 open "build/svpchain agent.app"
 ```
 
-This produces `build/svpchain agent.app` and `build/svpchain-agent-<version>-macos.zip`. After unzipping, the archive root contains **svpchain agent.app** and README files (do not use an `.app.zip` suffix — macOS may create a spurious `.app` folder). The app display name is **svpchain agent**. The GUI supports **English and Chinese**: switch language on the Settings tab (preference is persisted), or override first-launch detection with `SVPCHAIN_AGENT_LANG=zh|en`. The app bundle includes both `svpchain-gui` and `svpchain-mcp`; the MCP config tab can auto-detect the signer binary path.
+This produces `build/svpchain agent.app` and `build/svpchain-agent-<version>-macos.zip`. The archive root contains **svpchain agent.app** plus README files (no `.app.zip` suffix — macOS may mis-detect it). The bundle includes both `svpchain-gui` and `svpchain-mcp`; the config tab can auto-detect the signer path. When forwarding to other Mac users, send the zip as-is and ask them to **read 运行前先阅读.txt first**.
 
-When distributing to other Mac users, forward the zip as-is and ask them to **read 运行前先阅读.txt inside the zip first**.
-
-For distribution to other machines with fewer Gatekeeper prompts, optional Developer ID signing:
+Optional Developer ID signing for fewer Gatekeeper prompts:
 
 ```sh
 SIGN_IDENTITY="Developer ID Application: Your Name (TEAMID)" make package-macos-app
 ```
 
-Without Developer ID, the script applies a local ad-hoc signature (`codesign -`), which opens directly on the build machine. For other Macs, **运行前先阅读.txt** / **READ-BEFORE-RUN.txt** in the zip explain right-click open and System Settings steps.
+Without Developer ID, the script applies a local ad-hoc signature (`codesign -`), which opens on the build machine; **运行前先阅读.txt** / **READ-BEFORE-RUN.txt** in the zip explain the right-click-open steps for other Macs.
 
 Regenerate the app icon from `packaging/logo-svp1.png`:
 
@@ -89,21 +117,11 @@ make build-macos-icon    # → packaging/macos/AppIcon.icns
 make package-macos-app   # embed icon in .app bundle
 ```
 
-The GUI provides:
-
-- **Import** signing keys into the OS credential store (Chain ID + private key)
-- **List / delete** stored keys and view derived `svp1…` addresses
-- **Generate** MCP client JSON snippets (paste into Cursor settings)
-
-The macOS `.app` checks GitHub Releases on each launch (stable tags only). When a newer version is available, it offers an optional in-app upgrade: download the release zip, verify `SHA256SUMS`, replace the running `.app`, and restart automatically. Dev builds (`*-dev`) and non-bundle runs skip this check.
-
-The MCP signing service itself (`svpchain-mcp`) is still started by MCP clients over stdio — the GUI is for one-time setup only and does not replace running the signer.
-
-Place `svpchain-mcp` and `svpchain-gui` in the same directory so the config tab can auto-detect the signer binary path.
+The macOS `.app` checks GitHub Releases (stable tags only) on each launch and offers an in-app upgrade: download the release zip, verify `SHA256SUMS`, replace the running `.app`, and restart. Dev builds (`*-dev`) and non-bundle runs skip this check.
 
 ## Storing keys
 
-Signing keys live in the **OS credential store** — macOS Keychain, Windows Credential Manager, or Linux Secret Service (libsecret) — never via command-line arguments or MCP client config. Import once:
+Signing keys live in the **OS credential store** — macOS Keychain, Windows Credential Manager, or Linux Secret Service (libsecret) — never via command-line arguments or client config. Import once:
 
 ```sh
 # Interactive hidden input
@@ -115,16 +133,14 @@ Stored key for svp1… (<chain-id>)
 printf '%s' <32-byte-hex> | ./build/svpchain-mcp import --chain-id <chain-id>
 ```
 
-Keys are stored under service name `svpchain-agent` with **chain id** as the account name; multiple chains can coexist. The rule is **one key per chain** — sharing a mainnet key on testnet widens blast radius if testnet leaks, so `import` warns when the same key is already stored under another chain.
+Keys are stored under service name `svpchain-agent` with the **chain id** as the account name; multiple chains can coexist. The rule is **one key per chain** — sharing a mainnet key on testnet widens blast radius, so `import` warns when the same key is already stored under another chain. Running `import` again overwrites (key rotation).
 
 ```sh
 ./build/svpchain-mcp list                           # list stored chain ids
 ./build/svpchain-mcp delete --chain-id <chain-id>   # delete a key
 ```
 
-Running `import` again overwrites an existing key (key rotation).
-
-## Running
+## Running the signer
 
 ```sh
 ./build/svpchain-mcp --chain-id <chain-id>
@@ -139,7 +155,7 @@ The key is read from the OS credential store. **There is no `--key-hex` flag** �
 
 ### Headless fallback
 
-On headless Linux hosts without a Secret Service daemon (CI, Docker), set `SIGNER_KEY_HEX` and the service uses it when no key is in the credential store:
+On headless Linux hosts without a Secret Service daemon (CI, Docker), set `SIGNER_KEY_HEX`; the service uses it when no key is in the credential store:
 
 ```sh
 SIGNER_KEY_HEX=<32-byte-hex> ./build/svpchain-mcp --chain-id <chain-id>
@@ -151,7 +167,7 @@ The service logs the key source (`OS credential store` or `SIGNER_KEY_HEX env`) 
 
 ## MCP client configuration
 
-Point your MCP client at this binary over stdio. Example (`mcpServers` style):
+To use the local signer from an external MCP client (e.g. Cursor), point it at the binary over stdio:
 
 ```json
 {
@@ -164,4 +180,10 @@ Point your MCP client at this binary over stdio. Example (`mcpServers` style):
 }
 ```
 
-The config does not contain the key — the service reads from the OS credential store (after `import`). The service name exposed to clients is `svpchain-agent`.
+The config does not contain the key — the service reads from the OS credential store after `import`. The service name exposed to clients is `svpchain-agent`. (The GUI's built-in assistant runs this same signer in-process, so it needs no separate MCP client.)
+
+## Testing
+
+```sh
+make test
+```

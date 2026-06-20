@@ -102,9 +102,16 @@ var catalog = map[Lang]Strings{
 
 		AboutMarkdown: `**svpchain agent**
 
-用于导入、查看和删除本地签名密钥。密钥保存在系统凭据库（macOS 钥匙串等），不会写入配置文件。
+svpchain 的本地密钥交易助手。私钥保存在系统凭据库（macOS 钥匙串等），永不写入配置文件或传给远程服务。
 
-配置完成后，请在 Cursor 等 MCP 客户端中添加生成的配置；签名服务会由客户端自动启动。`,
+**核心能力**
+- **AI 助手**：用自然语言驱动链上操作。远程 MCP 负责构建交易与市场数据，本地签名；流程为 build → sign → broadcast。
+- **密钥管理**：按 Chain ID 导入、查看 Cosmos（svp1…）与 EVM 地址，支持轮换与删除。
+- **MCP 配置**：生成 Cursor 等客户端的 stdio 配置，供外部 AI Agent 调用本地签名服务。
+
+**信任边界**：签名仅在本地完成（stdio，无网络端口）；远程服务通过 challenge 鉴权，不持有你的私钥。
+
+**快速开始**：导入密钥 → 在「设置」配置 LLM API Key → 在「助手」发起交易；也可将 MCP 配置粘贴到 Cursor 等客户端。`,
 
 		LangLabel: "语言",
 
@@ -178,9 +185,16 @@ var catalog = map[Lang]Strings{
 
 		AboutMarkdown: `**svpchain agent**
 
-Import, view, and delete local signing keys. Keys are stored in the OS credential store (macOS Keychain, etc.), never in plain config files.
+A local-key trading assistant for svpchain. Private keys live in the OS credential store (macOS Keychain, etc.) — never in config files and never sent to remote services.
 
-After setup, add the generated JSON to your MCP client (e.g. Cursor). The signing service is started automatically by the client.`,
+**What it does**
+- **AI assistant** — Drive on-chain actions in natural language. A remote MCP builds transactions and serves market data; signing stays local. Flow: build → sign → broadcast.
+- **Key management** — Import, view, rotate, and delete keys per Chain ID; see derived Cosmos (svp1…) and EVM addresses.
+- **MCP export** — Generate stdio JSON for Cursor and other MCP clients to call the local signer.
+
+**Trust model** — Signing runs only on your machine (stdio, no network port). Remote services authenticate via signed challenges and never hold your key.
+
+**Get started** — Import a key → set your LLM API key in Settings → trade from the Assistant tab; or paste the MCP config into Cursor.`,
 
 		LangLabel: "Language",
 

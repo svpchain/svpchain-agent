@@ -96,3 +96,12 @@ func HTTPFetchFromArgs(args map[string]any) (string, error) {
 	body, _ := args["body"].(string)
 	return HTTPFetch(method, url, headers, body)
 }
+
+func isHttpTool(name string) bool {
+	switch name {
+	case "http_fetch":
+		return true
+	default:
+		return false
+	}
+}

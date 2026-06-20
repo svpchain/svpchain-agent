@@ -227,7 +227,7 @@ func LocalToolDefs() []llmTool {
 
 func isLocalTool(name string) bool {
 	switch name {
-	case "sign_transaction", "sign_evm_transaction", "sign_typed_data", "sign_challenge", "signer_whoami", "http_fetch":
+	case "sign_transaction", "sign_evm_transaction", "sign_typed_data", "sign_challenge", "signer_whoami":
 		return true
 	default:
 		return false

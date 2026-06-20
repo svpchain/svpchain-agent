@@ -27,17 +27,17 @@ const (
 
 // Step is one progress update for the UI.
 type Step struct {
-	Kind    StepKind `json:"kind"`
-	Title   string   `json:"title"`
-	Detail  string   `json:"detail,omitempty"`
+	Kind   StepKind `json:"kind"`
+	Title  string   `json:"title"`
+	Detail string   `json:"detail,omitempty"`
 }
 
 // Config drives a single agent run.
 type Config struct {
-	ChainID    string
-	RemoteURL  string
-	LLM        LLMConfig
-	OnStep     func(Step)
+	ChainID   string
+	RemoteURL string
+	LLM       LLMConfig
+	OnStep    func(Step)
 }
 
 const maxAgentIterations = 25
@@ -186,7 +186,7 @@ func buildToolList(ctx context.Context, remote *RemoteClient) ([]llmTool, error)
 }
 
 func dispatchTool(ctx context.Context, remote *RemoteClient, local *LocalSigner, name string, args map[string]any) (string, error) {
-	if name == "http_fetch" {
+	if isHttpTool(name) {
 		return HTTPFetchFromArgs(args)
 	}
 	if isLocalTool(name) {

@@ -79,7 +79,7 @@ export default {
   },
   about: {
     title: 'svpchain agent',
-    body: '用于导入、查看和删除本地签名密钥。密钥保存在系统凭据库（macOS 钥匙串等），不会写入配置文件。\n\n配置完成后，请在 Cursor 等 MCP 客户端中添加生成的配置；签名服务会由客户端自动启动。',
+    body: 'svpchain 的本地密钥交易助手。私钥保存在系统凭据库（macOS 钥匙串等），永不写入配置文件或传给远程服务。\n\n核心能力：\n• AI 助手 — 自然语言驱动链上交易（远程构建 + 本地签名，build → sign → broadcast）\n• 密钥管理 — 按 Chain ID 导入、查看 Cosmos 与 EVM 地址\n• MCP 配置 — 生成 Cursor 等客户端的 stdio 签名配置\n\n信任边界：签名仅在本地完成（stdio，无网络端口）；远程服务通过 challenge 鉴权，不持有你的私钥。\n\n快速开始：导入密钥 → 在「设置」配置 LLM API Key → 在「助手」发起交易；也可将 MCP 配置粘贴到 Cursor 等客户端。',
     version: '版本 {v}',
   },
   status: {

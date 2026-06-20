@@ -32,7 +32,7 @@ func main() {
 			TitleBar: mac.TitleBarHiddenInset(),
 			About: &mac.AboutInfo{
 				Title:   "svpchain agent",
-				Message: "Local signing setup tool & AI agent",
+				Message: "Local-key trading assistant for svpchain",
 			},
 		},
 	})

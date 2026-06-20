@@ -79,7 +79,7 @@ export default {
   },
   about: {
     title: 'svpchain agent',
-    body: 'Import, view, and delete local signing keys. Keys are stored in the OS credential store (macOS Keychain, etc.), never in plain config files.\n\nAfter setup, add the generated JSON to your MCP client (e.g. Cursor). The signing service is started automatically by the client.',
+    body: 'A local-key trading assistant for svpchain. Private keys live in the OS credential store (macOS Keychain, etc.) — never in config files and never sent to remote services.\n\nWhat it does:\n• AI assistant — Drive on-chain actions in natural language (remote build + local sign, build → sign → broadcast)\n• Key management — Import, view, rotate, and delete keys per Chain ID; see Cosmos and EVM addresses\n• MCP export — Generate stdio JSON for Cursor and other MCP clients\n\nTrust model — Signing runs only on your machine (stdio, no network port). Remote services authenticate via signed challenges and never hold your key.\n\nGet started — Import a key → set your LLM API key in Settings → trade from the Assistant tab; or paste the MCP config into Cursor.',
     version: 'Version {v}',
   },
   status: {

@@ -2,6 +2,7 @@ package desktop
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"sync"
@@ -11,6 +12,8 @@ import (
 	"github.com/svpchain/svpchain-agent/internal/agent"
 	"github.com/svpchain/svpchain-agent/internal/manage"
 )
+
+var errAgentBusy = errors.New("assistant is already running")
 
 // AgentSettings is persisted LLM / MCP configuration for the assistant tab.
 type AgentSettings struct {

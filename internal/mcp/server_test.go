@@ -13,8 +13,8 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/stretchr/testify/require"
 
-	"github.com/svpchain/svpchain-mcp/internal/payload"
-	"github.com/svpchain/svpchain-mcp/internal/signer"
+	"github.com/svpchain/svpchain-agent/internal/payload"
+	"github.com/svpchain/svpchain-agent/internal/signer"
 )
 
 var _ = signer.DeriveAddress

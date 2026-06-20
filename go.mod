@@ -1,4 +1,4 @@
-module github.com/svpchain/svpchain-mcp
+module github.com/svpchain/svpchain-agent
 
 go 1.23.8
 

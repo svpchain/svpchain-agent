@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"github.com/svpchain/svpchain-mcp/internal/payload"
+	"github.com/svpchain/svpchain-agent/internal/payload"
 )
 
 func TestTxPayload_JSONRoundTrip(t *testing.T) {

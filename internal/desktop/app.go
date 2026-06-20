@@ -12,9 +12,9 @@ import (
 
 	wruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 
-	"github.com/svpchain/svpchain-mcp/internal/i18n"
-	"github.com/svpchain/svpchain-mcp/internal/manage"
-	"github.com/svpchain/svpchain-mcp/internal/update"
+	"github.com/svpchain/svpchain-agent/internal/i18n"
+	"github.com/svpchain/svpchain-agent/internal/manage"
+	"github.com/svpchain/svpchain-agent/internal/update"
 )
 
 // App is the Wails application context; its exported methods are bound to JS.

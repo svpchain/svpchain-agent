@@ -9,8 +9,8 @@ import (
 
 	"github.com/99designs/keyring"
 
-	"github.com/svpchain/svpchain-mcp/internal/keystore"
-	"github.com/svpchain/svpchain-mcp/internal/signer"
+	"github.com/svpchain/svpchain-agent/internal/keystore"
+	"github.com/svpchain/svpchain-agent/internal/signer"
 )
 
 // Entry is one stored signing key: chain id (storage name) and derived Cosmos / EVM addresses.

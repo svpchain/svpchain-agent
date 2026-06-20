@@ -10,8 +10,8 @@ import (
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
-	"github.com/svpchain/svpchain-mcp/internal/payload"
-	"github.com/svpchain/svpchain-mcp/internal/signer"
+	"github.com/svpchain/svpchain-agent/internal/payload"
+	"github.com/svpchain/svpchain-agent/internal/signer"
 )
 
 // ChallengePrefix restricts sign_challenge input to the svpchain self-service auth flow.

@@ -8,8 +8,8 @@ import (
 
 	wruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 
-	"github.com/svpchain/svpchain-mcp/internal/agent"
-	"github.com/svpchain/svpchain-mcp/internal/manage"
+	"github.com/svpchain/svpchain-agent/internal/agent"
+	"github.com/svpchain/svpchain-agent/internal/manage"
 )
 
 // AgentSettings is persisted LLM / MCP configuration for the assistant tab.

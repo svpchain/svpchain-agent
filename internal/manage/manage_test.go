@@ -8,7 +8,7 @@ import (
 	"github.com/99designs/keyring"
 	"github.com/stretchr/testify/require"
 
-	"github.com/svpchain/svpchain-mcp/internal/keystore"
+	"github.com/svpchain/svpchain-agent/internal/keystore"
 )
 
 const (

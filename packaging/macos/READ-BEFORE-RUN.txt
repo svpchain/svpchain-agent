@@ -76,7 +76,7 @@ The GUI is for one-time setup. Day to day, Cursor and other MCP clients start
 svpchain-mcp over stdio automatically — you do not need to keep the GUI running.
 
 Full documentation:
-https://github.com/svpchain/svpchain-mcp
+https://github.com/svpchain/svpchain-agent
 
 
 5. Still can’t open?

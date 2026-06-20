@@ -14,7 +14,7 @@ import (
 	ethcrypto "github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/signer/core/apitypes"
 
-	"github.com/svpchain/svpchain-mcp/internal/payload"
+	"github.com/svpchain/svpchain-agent/internal/payload"
 )
 
 // PrimaryTypeTransferWithAuthorization is the EIP-3009 typed-data primary type used by x402 "exact".

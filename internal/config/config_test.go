@@ -3,7 +3,7 @@ package config_test
 import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/stretchr/testify/require"
-	"github.com/svpchain/svpchain-mcp/internal/config"
+	"github.com/svpchain/svpchain-agent/internal/config"
 	"testing"
 )
 

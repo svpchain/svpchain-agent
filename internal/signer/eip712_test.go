@@ -11,8 +11,8 @@ import (
 	"github.com/ethereum/go-ethereum/signer/core/apitypes"
 	"github.com/stretchr/testify/require"
 
-	"github.com/svpchain/svpchain-mcp/internal/payload"
-	"github.com/svpchain/svpchain-mcp/internal/signer"
+	"github.com/svpchain/svpchain-agent/internal/payload"
+	"github.com/svpchain/svpchain-agent/internal/signer"
 )
 
 func x402TypedDataTypes() map[string][]payload.EIP712Type {

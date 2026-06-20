@@ -15,10 +15,10 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"golang.org/x/term"
 
-	"github.com/svpchain/svpchain-mcp/internal/keystore"
-	"github.com/svpchain/svpchain-mcp/internal/manage"
-	signermcp "github.com/svpchain/svpchain-mcp/internal/mcp"
-	"github.com/svpchain/svpchain-mcp/internal/signer"
+	"github.com/svpchain/svpchain-agent/internal/keystore"
+	"github.com/svpchain/svpchain-agent/internal/manage"
+	signermcp "github.com/svpchain/svpchain-agent/internal/mcp"
+	"github.com/svpchain/svpchain-agent/internal/signer"
 )
 
 func usage(w io.Writer) {

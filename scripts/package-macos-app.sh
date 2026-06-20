@@ -68,7 +68,7 @@ export CGO_ENABLED=1
 go build -mod=readonly -trimpath -o "$BUILDDIR/svpchain-mcp" ./cmd/svpchain-mcp
 
 echo "==> Building GUI with wails (frontend + bindings + binary)"
-GUI_LDFLAGS="-X github.com/svpchain/svpchain-mcp/internal/desktop.Version=${VERSION}"
+GUI_LDFLAGS="-X github.com/svpchain/svpchain-agent/internal/desktop.Version=${VERSION}"
 (
 	cd "$ROOT/cmd/svpchain-gui"
 	echo "Build started, please wait..."

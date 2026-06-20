@@ -14,7 +14,7 @@ func TestCheckAvailable_findsUpdate(t *testing.T) {
 		require.Equal(t, "/repos/svpchain/svpchain-mcp/releases/latest", r.URL.Path)
 		_ = json.NewEncoder(w).Encode(githubRelease{
 			TagName: "v1.0.2",
-			HTMLURL: "https://github.com/svpchain/svpchain-mcp/releases/tag/v1.0.2",
+			HTMLURL: "https://github.com/svpchain/svpchain-agent/releases/tag/v1.0.2",
 			Assets: []releaseAsset{
 				{Name: "svpchain-agent-1.0.2-macos.zip", BrowserDownloadURL: "https://example.com/app.zip"},
 				{Name: "SHA256SUMS", BrowserDownloadURL: "https://example.com/SHA256SUMS"},

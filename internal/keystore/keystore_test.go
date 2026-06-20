@@ -8,7 +8,7 @@ import (
 	"github.com/99designs/keyring"
 	"github.com/stretchr/testify/require"
 
-	"github.com/svpchain/svpchain-mcp/internal/keystore"
+	"github.com/svpchain/svpchain-agent/internal/keystore"
 )
 
 const sampleHex = "bdac2376052bca8d4ae7c2012578f00ef5c2ce40c06bb0a06f986cd1e016c570"

@@ -13,8 +13,8 @@ import (
 	"github.com/cosmos/gogoproto/proto"
 	"github.com/stretchr/testify/require"
 
-	"github.com/svpchain/svpchain-mcp/internal/payload"
-	"github.com/svpchain/svpchain-mcp/internal/signer"
+	"github.com/svpchain/svpchain-agent/internal/payload"
+	"github.com/svpchain/svpchain-agent/internal/signer"
 )
 
 func newRandomPriv(t *testing.T) *ethsecp256k1.PrivKey {

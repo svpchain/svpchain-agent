@@ -16,8 +16,8 @@ import (
 	"github.com/cosmos/gogoproto/proto"
 	gethcrypto "github.com/ethereum/go-ethereum/crypto"
 
-	appconfig "github.com/svpchain/svpchain-mcp/internal/config"
-	"github.com/svpchain/svpchain-mcp/internal/payload"
+	appconfig "github.com/svpchain/svpchain-agent/internal/config"
+	"github.com/svpchain/svpchain-agent/internal/payload"
 )
 
 func init() {

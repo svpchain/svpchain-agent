@@ -12,7 +12,7 @@ import (
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	ethcrypto "github.com/ethereum/go-ethereum/crypto"
 
-	"github.com/svpchain/svpchain-mcp/internal/payload"
+	"github.com/svpchain/svpchain-agent/internal/payload"
 )
 
 // DeriveEvmAddress returns the 0x-checksummed Ethereum address derived from

@@ -13,7 +13,7 @@ import (
 
 const (
 	defaultLLMBaseURL = "https://api.deepseek.com"
-	defaultLLMModel   = "deepseek-chat"
+	defaultLLMModel   = "deepseek-v4-flash"
 )
 
 // LLMConfig holds OpenAI-compatible API settings.
@@ -47,11 +47,11 @@ type llmFunction struct {
 }
 
 type llmMessage struct {
-	Role       string          `json:"role"`
-	Content    string          `json:"content,omitempty"`
-	ToolCalls  []llmToolCall   `json:"tool_calls,omitempty"`
-	ToolCallID string          `json:"tool_call_id,omitempty"`
-	Name       string          `json:"name,omitempty"`
+	Role       string        `json:"role"`
+	Content    string        `json:"content,omitempty"`
+	ToolCalls  []llmToolCall `json:"tool_calls,omitempty"`
+	ToolCallID string        `json:"tool_call_id,omitempty"`
+	Name       string        `json:"name,omitempty"`
 }
 
 type llmToolCall struct {

@@ -12,7 +12,7 @@ import (
 
 const (
 	githubOwner = "svpchain"
-	githubRepo  = "svpchain-mcp"
+	githubRepo  = "svpchain-agent"
 	zipStem     = "svpchain-agent"
 )
 

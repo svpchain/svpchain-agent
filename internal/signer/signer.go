@@ -40,6 +40,16 @@ func ParsePrivKey(s string) (*ethsecp256k1.PrivKey, error) {
 	return &ethsecp256k1.PrivKey{Key: bz}, nil
 }
 
+// GenPrivKeyHex generates a fresh random eth_secp256k1 private key and returns
+// it as a 0x-prefixed 32-byte hex string, ready for ParsePrivKey / Import.
+func GenPrivKeyHex() (string, error) {
+	priv, err := ethsecp256k1.GenerateKey()
+	if err != nil {
+		return "", fmt.Errorf("generate key: %w", err)
+	}
+	return "0x" + hex.EncodeToString(priv.Key), nil
+}
+
 // DeriveAddress derives a bech32 address string (svp prefix) from priv's public key.
 func DeriveAddress(priv *ethsecp256k1.PrivKey) string {
 	return sdk.AccAddress(priv.PubKey().Address()).String()

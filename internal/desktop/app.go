@@ -76,6 +76,9 @@ func (a *App) ImportKey(chainID, hexKey string) (manage.ImportResult, error) {
 	return manage.Import(chainID, hexKey)
 }
 
+// GenerateKey returns a fresh random private key as 0x-prefixed hex for the import field.
+func (a *App) GenerateKey() (string, error) { return manage.GenerateKey() }
+
 // DeleteKey removes the key stored under chainID.
 func (a *App) DeleteKey(chainID string) error { return manage.Delete(chainID) }
 

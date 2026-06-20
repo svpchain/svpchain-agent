@@ -30,6 +30,12 @@ type ImportResult struct {
 // DefaultImportChainIDs are the default Chain ID dropdown options on the import tab.
 var DefaultImportChainIDs = []string{"svp-2517-1", "svp-2518-1"}
 
+// GenerateKey returns a fresh random private key as 0x-prefixed hex, suitable for
+// pre-filling the import field so users need not paste an existing key.
+func GenerateKey() (string, error) {
+	return signer.GenPrivKeyHex()
+}
+
 // Import validates hexKey, stores it under chainID, and returns the derived owner plus cross-chain reuse warnings.
 func Import(chainID, hexKey string) (ImportResult, error) {
 	chainID = strings.TrimSpace(chainID)

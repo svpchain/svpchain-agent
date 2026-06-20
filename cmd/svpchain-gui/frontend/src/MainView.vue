@@ -169,6 +169,15 @@ function deleteSelected() {
   })
 }
 
+async function generateKey() {
+  try {
+    importKey.value = await App.GenerateKey()
+    setStatus(t('status.keyGenerated'))
+  } catch (err) {
+    setStatus(t('status.genKeyFailed', { err: String(err) }))
+  }
+}
+
 async function doImport() {
   const chainID = importChainId.value.trim()
   const key = importKey.value.trim()
@@ -430,12 +439,15 @@ onMounted(async () => {
             />
           </n-form-item>
           <n-form-item :label="t('field.privateKey')">
-            <n-input
-              v-model:value="importKey"
-              type="password"
-              show-password-on="click"
-              :placeholder="t('ph.key')"
-            />
+            <n-input-group>
+              <n-input
+                v-model:value="importKey"
+                type="password"
+                show-password-on="click"
+                :placeholder="t('ph.key')"
+              />
+              <n-button type="default" @click="generateKey">{{ t('btn.genKey') }}</n-button>
+            </n-input-group>
           </n-form-item>
         </n-form>
         <n-button type="primary" @click="doImport">{{ t('btn.import') }}</n-button>

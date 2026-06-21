@@ -199,6 +199,32 @@ func (h *Handlers) Whoami(
 	}, nil
 }
 
+// --- evm_to_bech32 ---
+
+type EvmToBech32Input struct {
+	EVMAddress string `json:"evm_address" jsonschema:"a 0x Ethereum address (checksummed or lowercase) to convert to its svpchain svp1… bech32 form"`
+}
+
+type EvmToBech32Output struct {
+	Owner string `json:"owner"` // svp1… bech32 form of evm_address
+}
+
+// EvmToBech32 re-encodes a 0x Ethereum address as the svpchain bech32 (svp1…)
+// address naming the same account. Pure address conversion — it touches neither
+// the loaded key nor the chain — so the agent can turn an EVM recipient into
+// the svp1… form build_bank_send expects (e.g. to send SVP to a 0x address).
+func (h *Handlers) EvmToBech32(
+	_ context.Context,
+	_ *mcp.CallToolRequest,
+	in EvmToBech32Input,
+) (*mcp.CallToolResult, EvmToBech32Output, error) {
+	owner, err := signer.EvmToBech32(in.EVMAddress)
+	if err != nil {
+		return nil, EvmToBech32Output{}, err
+	}
+	return nil, EvmToBech32Output{Owner: owner}, nil
+}
+
 // --- tool registration ---
 
 // Register registers v0.1 signing tools on srv.
@@ -227,4 +253,9 @@ func Register(srv *mcp.Server, h *Handlers) {
 		Name:        "whoami",
 		Description: "Return the svpchain bech32 owner address (svp1…) derived from the loaded key plus the configured chain id. Lets the calling agent confirm this signer is bound to the expected chain + key before any signing attempt. The signing key itself is never exposed.",
 	}, h.Whoami)
+
+	mcp.AddTool(srv, &mcp.Tool{
+		Name:        "evm_to_bech32",
+		Description: "Convert a 0x Ethereum address into the svpchain bech32 (svp1…) address that names the same account. Pure address re-encoding — no key or chain access. Use it to resolve the recipient of a Cosmos x/bank send to an EVM address (e.g. \"send 1 SVP to 0x…\"): feed the returned svp1… owner to build_bank_send.",
+	}, h.EvmToBech32)
 }

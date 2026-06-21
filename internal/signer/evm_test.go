@@ -2,6 +2,7 @@ package signer_test
 
 import (
 	"math/big"
+	"strings"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -169,4 +170,41 @@ func TestDeriveEvmAddress_MatchesKey(t *testing.T) {
 	addr := signer.DeriveEvmAddress(priv)
 	require.True(t, common.IsHexAddress(addr))
 	require.Equal(t, common.BytesToAddress(priv.PubKey().Address()), common.HexToAddress(addr))
+}
+
+func TestEvmToBech32_RoundTripsSameAccount(t *testing.T) {
+	// EvmToBech32 of a key's 0x address must equal that key's svp1… address:
+	// both encode the same 20-byte account identity.
+	priv := newRandomPriv(t)
+	got, err := signer.EvmToBech32(signer.DeriveEvmAddress(priv))
+	require.NoError(t, err)
+	require.Equal(t, signer.DeriveAddress(priv), got)
+}
+
+func TestEvmToBech32_AcceptsLowercaseAndNoPrefix(t *testing.T) {
+	priv := newRandomPriv(t)
+	checksummed := signer.DeriveEvmAddress(priv) // 0x + mixed-case checksum
+	want := signer.DeriveAddress(priv)
+
+	lower, err := signer.EvmToBech32(strings.ToLower(checksummed))
+	require.NoError(t, err)
+	require.Equal(t, want, lower)
+
+	noPrefix, err := signer.EvmToBech32(strings.TrimPrefix(checksummed, "0x"))
+	require.NoError(t, err)
+	require.Equal(t, want, noPrefix)
+}
+
+func TestEvmToBech32_RejectsNonAddress(t *testing.T) {
+	for _, bad := range []string{"", "0x", "not-an-address", "0x1234", svpAddr(t)} {
+		_, err := signer.EvmToBech32(bad)
+		require.Error(t, err, "input %q should be rejected", bad)
+	}
+}
+
+// svpAddr returns a bech32 svp1… address — a valid Cosmos address that is NOT
+// a 0x EVM address, so EvmToBech32 must reject it rather than re-encode it.
+func svpAddr(t *testing.T) string {
+	t.Helper()
+	return signer.DeriveAddress(newRandomPriv(t))
 }

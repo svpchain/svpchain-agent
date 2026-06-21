@@ -365,6 +365,29 @@ func TestWhoami(t *testing.T) {
 	require.Equal(t, "1234", out.EVMChainID)
 }
 
+func TestEvmToBech32(t *testing.T) {
+	priv := newRandomPriv(t)
+	// A handler needs no chain or key context for this pure conversion, but it
+	// must still convert correctly: the 0x form and svp1… form of one key name
+	// the same account.
+	h := &Handlers{Priv: priv}
+
+	_, out, err := h.EvmToBech32(context.Background(), nil, EvmToBech32Input{
+		EVMAddress: signer.DeriveEvmAddress(priv),
+	})
+	require.NoError(t, err)
+	require.Equal(t, signer.DeriveAddress(priv), out.Owner)
+	require.True(t, len(out.Owner) > 4 && out.Owner[:4] == "svp1")
+}
+
+func TestEvmToBech32_RejectsNonAddress(t *testing.T) {
+	h := &Handlers{Priv: newRandomPriv(t)}
+	_, _, err := h.EvmToBech32(context.Background(), nil, EvmToBech32Input{
+		EVMAddress: "not-an-address",
+	})
+	require.Error(t, err)
+}
+
 func TestRegister_NoSchemaPanic(t *testing.T) {
 	srv := mcp.NewServer(&mcp.Implementation{
 		Name: "test", Version: "v0.0.0",

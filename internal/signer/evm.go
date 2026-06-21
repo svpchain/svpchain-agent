@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -21,6 +22,23 @@ import (
 // DeriveAddress's bech32 svp1… form — both name the same account.
 func DeriveEvmAddress(priv *ethsecp256k1.PrivKey) string {
 	return common.BytesToAddress(priv.PubKey().Address()).Hex()
+}
+
+// EvmToBech32 re-encodes a 0x Ethereum address as its svpchain bech32 (svp1…)
+// form. An eth_secp256k1 account has a single 20-byte identity shared by both
+// encodings (see DeriveEvmAddress), so this is a pure address conversion — it
+// needs no private key and the address need not belong to the loaded key. Use
+// it to turn an EVM recipient into the svp1… address a Cosmos x/bank send
+// expects, e.g. to send SVP to a 0x address.
+//
+// The input may be checksummed or lowercase, with or without the 0x prefix;
+// non-address input is rejected rather than silently re-encoded.
+func EvmToBech32(evmAddr string) (string, error) {
+	s := strings.TrimSpace(evmAddr)
+	if !common.IsHexAddress(s) {
+		return "", fmt.Errorf("%q is not a valid 0x Ethereum address", evmAddr)
+	}
+	return sdk.AccAddress(common.HexToAddress(s).Bytes()).String(), nil
 }
 
 // SignEvm builds a raw Ethereum transaction from p, signs it with priv, and

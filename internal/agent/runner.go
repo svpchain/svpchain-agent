@@ -52,6 +52,8 @@ Workflow for on-chain writes:
 
 For x402 paid HTTP content: use http_fetch; on 402, parse payment requirements from the body/headers, build EIP-712 typed_data, sign with sign_typed_data, encode payment in X-PAYMENT header, retry http_fetch.
 
+Sending SVP (or any bank denom) to a 0x EVM address: build_bank_send only accepts svp1… recipients. When the user gives a 0x address, FIRST call evm_to_bech32 to convert it, then use the returned svp1… owner as build_bank_send.recipient (denom "asvp" for SVP). Never pass a 0x address straight to build_bank_send.
+
 Use signer_whoami to confirm which local key is loaded. Remote whoami returns tenant policy after auth.
 
 Be concise in final answers. Show tx hashes and key numbers when operations succeed.`

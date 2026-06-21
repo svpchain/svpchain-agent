@@ -73,6 +73,17 @@ func (l *LocalSigner) CallTool(ctx context.Context, name string, args map[string
 			return "", err
 		}
 		return string(bz), nil
+	case "evm_to_bech32":
+		addr, _ := args["evm_address"].(string)
+		_, out, err := l.h.EvmToBech32(ctx, nil, signermcp.EvmToBech32Input{EVMAddress: addr})
+		if err != nil {
+			return "", err
+		}
+		bz, err := json.Marshal(out)
+		if err != nil {
+			return "", err
+		}
+		return string(bz), nil
 	default:
 		return "", fmt.Errorf("unknown local tool %q", name)
 	}
@@ -208,6 +219,20 @@ func LocalToolDefs() []llmTool {
 		{
 			Type: "function",
 			Function: llmFunction{
+				Name:        "evm_to_bech32",
+				Description: "Convert a 0x Ethereum address to the svpchain svp1… bech32 address for the SAME account. REQUIRED before any Cosmos x/bank send (build_bank_send) whose recipient was given as a 0x address — build_bank_send only accepts svp1… recipients. Example: to send SVP to 0xabc…, first call this, then pass the returned owner as build_bank_send.recipient.",
+				Parameters: map[string]any{
+					"type": "object",
+					"properties": map[string]any{
+						"evm_address": map[string]any{"type": "string", "description": "0x Ethereum address (checksummed or lowercase)"},
+					},
+					"required": []string{"evm_address"},
+				},
+			},
+		},
+		{
+			Type: "function",
+			Function: llmFunction{
 				Name:        "http_fetch",
 				Description: "HTTP GET/POST for x402 paid content. On 402, parse payment requirements, sign with sign_typed_data, retry with X-PAYMENT header (base64 JSON payment payload).",
 				Parameters: map[string]any{
@@ -227,7 +252,7 @@ func LocalToolDefs() []llmTool {
 
 func isLocalTool(name string) bool {
 	switch name {
-	case "sign_transaction", "sign_evm_transaction", "sign_typed_data", "sign_challenge", "signer_whoami":
+	case "sign_transaction", "sign_evm_transaction", "sign_typed_data", "sign_challenge", "signer_whoami", "evm_to_bech32":
 		return true
 	default:
 		return false

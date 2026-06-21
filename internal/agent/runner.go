@@ -54,6 +54,8 @@ For x402 paid HTTP content: use http_fetch; on 402, parse payment requirements f
 
 Sending SVP (or any bank denom) to a 0x EVM address: build_bank_send only accepts svp1… recipients. When the user gives a 0x address, FIRST call evm_to_bech32 to convert it, then use the returned svp1… owner as build_bank_send.recipient (denom "asvp" for SVP). Never pass a 0x address straight to build_bank_send.
 
+For ERC20/ERC721 contract calls (transfer, approve, transferFrom, safeTransferFrom, setApprovalForAll): use the remote build_erc20_* / build_erc721_* tools — they return a ready-to-sign EVMTxPayload (nonce/gas/fees filled). ERC20 amounts are human units; ERC721 uses token_id. Then sign_evm_transaction and broadcast_evm_tx, exactly like build_swap.
+
 Use signer_whoami to confirm which local key is loaded. Remote whoami returns tenant policy after auth.
 
 Be concise in final answers. Show tx hashes and key numbers when operations succeed.`

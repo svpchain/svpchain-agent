@@ -100,7 +100,7 @@ make package-macos-app
 open "build/svpchain agent.app"
 ```
 
-This produces `build/svpchain agent.app` and `build/svpchain-agent-<version>-macos.zip`. The archive root contains **svpchain agent.app** plus README files (no `.app.zip` suffix — macOS may mis-detect it). The bundle includes both `svpchain-gui` and `svpchain-mcp`; the config tab can auto-detect the signer path. When forwarding to other Mac users, send the zip as-is and ask them to **read 运行前先阅读.txt first**.
+This produces `build/svpchain agent.app` and `build/svpchain-agent-<version>-macos.dmg`. The DMG contains **svpchain agent.app**, README files, and an **Applications** shortcut — drag the app to install. The bundle includes both `svpchain-gui` and `svpchain-mcp`; the config tab can auto-detect the signer path. When forwarding to other Mac users, send the DMG as-is and ask them to **read 运行前先阅读.txt first**.
 
 Optional Developer ID signing for fewer Gatekeeper prompts:
 
@@ -108,7 +108,7 @@ Optional Developer ID signing for fewer Gatekeeper prompts:
 SIGN_IDENTITY="Developer ID Application: Your Name (TEAMID)" make package-macos-app
 ```
 
-Without Developer ID, the script applies a local ad-hoc signature (`codesign -`), which opens on the build machine; **运行前先阅读.txt** / **READ-BEFORE-RUN.txt** in the zip explain the right-click-open steps for other Macs.
+Without Developer ID, the script applies a local ad-hoc signature (`codesign -`), which opens on the build machine; **运行前先阅读.txt** / **READ-BEFORE-RUN.txt** in the DMG explain the right-click-open steps for other Macs.
 
 Regenerate the app icon from `packaging/logo-svp1.png`:
 
@@ -117,7 +117,7 @@ make build-macos-icon    # → packaging/macos/AppIcon.icns
 make package-macos-app   # embed icon in .app bundle
 ```
 
-The macOS `.app` checks GitHub Releases (stable tags only) on each launch and offers an in-app upgrade: download the release zip, verify `SHA256SUMS`, replace the running `.app`, and restart. Dev builds (`*-dev`) and non-bundle runs skip this check.
+The macOS `.app` checks GitHub Releases (stable tags only) on each launch and offers an in-app upgrade: download the release DMG, verify `SHA256SUMS`, replace the running `.app`, and restart. Dev builds (`*-dev`) and non-bundle runs skip this check.
 
 ## Storing keys
 

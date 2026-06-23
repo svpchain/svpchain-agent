@@ -1,7 +1,7 @@
 svpchain agent — macOS: Read Before Running
 ==================================================
 
-This archive contains:
+This disk image contains:
 
   • svpchain agent.app   Graphical setup app (import keys, generate MCP config)
   • This guide (READ-BEFORE-RUN.txt)
@@ -13,8 +13,8 @@ The .app bundle already includes svpchain-mcp; no separate download needed.
 1. Installation
 ---------------
 
-1. Unzip the archive to any folder (e.g. Downloads or next to Applications).
-2. Drag svpchain agent.app into Applications for easy access (recommended).
+1. Double-click the DMG to open it (e.g. from Downloads).
+2. Drag svpchain agent.app into Applications (or use the Applications shortcut in the DMG window).
 3. Launch the app once using the “First launch” steps below.
 4. In the app: import your key → generate MCP config → paste into Cursor (or your MCP client).
 

@@ -11,7 +11,7 @@
 #
 # Output:
 #   build/svpchain agent.app
-#   build/svpchain-agent-<version>-macos.zip (archive root contains .app and README files; avoid .app.zip suffix — macOS unzip may mis-detect)
+#   build/svpchain-agent-<version>-macos.dmg (drag .app to Applications)
 
 set -euo pipefail
 
@@ -22,7 +22,7 @@ APP_NAME="svpchain agent"
 BUNDLE_ID="${BUNDLE_ID:-com.svpchain.agent-gui}"
 BUILDDIR="${BUILDDIR:-$ROOT/build}"
 APP_PATH="${APP_PATH:-$BUILDDIR/$APP_NAME.app}"
-ZIP_STEM="svpchain-agent"
+RELEASE_STEM="svpchain-agent"
 
 if [[ "$(uname -s)" != "Darwin" ]]; then
 	echo "package-macos-app.sh: macOS only" >&2
@@ -43,7 +43,7 @@ resolve_version() {
 }
 
 VERSION="$(resolve_version)"
-ZIP_PATH="$BUILDDIR/${ZIP_STEM}-${VERSION}-macos.zip"
+DMG_PATH="$BUILDDIR/${RELEASE_STEM}-${VERSION}-macos.dmg"
 
 echo "==> Packaging $APP_NAME $VERSION"
 rm -rf "$BUILDDIR"
@@ -123,25 +123,28 @@ if command -v codesign >/dev/null 2>&1; then
 	codesign --verify --deep --strict "$APP_PATH"
 fi
 
-echo "==> Creating zip archive"
-rm -f "$ZIP_PATH"
+echo "==> Creating DMG"
+rm -f "$DMG_PATH"
 RELEASE_DIR="$BUILDDIR/macos-release-$VERSION"
 rm -rf "$RELEASE_DIR"
 mkdir -p "$RELEASE_DIR"
 cp -R "$APP_PATH" "$RELEASE_DIR/"
 cp "$ROOT/packaging/macos/运行前先阅读.txt" "$RELEASE_DIR/"
 cp "$ROOT/packaging/macos/READ-BEFORE-RUN.txt" "$RELEASE_DIR/"
-(
-	cd "$RELEASE_DIR"
-	zip -r -y "$ZIP_PATH" "$(basename "$APP_PATH")" "运行前先阅读.txt" "READ-BEFORE-RUN.txt"
-)
+ln -s /Applications "$RELEASE_DIR/Applications"
+hdiutil create \
+	-volname "$APP_NAME" \
+	-srcfolder "$RELEASE_DIR" \
+	-ov \
+	-format UDZO \
+	"$DMG_PATH"
 rm -rf "$RELEASE_DIR"
 
 echo ""
 echo "Done."
-echo "  App:   $APP_PATH"
-echo "  Zip:   $ZIP_PATH"
+echo "  App:  $APP_PATH"
+echo "  DMG:  $DMG_PATH"
 echo ""
 echo "Open with:  open \"$APP_PATH\""
-printf 'APP_ZIP=%q\n' "$ZIP_PATH"
+printf 'APP_DMG=%q\n' "$DMG_PATH"
 printf 'APP_MACOS_BIN=%q\n' "$APP_PATH/Contents/MacOS"

@@ -13,7 +13,7 @@ import (
 const (
 	githubOwner = "svpchain"
 	githubRepo  = "svpchain-agent"
-	zipStem     = "svpchain-agent"
+	releaseStem = "svpchain-agent"
 )
 
 var latestReleaseURL = fmt.Sprintf("https://api.github.com/repos/%s/%s/releases/latest", githubOwner, githubRepo)
@@ -61,9 +61,9 @@ func fetchLatestRelease(ctx context.Context, client *http.Client) (*githubReleas
 	return &rel, nil
 }
 
-func macOSZipAsset(rel *githubRelease) (name, url string, err error) {
+func macOSDmgAsset(rel *githubRelease) (name, url string, err error) {
 	version := strings.TrimPrefix(strings.TrimSpace(rel.TagName), "v")
-	want := fmt.Sprintf("%s-%s-macos.zip", zipStem, version)
+	want := fmt.Sprintf("%s-%s-macos.dmg", releaseStem, version)
 	for _, a := range rel.Assets {
 		if a.Name == want && a.BrowserDownloadURL != "" {
 			return a.Name, a.BrowserDownloadURL, nil

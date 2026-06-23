@@ -26,7 +26,7 @@ endif
 
 build-all: build build-gui
 
-# macOS only: build a double-clickable .app bundle and zip archive.
+# macOS only: build a double-clickable .app bundle and DMG installer.
 # Cleans the build directory first for a reproducible from-scratch package.
 package-macos-app: clean
 	./scripts/package-macos-app.sh

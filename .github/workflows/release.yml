@@ -92,10 +92,10 @@ jobs:
         run: |
           # Single source of truth for .app packaging — avoids duplicate compiles with mismatched artifacts.
           ./scripts/package-macos-app.sh | tee /tmp/package-macos-app.log
-          eval "$(grep -E '^(APP_ZIP|APP_MACOS_BIN)=' /tmp/package-macos-app.log)"
+          eval "$(grep -E '^(APP_DMG|APP_MACOS_BIN)=' /tmp/package-macos-app.log)"
 
           mkdir -p dist
-          cp "$APP_ZIP" dist/
+          cp "$APP_DMG" dist/
 
           name="svpchain-mcp-${VERSION}-${{ matrix.target }}"
           gui="svpchain-gui-${VERSION}-${{ matrix.target }}"
@@ -131,7 +131,7 @@ jobs:
       - name: Generate checksums
         run: |
           cd dist
-          sha256sum *.tar.gz *-macos.zip > SHA256SUMS 2>/dev/null || sha256sum *.tar.gz > SHA256SUMS
+          sha256sum *.tar.gz *-macos.dmg > SHA256SUMS 2>/dev/null || sha256sum *.tar.gz > SHA256SUMS
           cat SHA256SUMS
       - name: Publish release
         uses: softprops/action-gh-release@v2
@@ -143,7 +143,7 @@ jobs:
 
             - **svpchain-mcp** — stdio MCP signing service (for Cursor and other MCP clients)
             - **svpchain-gui** — graphical setup tool (import keys, generate MCP JSON)
-            - **svpchain-agent-*-macos.zip** — macOS app bundle (contains `svpchain agent.app` + README files; unzip and open the `.app` directly)
+            - **svpchain-agent-*-macos.dmg** — macOS app disk image (open the DMG, drag `svpchain agent.app` to Applications)
 
             Verify downloads against `SHA256SUMS` before use, for example:
 
@@ -152,5 +152,5 @@ jobs:
             These binaries handle signing keys locally — download only from this Release page.
           files: |
             dist/*.tar.gz
-            dist/*-macos.zip
+            dist/*-macos.dmg
             dist/SHA256SUMS

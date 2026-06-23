@@ -16,7 +16,7 @@ func TestCheckAvailable_findsUpdate(t *testing.T) {
 			TagName: "v1.0.2",
 			HTMLURL: "https://github.com/svpchain/svpchain-agent/releases/tag/v1.0.2",
 			Assets: []releaseAsset{
-				{Name: "svpchain-agent-1.0.2-macos.zip", BrowserDownloadURL: "https://example.com/app.zip"},
+				{Name: "svpchain-agent-1.0.2-macos.dmg", BrowserDownloadURL: "https://example.com/app.dmg"},
 				{Name: "SHA256SUMS", BrowserDownloadURL: "https://example.com/SHA256SUMS"},
 			},
 		})
@@ -31,7 +31,7 @@ func TestCheckAvailable_findsUpdate(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, info)
 	require.Equal(t, "1.0.2", info.Latest)
-	require.Equal(t, "svpchain-agent-1.0.2-macos.zip", info.ZipName)
+	require.Equal(t, "svpchain-agent-1.0.2-macos.dmg", info.DmgName)
 }
 
 func TestCheckAvailable_respectsSkipVersion(t *testing.T) {
@@ -39,7 +39,7 @@ func TestCheckAvailable_respectsSkipVersion(t *testing.T) {
 		_ = json.NewEncoder(w).Encode(githubRelease{
 			TagName: "v1.0.2",
 			Assets: []releaseAsset{
-				{Name: "svpchain-agent-1.0.2-macos.zip", BrowserDownloadURL: "https://example.com/app.zip"},
+				{Name: "svpchain-agent-1.0.2-macos.dmg", BrowserDownloadURL: "https://example.com/app.dmg"},
 				{Name: "SHA256SUMS", BrowserDownloadURL: "https://example.com/SHA256SUMS"},
 			},
 		})

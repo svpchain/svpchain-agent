@@ -48,7 +48,7 @@ func AppBundlePath() (string, error) {
 	return "", ErrNotInAppBundle
 }
 
-// findAppBundleInDir returns path/to/svpchain agent.app under dir (zip extract root).
+// findAppBundleInDir returns path/to/svpchain agent.app under dir (DMG mount or extract root).
 func findAppBundleInDir(dir string) (string, error) {
 	direct := filepath.Join(dir, appBundleName)
 	if st, err := os.Stat(direct); err == nil && st.IsDir() {

@@ -25,7 +25,7 @@ func hashFile(path string) (string, error) {
 	return hex.EncodeToString(h.Sum(nil)), nil
 }
 
-func expectedHashFromSums(sums []byte, zipName string) (string, error) {
+func expectedHashFromSums(sums []byte, assetName string) (string, error) {
 	scanner := bufio.NewScanner(bytes.NewReader(sums))
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
@@ -37,24 +37,24 @@ func expectedHashFromSums(sums []byte, zipName string) (string, error) {
 			continue
 		}
 		name := parts[len(parts)-1]
-		if name == zipName {
+		if name == assetName {
 			return strings.ToLower(parts[0]), nil
 		}
 	}
-	return "", fmt.Errorf("SHA256SUMS has no entry for %q", zipName)
+	return "", fmt.Errorf("SHA256SUMS has no entry for %q", assetName)
 }
 
-func verifyZipChecksum(zipPath, zipName string, sums []byte) error {
-	want, err := expectedHashFromSums(sums, zipName)
+func verifyReleaseChecksum(assetPath, assetName string, sums []byte) error {
+	want, err := expectedHashFromSums(sums, assetName)
 	if err != nil {
 		return err
 	}
-	got, err := hashFile(zipPath)
+	got, err := hashFile(assetPath)
 	if err != nil {
-		return fmt.Errorf("hash zip: %w", err)
+		return fmt.Errorf("hash release asset: %w", err)
 	}
 	if !strings.EqualFold(got, want) {
-		return fmt.Errorf("checksum mismatch for %s", zipName)
+		return fmt.Errorf("checksum mismatch for %s", assetName)
 	}
 	return nil
 }

@@ -3,6 +3,7 @@ package manage
 import (
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -173,9 +174,14 @@ func GuessSignerBinaryPath(guiBinaryPath string) string {
 		return ""
 	}
 	dir := filepath.Dir(guiBinaryPath)
-	candidate := filepath.Join(dir, "svpchain-mcp")
-	if st, err := filepath.Abs(candidate); err == nil {
-		return st
+	for _, name := range []string{"svpchain-mcp", "svpchain-mcp.exe"} {
+		candidate := filepath.Join(dir, name)
+		if st, err := os.Stat(candidate); err == nil && !st.IsDir() {
+			if abs, err := filepath.Abs(candidate); err == nil {
+				return abs
+			}
+			return candidate
+		}
 	}
-	return candidate
+	return ""
 }

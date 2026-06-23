@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"runtime"
 	"strings"
 	"time"
 )
@@ -70,6 +71,28 @@ func macOSDmgAsset(rel *githubRelease) (name, url string, err error) {
 		}
 	}
 	return "", "", fmt.Errorf("release asset %q not found", want)
+}
+
+func windowsZipAsset(rel *githubRelease) (name, url string, err error) {
+	version := strings.TrimPrefix(strings.TrimSpace(rel.TagName), "v")
+	want := fmt.Sprintf("%s-%s-windows-amd64.zip", releaseStem, version)
+	for _, a := range rel.Assets {
+		if a.Name == want && a.BrowserDownloadURL != "" {
+			return a.Name, a.BrowserDownloadURL, nil
+		}
+	}
+	return "", "", fmt.Errorf("release asset %q not found", want)
+}
+
+func platformReleaseAsset(rel *githubRelease) (name, url string, err error) {
+	switch runtime.GOOS {
+	case "darwin":
+		return macOSDmgAsset(rel)
+	case "windows":
+		return windowsZipAsset(rel)
+	default:
+		return "", "", fmt.Errorf("in-app update not supported on %s", runtime.GOOS)
+	}
 }
 
 func checksumsAsset(rel *githubRelease) (url string, err error) {

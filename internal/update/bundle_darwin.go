@@ -1,3 +1,5 @@
+//go:build darwin
+
 package update
 
 import (
@@ -5,22 +7,21 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 )
-
-const appBundleName = "svpchain agent.app"
 
 // ErrNotInAppBundle means the process is not running inside a macOS .app bundle.
 var ErrNotInAppBundle = errors.New("not running inside a macOS app bundle")
 
 // Enabled reports whether in-app update is supported on this platform/runtime.
 func Enabled() bool {
-	if runtime.GOOS != "darwin" {
-		return false
-	}
-	_, err := AppBundlePath()
+	_, err := InstallTarget()
 	return err == nil
+}
+
+// InstallTarget returns the macOS .app bundle path that in-app updates replace.
+func InstallTarget() (string, error) {
+	return AppBundlePath()
 }
 
 // AppBundlePath returns the absolute path to the enclosing .app bundle.

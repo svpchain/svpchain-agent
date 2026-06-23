@@ -1,0 +1,62 @@
+svpchain agent — Windows: Read Before Running
+==================================================
+
+This zip archive contains a folder:
+
+  svpchain agent\
+    svpchain-gui.exe     Graphical setup app (import keys, generate MCP config)
+    svpchain-mcp.exe     Local MCP signing service (used by Cursor and other clients)
+    READ-BEFORE-RUN.txt
+    运行前先阅读.txt     Chinese version of this guide
+
+
+1. Installation
+---------------
+
+1. Extract the zip to any folder (e.g. Downloads or C:\Program Files).
+2. Open the extracted "svpchain agent" folder.
+3. Launch svpchain-gui.exe using the first-launch steps below.
+4. In the app: import your key → generate MCP config → paste into Cursor (or your MCP client).
+
+Keep svpchain-gui.exe and svpchain-mcp.exe in the same folder — the GUI finds the signer automatically.
+
+
+2. First launch (important)
+---------------------------
+
+Windows SmartScreen may warn that this app is from an unknown publisher. That is
+expected for open-source builds without a commercial code-signing certificate.
+
+  1. If SmartScreen blocks the app, click "More info" → "Run anyway"
+  2. Or right-click svpchain-gui.exe → Properties → check "Unblock" → OK, then run
+
+Keys are stored in Windows Credential Manager — not in plain config files.
+
+
+3. MCP client configuration
+---------------------------
+
+The GUI generates MCP JSON with the absolute path to svpchain-mcp.exe.
+After moving the folder, regenerate the config so paths stay correct.
+
+
+4. After setup
+--------------
+
+The GUI is for one-time setup. Day to day, Cursor and other MCP clients start
+svpchain-mcp.exe over stdio automatically — you do not need to keep the GUI running.
+
+Full documentation:
+https://github.com/svpchain/svpchain-agent
+
+
+5. Requirements
+---------------
+
+  • Windows 10 or later (64-bit)
+  • WebView2 Runtime (usually pre-installed; Wails will prompt if missing)
+  • Verify the download against SHA256SUMS on the Release page (if provided)
+  • Download only from the official GitHub Release — avoid repacked copies
+
+If problems persist, open an Issue on the project with your Windows version and
+a screenshot of the error message.

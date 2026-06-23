@@ -1,3 +1,5 @@
+//go:build darwin
+
 package update
 
 import (
@@ -15,9 +17,9 @@ func TestStageAppFromReleaseDMG(t *testing.T) {
 	}
 
 	dir := t.TempDir()
-	app, err := stageAppFromDMG(dmgPath, dir, nil)
+	app, err := stageReleasePackage(dmgPath, dir, nil)
 	if err != nil {
-		t.Fatalf("stageAppFromDMG: %v", err)
+		t.Fatalf("stageReleasePackage: %v", err)
 	}
 	if _, err := os.Stat(app); err != nil {
 		t.Fatalf("staged app missing: %v", err)

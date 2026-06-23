@@ -168,7 +168,7 @@ func (a *App) StartUpdate(info *update.Info) (string, error) {
 
 // InstallUpdate launches the replacer helper and quits so the update can apply.
 func (a *App) InstallUpdate(stagedApp string) error {
-	target, err := update.AppBundlePath()
+	target, err := update.InstallTarget()
 	if err != nil {
 		return err
 	}

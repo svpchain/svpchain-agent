@@ -71,7 +71,7 @@ make build-gui      # → cmd/svpchain-gui/build/bin/svpchain-gui(.app)
 make build-all      # both
 ```
 
-macOS and Linux build natively; Windows is not supported (the `eth_secp256k1` signing path needs CGO/libsecp256k1).
+macOS, Windows, and Linux build natively. All platforms require CGO (`eth_secp256k1` uses libsecp256k1).
 
 The GUI is a [Wails](https://wails.io) app (Go + embedded Vue). Building it needs the `wails` CLI and Node:
 
@@ -79,7 +79,7 @@ The GUI is a [Wails](https://wails.io) app (Go + embedded Vue). Building it need
 go install github.com/wailsapp/wails/v2/cmd/wails@latest
 ```
 
-On macOS the GUI uses the system WebKit; on Linux it needs GTK3 + WebKit2GTK dev packages (`libgtk-3-dev libwebkit2gtk-4.1-dev`).
+On macOS the GUI uses the system WebKit; on Linux it needs GTK3 + WebKit2GTK dev packages (`libgtk-3-dev libwebkit2gtk-4.1-dev`); on Windows it needs the [WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/) (usually pre-installed) and a CGO toolchain (MSVC or MinGW).
 
 ## Graphical app (svpchain-gui)
 
@@ -118,6 +118,23 @@ make package-macos-app   # embed icon in .app bundle
 ```
 
 The macOS `.app` checks GitHub Releases (stable tags only) on each launch and offers an in-app upgrade: download the release DMG, verify `SHA256SUMS`, replace the running `.app`, and restart. Dev builds (`*-dev`) and non-bundle runs skip this check.
+
+### Windows release
+
+```powershell
+$env:CGO_ENABLED = "1"
+.\scripts\package-windows.ps1
+```
+
+Or with Make (requires PowerShell 7+):
+
+```sh
+make package-windows-app
+```
+
+This produces `build\svpchain agent\` (contains `svpchain-gui.exe` + `svpchain-mcp.exe`) and `build\svpchain-agent-<version>-windows-amd64.zip`. Extract the zip and run `svpchain-gui.exe`. Both executables must stay in the same folder. Read **运行前先阅读.txt** before forwarding to other users.
+
+The Windows GUI supports in-app updates from GitHub Releases (stable tags only): download the release zip, verify `SHA256SUMS`, replace the install folder, and restart. Dev builds (`*-dev`) skip this check.
 
 ## Storing keys
 

@@ -11,6 +11,7 @@ type WhitelistEntry struct {
 	ChainID     string
 	AddressType string
 	Address     string
+	Alias       string
 }
 
 func toWhitelistEntry(e prefs.WhitelistEntry) WhitelistEntry {
@@ -18,6 +19,7 @@ func toWhitelistEntry(e prefs.WhitelistEntry) WhitelistEntry {
 		ChainID:     e.ChainID,
 		AddressType: e.AddressType,
 		Address:     e.Address,
+		Alias:       e.Alias,
 	}
 }
 
@@ -32,11 +34,11 @@ func (a *App) ListWhitelist() []WhitelistEntry {
 }
 
 // AddWhitelist validates and saves a whitelist entry.
-func (a *App) AddWhitelist(chainID, addressType, address string) (WhitelistEntry, error) {
+func (a *App) AddWhitelist(chainID, addressType, address, alias string) (WhitelistEntry, error) {
 	var added prefs.WhitelistEntry
 	err := a.store.UpdateErr(func(f *prefs.File) error {
 		store := whitelist.NewStore(whitelist.EntriesFromPrefs(f.Whitelist))
-		entry, err := store.Add(chainID, addressType, address)
+		entry, err := store.Add(chainID, addressType, address, alias)
 		if err != nil {
 			return err
 		}
@@ -45,6 +47,7 @@ func (a *App) AddWhitelist(chainID, addressType, address string) (WhitelistEntry
 			ChainID:     entry.ChainID,
 			AddressType: entry.AddressType,
 			Address:     entry.Address,
+			Alias:       entry.Alias,
 		}
 		return nil
 	})

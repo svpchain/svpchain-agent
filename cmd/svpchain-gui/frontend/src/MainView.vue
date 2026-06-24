@@ -40,7 +40,7 @@ const dialog = useDialog()
 const isMac = /Mac|iPhone|iPad|iPod/i.test(navigator.userAgent)
 
 type Entry = { ChainID: string; Owner: string; EVMAddr: string }
-type WhitelistEntry = { ChainID: string; AddressType: string; Address: string }
+type WhitelistEntry = { ChainID: string; AddressType: string; Address: string; Alias: string }
 type SkillSetting = {
   name: string
   description: string
@@ -73,6 +73,7 @@ const selectedWhitelist = ref<WhitelistEntry | null>(null)
 const whitelistChainId = ref('')
 const whitelistAddressType = ref('cosmos')
 const whitelistAddress = ref('')
+const whitelistAlias = ref('')
 
 const addressTypeOptions = [
   { label: () => t('addressType.cosmos'), value: 'cosmos' },
@@ -160,11 +161,13 @@ function normalizeWhitelistEntry(row: WhitelistEntry & {
   chain_id?: string
   address_type?: string
   address?: string
+  alias?: string
 }): WhitelistEntry {
   return {
     ChainID: row.ChainID ?? row.chain_id ?? '',
     AddressType: row.AddressType ?? row.address_type ?? '',
     Address: row.Address ?? row.address ?? '',
+    Alias: row.Alias ?? row.alias ?? '',
   }
 }
 
@@ -177,6 +180,7 @@ function addressTypeLabel(type: string) {
 }
 
 const whitelistColumns: DataTableColumns<WhitelistEntry> = [
+  { title: () => t('col.alias'), key: 'Alias', width: 140 },
   { title: () => t('col.chainId'), key: 'ChainID', width: 140 },
   {
     title: () => t('col.addressType'),
@@ -211,6 +215,7 @@ function selectWhitelistRow(row: WhitelistEntry) {
   whitelistChainId.value = row.ChainID
   whitelistAddressType.value = row.AddressType
   whitelistAddress.value = row.Address
+  whitelistAlias.value = row.Alias
 }
 
 async function saveWhitelist() {
@@ -226,9 +231,15 @@ async function saveWhitelist() {
   }
   try {
     const saved = normalizeWhitelistEntry(
-      (await App.AddWhitelist(chainID, whitelistAddressType.value, address)) as WhitelistEntry,
+      (await App.AddWhitelist(
+        chainID,
+        whitelistAddressType.value,
+        address,
+        whitelistAlias.value.trim(),
+      )) as WhitelistEntry,
     )
     whitelistAddress.value = ''
+    whitelistAlias.value = ''
     await refreshWhitelist()
     setStatus(t('status.savedWhitelist', { address: saved.Address, chain: saved.ChainID }))
   } catch (err) {
@@ -671,6 +682,9 @@ onMounted(async () => {
           </n-form-item>
           <n-form-item :label="t('field.whitelistAddress')">
             <n-input v-model:value="whitelistAddress" :placeholder="t('ph.whitelistAddress')" />
+          </n-form-item>
+          <n-form-item :label="t('field.whitelistAlias')">
+            <n-input v-model:value="whitelistAlias" :placeholder="t('ph.whitelistAlias')" />
           </n-form-item>
         </n-form>
         <n-button type="primary" @click="saveWhitelist">{{ t('btn.saveWhitelist') }}</n-button>

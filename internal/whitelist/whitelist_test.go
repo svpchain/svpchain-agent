@@ -41,14 +41,18 @@ func TestValidateEVMAddress(t *testing.T) {
 
 func TestStoreAddDelete(t *testing.T) {
 	s := NewStore(nil)
-	_, err := s.Add("svp-2517-1", AddressTypeEVM, "0x0000000000000000000000000000000000000001")
+	entry, err := s.Add("svp-2517-1", AddressTypeEVM, "0x0000000000000000000000000000000000000001", "Treasury")
 	require.NoError(t, err)
+	require.Equal(t, "Treasury", entry.Alias)
 
-	_, err = s.Add("svp-2517-1", AddressTypeEVM, "0x0000000000000000000000000000000000000001")
+	// Same chain/type/address with a different alias is still a duplicate:
+	// alias is metadata and must not be part of the identity key.
+	_, err = s.Add("svp-2517-1", AddressTypeEVM, "0x0000000000000000000000000000000000000001", "Other")
 	require.Error(t, err)
 
 	list := s.List()
 	require.Len(t, list, 1)
+	require.Equal(t, "Treasury", list[0].Alias)
 
 	require.NoError(t, s.Delete("svp-2517-1", AddressTypeEVM, "0x0000000000000000000000000000000000000001"))
 	require.Empty(t, s.List())

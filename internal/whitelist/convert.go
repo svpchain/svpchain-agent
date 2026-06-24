@@ -13,6 +13,7 @@ func EntriesFromPrefs(in []prefs.WhitelistEntry) []Entry {
 			ChainID:     e.ChainID,
 			AddressType: e.AddressType,
 			Address:     e.Address,
+			Alias:       e.Alias,
 		}
 	}
 	return out
@@ -29,6 +30,7 @@ func EntriesToPrefs(in []Entry) []prefs.WhitelistEntry {
 			ChainID:     e.ChainID,
 			AddressType: e.AddressType,
 			Address:     e.Address,
+			Alias:       e.Alias,
 		}
 	}
 	return out

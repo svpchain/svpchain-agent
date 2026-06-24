@@ -100,6 +100,11 @@ func Run(ctx context.Context, cfg Config, userMessage string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("load agent skills: %w", err)
 	}
+	// Inject whitelist alias → address mappings so the assistant can resolve
+	// "transfer to <alias>" without the user typing the raw address.
+	if aliases := whitelistAliasPrompt(chainID); aliases != "" {
+		systemPrompt += "\n\n" + aliases
+	}
 
 	llm := NewLLMClient(cfg.LLM)
 	messages := []llmMessage{

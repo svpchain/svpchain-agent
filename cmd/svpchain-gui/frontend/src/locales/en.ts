@@ -17,6 +17,7 @@ export default {
     evm: 'EVM Address',
     addressType: 'Address Type',
     address: 'Address',
+    alias: 'Alias',
   },
   btn: {
     refresh: 'Refresh',
@@ -42,6 +43,7 @@ export default {
     remoteMCPURL: 'Remote MCP URL',
     addressType: 'Address Type',
     whitelistAddress: 'Address',
+    whitelistAlias: 'Alias',
     skillsConfigBase: 'Skills directory root',
   },
   ph: {
@@ -54,6 +56,7 @@ export default {
     llmModel: 'Default deepseek-chat',
     remoteMCPURL: 'Default https://indexer.svpchain.com/mcp',
     whitelistAddress: 'svp1… or 0x…',
+    whitelistAlias: 'Optional, e.g. Team Treasury',
     skillsConfigBase: 'Leave empty for the OS default config directory',
   },
   addressType: {

@@ -17,6 +17,7 @@ export default {
     evm: 'EVM 地址',
     addressType: '地址类型',
     address: '地址',
+    alias: '别名',
   },
   btn: {
     refresh: '刷新',
@@ -42,6 +43,7 @@ export default {
     remoteMCPURL: 'Remote MCP 地址',
     addressType: '地址类型',
     whitelistAddress: '地址',
+    whitelistAlias: '别名',
     skillsConfigBase: 'Skills 目录地址',
   },
   ph: {
@@ -54,6 +56,7 @@ export default {
     llmModel: '默认 deepseek-chat',
     remoteMCPURL: '默认 https://indexer.svpchain.com/mcp',
     whitelistAddress: 'svp1… 或 0x…',
+    whitelistAlias: '可选，例如 团队金库',
     skillsConfigBase: '留空使用系统默认配置目录',
   },
   addressType: {

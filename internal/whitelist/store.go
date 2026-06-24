@@ -26,8 +26,9 @@ func (s *Store) List() []Entry {
 	return out
 }
 
-// Add validates and inserts an entry. Duplicate chain/type/address pairs are rejected.
-func (s *Store) Add(chainID, addressType, address string) (Entry, error) {
+// Add validates and inserts an entry. Duplicate chain/type/address pairs are
+// rejected. alias is optional metadata and does not affect uniqueness.
+func (s *Store) Add(chainID, addressType, address, alias string) (Entry, error) {
 	chainID, err := ValidateChainID(chainID)
 	if err != nil {
 		return Entry{}, err
@@ -40,6 +41,7 @@ func (s *Store) Add(chainID, addressType, address string) (Entry, error) {
 		ChainID:     chainID,
 		AddressType: strings.TrimSpace(addressType),
 		Address:     address,
+		Alias:       strings.TrimSpace(alias),
 	}
 	key := EntryKey(entry)
 	for _, existing := range s.entries {

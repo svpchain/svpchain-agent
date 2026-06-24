@@ -20,6 +20,9 @@ type Entry struct {
 	ChainID     string `json:"chain_id"`
 	AddressType string `json:"address_type"`
 	Address     string `json:"address"`
+	// Alias is optional human-friendly metadata. It is NOT part of the entry's
+	// identity (see EntryKey) and does not affect dedup, sorting, or matching.
+	Alias string `json:"alias,omitempty"`
 }
 
 func init() {

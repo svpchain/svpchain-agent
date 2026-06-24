@@ -48,6 +48,7 @@ type WhitelistEntry struct {
 	ChainID     string `json:"chain_id"`
 	AddressType string `json:"address_type"`
 	Address     string `json:"address"`
+	Alias       string `json:"alias,omitempty"`
 }
 
 // Store holds prefs in memory for the GUI and persists on change.

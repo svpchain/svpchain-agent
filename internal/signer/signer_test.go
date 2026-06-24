@@ -8,7 +8,10 @@ import (
 	"testing"
 	"time"
 
+	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
+	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
 	"github.com/cosmos/gogoproto/proto"
 	"github.com/stretchr/testify/require"
@@ -25,12 +28,22 @@ func newRandomPriv(t *testing.T) *ethsecp256k1.PrivKey {
 	return &ethsecp256k1.PrivKey{Key: bz}
 }
 
-// newSyntheticPayload returns a TxPayload with a minimal parseable TxBody, enough to exercise sign/decode/verify without a real Msg.
-func newSyntheticPayload(t *testing.T, signerAddr string) *payload.TxPayload {
+// newSyntheticPayload returns a TxPayload carrying a real cosmos.bank.v1beta1.MsgSend
+// body so it passes the signer's message-type policy (validateTxBody). The
+// MsgSend from-address is the signing key (a bank send can only spend the
+// signer's own funds); signerAddr separately controls payload.SignerAddress so
+// the address cross-check can still be exercised.
+func newSyntheticPayload(t *testing.T, priv *ethsecp256k1.PrivKey, signerAddr string) *payload.TxPayload {
 	t.Helper()
-	// Minimal proto-serialized TxBody (memo only, no msgs); the chain would reject it but sign/decode/verify paths work;
-	// non-empty memo ensures Marshal produces non-nil bytes and proto.Unmarshal round-trips.
-	body := &txtypes.TxBody{Memo: "signer-roundtrip"}
+	from := signer.DeriveAddress(priv)
+	msg := &banktypes.MsgSend{
+		FromAddress: from,
+		ToAddress:   from,
+		Amount:      sdk.NewCoins(sdk.NewInt64Coin("asvp", 1)),
+	}
+	anyMsg, err := codectypes.NewAnyWithValue(msg)
+	require.NoError(t, err)
+	body := &txtypes.TxBody{Messages: []*codectypes.Any{anyMsg}}
 	bodyBytes, err := proto.Marshal(body)
 	require.NoError(t, err)
 	return &payload.TxPayload{
@@ -46,7 +59,11 @@ func newSyntheticPayload(t *testing.T, signerAddr string) *payload.TxPayload {
 			GasLimit: "1000000",
 			Amount:   []payload.Coin{},
 		},
-		Summary:   payload.Summary{ToolName: "test"},
+		Summary: payload.Summary{
+			ToolName:       "build_bank_send",
+			MsgTypeURL:     "/cosmos.bank.v1beta1.MsgSend",
+			RecipientOwner: from,
+		},
 		ExpiresAt: time.Now().UTC().Add(30 * time.Second),
 	}
 }
@@ -57,7 +74,7 @@ func TestSign_HonorsPayloadFee(t *testing.T) {
 	// rejects with code 13. Regression test for the empty-fee deposit.
 	priv := newRandomPriv(t)
 	addr := signer.DeriveAddress(priv)
-	p := newSyntheticPayload(t, addr)
+	p := newSyntheticPayload(t, priv, addr)
 	p.IsShortTermCLOB = false
 	p.Fee.Amount = []payload.Coin{{Denom: "asvp", Amount: "25000000000000000"}}
 
@@ -80,7 +97,7 @@ func TestSign_HonorsPayloadFee(t *testing.T) {
 func TestSign_RoundTripDecode(t *testing.T) {
 	priv := newRandomPriv(t)
 	addr := signer.DeriveAddress(priv)
-	p := newSyntheticPayload(t, addr)
+	p := newSyntheticPayload(t, priv, addr)
 
 	signed, err := signer.Sign(priv, p)
 	require.NoError(t, err)
@@ -121,7 +138,7 @@ func TestSign_RoundTripDecode(t *testing.T) {
 func TestSign_SignatureVerifies(t *testing.T) {
 	priv := newRandomPriv(t)
 	addr := signer.DeriveAddress(priv)
-	p := newSyntheticPayload(t, addr)
+	p := newSyntheticPayload(t, priv, addr)
 
 	signed, err := signer.Sign(priv, p)
 	require.NoError(t, err)
@@ -142,7 +159,7 @@ func TestSign_RejectsAddressMismatch(t *testing.T) {
 	// Use one key but declare a different signer address in the payload — Sign must reject
 	// rather than silently produce a tx the server would also reject.
 	priv := newRandomPriv(t)
-	p := newSyntheticPayload(t, "svp1someotherbech32stringthatwontmatch")
+	p := newSyntheticPayload(t, priv, "svp1someotherbech32stringthatwontmatch")
 	_, err := signer.Sign(priv, p)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "does not match payload.signer_address")
@@ -151,7 +168,7 @@ func TestSign_RejectsAddressMismatch(t *testing.T) {
 func TestSign_AcceptsEmptySignerAddress(t *testing.T) {
 	// If the server omits signer_address (e.g. temporary demo), Sign should still sign with the caller's key.
 	priv := newRandomPriv(t)
-	p := newSyntheticPayload(t, "")
+	p := newSyntheticPayload(t, priv, "")
 	signed, err := signer.Sign(priv, p)
 	require.NoError(t, err)
 	require.NotEmpty(t, signed.TxRawBytesB64)
@@ -159,7 +176,7 @@ func TestSign_AcceptsEmptySignerAddress(t *testing.T) {
 
 func TestSign_RejectsUnsupportedVersion(t *testing.T) {
 	priv := newRandomPriv(t)
-	p := newSyntheticPayload(t, signer.DeriveAddress(priv))
+	p := newSyntheticPayload(t, priv, signer.DeriveAddress(priv))
 	p.Version = 9999
 	_, err := signer.Sign(priv, p)
 	require.Error(t, err)

@@ -64,6 +64,17 @@ Write-Host "==> Building MCP signer binary (CGO enabled)"
 $env:CGO_ENABLED = "1"
 go build -mod=readonly -trimpath -o (Join-Path $BuildDir "svpchain-mcp.exe") ./cmd/svpchain-mcp
 
+Write-Host "==> Syncing Wails app icon"
+$WailsBuild = Join-Path $Root "cmd\svpchain-gui\build"
+New-Item -ItemType Directory -Force -Path $WailsBuild | Out-Null
+Copy-Item (Join-Path $Root "packaging\logo-svp1.png") (Join-Path $WailsBuild "appicon.png") -Force
+foreach ($dir in @("windows", "darwin")) {
+	$target = Join-Path $WailsBuild $dir
+	if (Test-Path $target) {
+		Remove-Item -Recurse -Force $target
+	}
+}
+
 Write-Host "==> Building GUI with wails (frontend + bindings + binary)"
 $GuiLdflags = "-X github.com/svpchain/svpchain-agent/internal/desktop.Version=$Version"
 Push-Location (Join-Path $Root "cmd\svpchain-gui")

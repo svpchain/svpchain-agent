@@ -91,6 +91,7 @@ jobs:
           name="svpchain-mcp-${VERSION}-${{ matrix.target }}"
           gui="svpchain-gui-${VERSION}-${{ matrix.target }}"
           go build -mod=readonly -trimpath -o "${name}" ./cmd/svpchain-mcp
+          ./scripts/sync-wails-icon.sh
           ( cd cmd/svpchain-gui && wails build -clean -trimpath -tags webkit2_41 \
               -ldflags "-X github.com/svpchain/svpchain-agent/internal/desktop.Version=${VERSION#v}" )
           cp cmd/svpchain-gui/build/bin/svpchain-gui "${gui}"

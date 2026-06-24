@@ -46,8 +46,10 @@ After moving the folder, regenerate the config so paths stay correct.
 The GUI is for one-time setup. Day to day, Cursor and other MCP clients start
 svpchain-mcp.exe over stdio automatically — you do not need to keep the GUI running.
 
-Full documentation:
-https://github.com/svpchain/svpchain-agent
+In-app updates replace the folder you extracted (same directory as svpchain-gui.exe),
+wherever you put it (C:, D:, etc.). If an upgrade seems to fail, check:
+
+  %LOCALAPPDATA%\com.svpchain.agent-gui\update\apply-update.log
 
 
 5. Requirements

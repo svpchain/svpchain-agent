@@ -12,18 +12,46 @@ import (
 	"strconv"
 )
 
-const helperScript = `$ErrorActionPreference = "Stop"
-param(
+const helperScript = `param(
 	[int]$AppPid,
 	[string]$TargetDir,
 	[string]$StagedDir
 )
-Wait-Process -Id $AppPid -ErrorAction SilentlyContinue
-Start-Sleep -Seconds 1
-Get-ChildItem -Path $StagedDir -File | ForEach-Object {
-	Copy-Item -Path $_.FullName -Destination (Join-Path $TargetDir $_.Name) -Force
+$ErrorActionPreference = "Stop"
+
+$logDir = Join-Path $env:LOCALAPPDATA "com.svpchain.agent-gui\update"
+New-Item -ItemType Directory -Force -Path $logDir | Out-Null
+$logPath = Join-Path $logDir "apply-update.log"
+Start-Transcript -Path $logPath -Append | Out-Null
+
+try {
+	if (-not $TargetDir -or -not $StagedDir) {
+		throw "missing TargetDir or StagedDir (AppPid=$AppPid TargetDir='$TargetDir' StagedDir='$StagedDir')"
+	}
+	if (-not (Test-Path -LiteralPath $StagedDir)) {
+		throw "staged directory not found: $StagedDir"
+	}
+	if (-not (Test-Path -LiteralPath $TargetDir)) {
+		throw "install directory not found: $TargetDir"
+	}
+
+	Wait-Process -Id $AppPid -ErrorAction SilentlyContinue
+	Start-Sleep -Seconds 1
+
+	Get-ChildItem -LiteralPath $StagedDir -File | ForEach-Object {
+		$dest = Join-Path $TargetDir $_.Name
+		Copy-Item -LiteralPath $_.FullName -Destination $dest -Force
+	}
+
+	Start-Process -FilePath (Join-Path $TargetDir "svpchain-gui.exe") -WorkingDirectory $TargetDir
 }
-Start-Process (Join-Path $TargetDir "svpchain-gui.exe")
+catch {
+	$_ | Out-String | Write-Error
+	exit 1
+}
+finally {
+	Stop-Transcript | Out-Null
+}
 `
 
 func stageReleasePackage(packagePath, stagingDir string, progress Progress) (string, error) {
@@ -60,9 +88,9 @@ func LaunchReplacer(target, staged string) error {
 	}
 
 	cmd := exec.Command("powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", helperPath,
-		strconv.Itoa(os.Getpid()),
-		target,
-		staged,
+		"-AppPid", strconv.Itoa(os.Getpid()),
+		"-TargetDir", target,
+		"-StagedDir", staged,
 	)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr

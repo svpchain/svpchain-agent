@@ -46,6 +46,11 @@ GUI 生成的 MCP JSON 会包含 svpchain-mcp.exe 的绝对路径。
 GUI 主要用于首次配置。日常使用 Cursor 等 MCP 客户端时会自动通过 stdio
 启动 svpchain-mcp.exe，无需一直开着 GUI。
 
+应用内升级会替换你解压安装所在的文件夹（与 svpchain-gui.exe 同目录），
+放在 D 盘或其他盘符均可。若升级后版本未变化，请查看日志：
+
+  %LOCALAPPDATA%\com.svpchain.agent-gui\update\apply-update.log
+
 
 五、系统要求
 ------------

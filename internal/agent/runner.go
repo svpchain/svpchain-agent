@@ -143,21 +143,22 @@ func Run(ctx context.Context, cfg Config, userMessage string) (string, error) {
 
 			result, callErr := dispatchTool(ctx, chainID, remote, local, name, args)
 			if callErr != nil {
-				// A whitelist rejection ends the run immediately: the recipient is
-				// not allowed, so there is nothing for the LLM to retry. Report it
-				// as the final answer instead of feeding it back into the loop.
+				// Fail fast: any tool error ends the run. There is no value in
+				// feeding a failed call back to the LLM — it tends to loop or
+				// guess. Whitelist rejections get a tailored message; every other
+				// failure reports the tool and error, then stops.
 				var rej *WhitelistRejection
+				var answer string
 				if errors.As(callErr, &rej) {
-					answer := fmt.Sprintf("Transfer rejected — %s. No transaction was built, signed, or broadcast.", rej.Error())
-					emit(Step{Kind: StepError, Title: name + " blocked by whitelist", Detail: rej.Error()})
-					emit(Step{Kind: StepAnswer, Title: "Stopped", Detail: answer})
-					return answer, nil
+					answer = fmt.Sprintf("Transfer rejected — %s. No transaction was built, signed, or broadcast.", rej.Error())
+				} else {
+					answer = fmt.Sprintf("%s failed — %s. Stopped without further action.", name, callErr.Error())
 				}
-				result = fmt.Sprintf("error: %v", callErr)
 				emit(Step{Kind: StepError, Title: name + " failed", Detail: callErr.Error()})
-			} else {
-				emit(Step{Kind: StepTool, Title: name + " ok", Detail: truncate(result, 400)})
+				emit(Step{Kind: StepAnswer, Title: "Stopped", Detail: answer})
+				return answer, nil
 			}
+			emit(Step{Kind: StepTool, Title: name + " ok", Detail: truncate(result, 400)})
 			messages = append(messages, llmMessage{
 				Role:       "tool",
 				ToolCallID: tc.ID,

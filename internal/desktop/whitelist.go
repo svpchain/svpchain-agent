@@ -3,10 +3,11 @@ package desktop
 import "github.com/svpchain/svpchain-agent/internal/whitelist"
 
 // WhitelistEntry is one whitelisted address for the Security tab.
+// Field names are PascalCase for Wails JSON bindings (same as manage.Entry).
 type WhitelistEntry struct {
-	ChainID     string `json:"chain_id"`
-	AddressType string `json:"address_type"`
-	Address     string `json:"address"`
+	ChainID     string
+	AddressType string
+	Address     string
 }
 
 func toWhitelistEntry(e whitelist.Entry) WhitelistEntry {

@@ -151,6 +151,18 @@ function addressCell(addr: string) {
   ])
 }
 
+function normalizeWhitelistEntry(row: WhitelistEntry & {
+  chain_id?: string
+  address_type?: string
+  address?: string
+}): WhitelistEntry {
+  return {
+    ChainID: row.ChainID ?? row.chain_id ?? '',
+    AddressType: row.AddressType ?? row.address_type ?? '',
+    Address: row.Address ?? row.address ?? '',
+  }
+}
+
 function whitelistKey(row: WhitelistEntry) {
   return `${row.ChainID}|${row.AddressType}|${row.Address}`
 }
@@ -177,7 +189,7 @@ const whitelistColumns: DataTableColumns<WhitelistEntry> = [
 async function refreshWhitelist() {
   try {
     const list = (await App.ListWhitelist()) as WhitelistEntry[]
-    whitelistEntries.value = list || []
+    whitelistEntries.value = (list || []).map(normalizeWhitelistEntry)
     selectedWhitelist.value = null
     if (whitelistEntries.value.length === 0) {
       setStatus(t('status.noWhitelist'))
@@ -208,7 +220,9 @@ async function saveWhitelist() {
     return
   }
   try {
-    const saved = (await App.AddWhitelist(chainID, whitelistAddressType.value, address)) as WhitelistEntry
+    const saved = normalizeWhitelistEntry(
+      (await App.AddWhitelist(chainID, whitelistAddressType.value, address)) as WhitelistEntry,
+    )
     whitelistAddress.value = ''
     await refreshWhitelist()
     setStatus(t('status.savedWhitelist', { address: saved.Address, chain: saved.ChainID }))

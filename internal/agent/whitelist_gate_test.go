@@ -58,6 +58,10 @@ func TestCheckWhitelistGate(t *testing.T) {
 			map[string]any{"to": blockedEVM})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "not on the whitelist")
+		// Must be a *WhitelistRejection so the agent loop terminates instead of
+		// feeding the error back to the LLM.
+		var rej *WhitelistRejection
+		require.ErrorAs(t, err, &rej)
 	})
 
 	t.Run("cosmos bank send enforced", func(t *testing.T) {

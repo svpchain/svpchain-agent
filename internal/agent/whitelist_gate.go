@@ -32,10 +32,21 @@ var transferGuardedTools = map[string]guardedTool{
 	"build_erc721_set_approval_for_all": {field: "operator", addressType: whitelist.AddressTypeEVM},
 }
 
+// WhitelistRejection marks a tool call refused by the pre-flight whitelist gate.
+// The agent loop detects it (via errors.As) and stops immediately instead of
+// feeding the error back to the LLM, so a non-whitelisted transfer ends the run
+// rather than prompting the model to retry.
+type WhitelistRejection struct{ Err error }
+
+func (e *WhitelistRejection) Error() string { return e.Err.Error() }
+
+func (e *WhitelistRejection) Unwrap() error { return e.Err }
+
 // checkWhitelistGate rejects a guarded tool call whose recipient/spender is not
 // on the whitelist for chainID. It returns nil for tools that are not gated and
 // when whitelist enforcement is inactive (no entries), reusing the same
-// semantics as the signer-layer checks in internal/whitelist/enforce.go.
+// semantics as the signer-layer checks in internal/whitelist/enforce.go. A
+// rejection is wrapped in *WhitelistRejection so the caller can terminate.
 func checkWhitelistGate(chainID, name string, args map[string]any) error {
 	g, ok := transferGuardedTools[name]
 	if !ok {
@@ -53,10 +64,15 @@ func checkWhitelistGate(chainID, name string, args map[string]any) error {
 	if addr == "" {
 		return nil
 	}
+	var err error
 	switch g.addressType {
 	case whitelist.AddressTypeCosmos:
-		return whitelist.CheckCosmosRecipient(chainID, addr)
+		err = whitelist.CheckCosmosRecipient(chainID, addr)
 	default:
-		return whitelist.CheckEVMRecipient(chainID, addr)
+		err = whitelist.CheckEVMRecipient(chainID, addr)
 	}
+	if err != nil {
+		return &WhitelistRejection{Err: err}
+	}
+	return nil
 }

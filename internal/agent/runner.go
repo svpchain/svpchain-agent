@@ -3,6 +3,7 @@ package agent
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -137,6 +138,16 @@ func Run(ctx context.Context, cfg Config, userMessage string) (string, error) {
 
 			result, callErr := dispatchTool(ctx, chainID, remote, local, name, args)
 			if callErr != nil {
+				// A whitelist rejection ends the run immediately: the recipient is
+				// not allowed, so there is nothing for the LLM to retry. Report it
+				// as the final answer instead of feeding it back into the loop.
+				var rej *WhitelistRejection
+				if errors.As(callErr, &rej) {
+					answer := fmt.Sprintf("Transfer rejected — %s. No transaction was built, signed, or broadcast.", rej.Error())
+					emit(Step{Kind: StepError, Title: name + " blocked by whitelist", Detail: rej.Error()})
+					emit(Step{Kind: StepAnswer, Title: "Stopped", Detail: answer})
+					return answer, nil
+				}
 				result = fmt.Sprintf("error: %v", callErr)
 				emit(Step{Kind: StepError, Title: name + " failed", Detail: callErr.Error()})
 			} else {

@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	appconfig "github.com/svpchain/svpchain-agent/internal/config"
+	"github.com/svpchain/svpchain-agent/internal/prefs"
 	"github.com/svpchain/svpchain-agent/internal/whitelist"
 )
 
@@ -33,8 +34,8 @@ func TestCheckCosmosRecipient_enforced(t *testing.T) {
 		AddressType: whitelist.AddressTypeCosmos,
 		Address:     allowed,
 	}})
-	t.Cleanup(func() { whitelist.SetPrefsPathOverride("") })
-	whitelist.SetPrefsPathOverride(path)
+	t.Cleanup(func() { prefs.SetPathOverride("") })
+	prefs.SetPathOverride(path)
 
 	require.NoError(t, whitelist.CheckCosmosRecipient("svp-2517-1", allowed))
 	err := whitelist.CheckCosmosRecipient("svp-2517-1", blocked)
@@ -46,8 +47,8 @@ func TestCheckCosmosRecipient_emptyWhitelistAllows(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "prefs.json")
 	require.NoError(t, os.WriteFile(path, []byte(`{"whitelist":[]}`), 0o600))
-	t.Cleanup(func() { whitelist.SetPrefsPathOverride("") })
-	whitelist.SetPrefsPathOverride(path)
+	t.Cleanup(func() { prefs.SetPathOverride("") })
+	prefs.SetPathOverride(path)
 
 	require.NoError(t, whitelist.CheckCosmosRecipient("svp-2517-1", "svp1anything"))
 }

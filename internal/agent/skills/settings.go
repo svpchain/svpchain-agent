@@ -1,11 +1,9 @@
 package skills
 
 import (
-	"encoding/json"
-	"os"
 	"sort"
 
-	"github.com/svpchain/svpchain-agent/internal/whitelist"
+	"github.com/svpchain/svpchain-agent/internal/prefs"
 )
 
 // Setting is one skill row for the Settings UI.
@@ -76,21 +74,7 @@ func loadDisabledSkillNames() []string {
 	if disabledSkillsOverride != nil {
 		return *disabledSkillsOverride
 	}
-	path := whitelist.PrefsPath()
-	if path == "" {
-		return nil
-	}
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil
-	}
-	var partial struct {
-		DisabledSkills []string `json:"disabled_skills"`
-	}
-	if err := json.Unmarshal(data, &partial); err != nil {
-		return nil
-	}
-	return partial.DisabledSkills
+	return prefs.Read().DisabledSkills
 }
 
 func filterDisabled(skills []Skill, disabled map[string]struct{}) []Skill {

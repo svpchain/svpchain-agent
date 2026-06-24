@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/svpchain/svpchain-agent/internal/agent/skills"
+	"github.com/svpchain/svpchain-agent/internal/prefs"
 )
 
 func TestComposeSystemPrompt_respectsDisabledSkills(t *testing.T) {
@@ -47,9 +48,11 @@ func TestListSettings_readsDisabledFromPrefs(t *testing.T) {
 	path := filepath.Join(dir, "prefs.json")
 	require.NoError(t, os.WriteFile(path, []byte(`{"disabled_skills":["x402"]}`), 0o600))
 
-	// skills loader reads disabled from whitelist.PrefsPath — use override instead for isolation
-	t.Cleanup(func() { skills.ClearDisabledSkillsOverride() })
-	skills.SetDisabledSkillsOverride([]string{"x402"})
+	t.Cleanup(func() {
+		skills.ClearDisabledSkillsOverride()
+		prefs.SetPathOverride("")
+	})
+	prefs.SetPathOverride(path)
 
 	settings, err := skills.ListSettings()
 	require.NoError(t, err)
@@ -58,5 +61,4 @@ func TestListSettings_readsDisabledFromPrefs(t *testing.T) {
 			require.False(t, s.Enabled)
 		}
 	}
-	_ = path
 }

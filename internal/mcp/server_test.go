@@ -4,6 +4,8 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/base64"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -17,8 +19,23 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/svpchain/svpchain-agent/internal/payload"
+	"github.com/svpchain/svpchain-agent/internal/prefs"
 	"github.com/svpchain/svpchain-agent/internal/signer"
 )
+
+func TestMain(m *testing.M) {
+	dir, err := os.MkdirTemp("", "svpchain-mcp-prefs")
+	if err != nil {
+		panic(err)
+	}
+	defer os.RemoveAll(dir)
+	path := filepath.Join(dir, "prefs.json")
+	_ = os.WriteFile(path, []byte(`{"whitelist":[]}`), 0o600)
+	prefs.SetPathOverride(path)
+	code := m.Run()
+	prefs.SetPathOverride("")
+	os.Exit(code)
+}
 
 var _ = signer.DeriveAddress
 

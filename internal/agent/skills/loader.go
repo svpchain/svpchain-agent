@@ -37,11 +37,51 @@ type skillMeta struct {
 	Locked      bool     `yaml:"locked"`
 }
 
-var skillsDirOverride string
+var (
+	skillsDirOverride  string  // full skills dir; SetSkillsDirOverride (tests)
+	appliedConfigBase  string  // config root from prefs/UI; ApplySkillsConfigBase
+	skillsBaseOverride *string // optional config root for tests
+)
 
-// SetSkillsDirOverride redirects user skill loading for tests.
+// SetSkillsDirOverride redirects user skill loading to dir (full skills path; tests).
 func SetSkillsDirOverride(dir string) {
 	skillsDirOverride = dir
+}
+
+// SetSkillsConfigBaseOverride redirects the config root for tests.
+func SetSkillsConfigBaseOverride(base string) {
+	cp := base
+	skillsBaseOverride = &cp
+}
+
+// ClearSkillsConfigBaseOverride restores config-root loading from prefs/default.
+func ClearSkillsConfigBaseOverride() {
+	skillsBaseOverride = nil
+}
+
+// ApplySkillsConfigBase sets the runtime config root from saved preferences.
+// Pass an empty string to use the OS default (os.UserConfigDir()).
+func ApplySkillsConfigBase(base string) {
+	appliedConfigBase = strings.TrimSpace(base)
+}
+
+// DefaultSkillsConfigBase returns the OS user config directory.
+func DefaultSkillsConfigBase() (string, error) {
+	return os.UserConfigDir()
+}
+
+// ResolveUserSkillsDir returns the skills directory for a config root.
+// An empty base uses DefaultSkillsConfigBase().
+func ResolveUserSkillsDir(base string) (string, error) {
+	base = strings.TrimSpace(base)
+	if base == "" {
+		var err error
+		base, err = os.UserConfigDir()
+		if err != nil {
+			return "", err
+		}
+	}
+	return filepath.Join(base, configDirName, skillsSubdir), nil
 }
 
 // UserSkillsDir returns the directory for optional user-provided skills.
@@ -49,11 +89,25 @@ func UserSkillsDir() string {
 	if skillsDirOverride != "" {
 		return skillsDirOverride
 	}
-	dir, err := os.UserConfigDir()
-	if err != nil {
-		return ""
+	base := skillsConfigBase()
+	if base == "" {
+		dir, err := os.UserConfigDir()
+		if err != nil {
+			return ""
+		}
+		base = dir
 	}
-	return filepath.Join(dir, configDirName, skillsSubdir)
+	return filepath.Join(base, configDirName, skillsSubdir)
+}
+
+func skillsConfigBase() string {
+	if skillsBaseOverride != nil {
+		return strings.TrimSpace(*skillsBaseOverride)
+	}
+	if appliedConfigBase != "" {
+		return appliedConfigBase
+	}
+	return loadSkillsConfigBaseFromPrefs()
 }
 
 // LoadAll returns bundled skills plus any user skills (user overrides same name).

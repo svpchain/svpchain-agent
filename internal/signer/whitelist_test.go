@@ -10,8 +10,8 @@ import (
 
 	appconfig "github.com/svpchain/svpchain-agent/internal/config"
 	"github.com/svpchain/svpchain-agent/internal/payload"
+	"github.com/svpchain/svpchain-agent/internal/prefs"
 	"github.com/svpchain/svpchain-agent/internal/signer"
-	"github.com/svpchain/svpchain-agent/internal/whitelist"
 )
 
 func TestSign_RejectsNonWhitelistedBankSend(t *testing.T) {
@@ -31,10 +31,10 @@ func TestSign_RejectsNonWhitelistedBankSend(t *testing.T) {
 
 	dir := t.TempDir()
 	path := filepath.Join(dir, "prefs.json")
-	prefs := []byte(`{"whitelist":[{"chain_id":"localsvp-1","address_type":"cosmos","address":"` + allowed + `"}]}`)
-	require.NoError(t, os.WriteFile(path, prefs, 0o600))
-	t.Cleanup(func() { whitelist.SetPrefsPathOverride("") })
-	whitelist.SetPrefsPathOverride(path)
+	prefsData := []byte(`{"whitelist":[{"chain_id":"localsvp-1","address_type":"cosmos","address":"` + allowed + `"}]}`)
+	require.NoError(t, os.WriteFile(path, prefsData, 0o600))
+	t.Cleanup(func() { prefs.SetPathOverride("") })
+	prefs.SetPathOverride(path)
 
 	_, err := signer.Sign(priv, payloadWithBody(marshalBody(t, bankSendAny(t, from, blocked)), payload.Summary{
 		MsgTypeURL: "/cosmos.bank.v1beta1.MsgSend",

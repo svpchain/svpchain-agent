@@ -16,6 +16,7 @@ import {
   NDivider,
   NCollapse,
   NCollapseItem,
+  NTooltip,
   NSpace,
   NSwitch,
   NModal,
@@ -89,6 +90,8 @@ const llmBaseURL = ref('')
 const llmModel = ref('')
 const remoteMCPURL = ref('')
 const agentChainId = ref('')
+const skillsConfigBase = ref('')
+const defaultSkillsConfigBase = ref('')
 const skillSettings = ref<SkillSetting[]>([])
 const settingsExpandedSections = ref(['basic', 'llm', 'skills'])
 
@@ -415,12 +418,19 @@ async function loadAgentSettings() {
       llm_base_url?: string
       llm_model?: string
       remote_mcp_url?: string
+      skills_config_base?: string
     }
     llmApiKey.value = s.llm_api_key || ''
     llmBaseURL.value = s.llm_base_url || ''
     llmModel.value = s.llm_model || ''
     remoteMCPURL.value = s.remote_mcp_url || ''
     agentChainId.value = s.chain_id || ''
+    skillsConfigBase.value = s.skills_config_base || ''
+    try {
+      defaultSkillsConfigBase.value = await App.AgentDefaultSkillsConfigBase()
+    } catch {
+      defaultSkillsConfigBase.value = ''
+    }
     if (!remoteMCPURL.value) {
       remoteMCPURL.value = await App.AgentDefaultRemoteURL()
     }
@@ -443,8 +453,10 @@ async function saveAgentSettings() {
         llm_model: llmModel.value,
         remote_mcp_url: remoteMCPURL.value,
         disabled_skills: disabledSkills,
+        skills_config_base: skillsConfigBase.value.trim(),
       } as Record<string, unknown>),
     )
+    await loadSkillSettings()
     setStatus(t('status.settingsSaved'))
   } catch (err) {
     message.error(String(err))
@@ -697,6 +709,23 @@ onMounted(async () => {
                   :options="entries.map((e) => ({ label: e.ChainID, value: e.ChainID }))"
                 />
               </n-form-item>
+              <n-form-item>
+                <template #label>
+                  <n-space align="center" :size="4">
+                    <span>{{ t('field.skillsConfigBase') }}</span>
+                    <n-tooltip trigger="hover">
+                      <template #trigger>
+                        <span class="help-icon" tabindex="0">?</span>
+                      </template>
+                      {{ t('hint.skillsConfigBase') }}
+                    </n-tooltip>
+                  </n-space>
+                </template>
+                <n-input
+                  v-model:value="skillsConfigBase"
+                  :placeholder="defaultSkillsConfigBase || t('ph.skillsConfigBase')"
+                />
+              </n-form-item>
             </n-form>
           </n-collapse-item>
 
@@ -903,6 +932,21 @@ onMounted(async () => {
   margin-top: 4px;
   font-size: 12px;
   line-height: 1.4;
+}
+
+.help-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 1px solid #ccc;
+  font-size: 11px;
+  line-height: 1;
+  color: #888;
+  cursor: help;
+  user-select: none;
 }
 
 .preview {

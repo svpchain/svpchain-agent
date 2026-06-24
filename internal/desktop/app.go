@@ -12,20 +12,24 @@ import (
 
 	wruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 
+	"github.com/svpchain/svpchain-agent/internal/agent/skills"
 	"github.com/svpchain/svpchain-agent/internal/i18n"
 	"github.com/svpchain/svpchain-agent/internal/manage"
+	"github.com/svpchain/svpchain-agent/internal/prefs"
 	"github.com/svpchain/svpchain-agent/internal/update"
 )
 
 // App is the Wails application context; its exported methods are bound to JS.
 type App struct {
 	ctx   context.Context
-	prefs *prefs
+	store *prefs.Store
 }
 
 // NewApp constructs the application with persisted preferences loaded.
 func NewApp() *App {
-	return &App{prefs: loadPrefs()}
+	store := prefs.Load()
+	skills.ApplySkillsConfigBase(store.File().SkillsConfigBase)
+	return &App{store: store}
 }
 
 // Startup is wired to Wails OnStartup; it captures the runtime context.
@@ -46,14 +50,14 @@ func (a *App) WindowTitle() string { return "svpchain agent" }
 // Language returns the effective language ("zh"/"en"), preferring the saved preference,
 // then the system locale.
 func (a *App) Language() string {
-	return string(i18n.InitWithPreference(a.prefs.Language))
+	return string(i18n.InitWithPreference(a.store.File().Language))
 }
 
 // SetLanguage persists the chosen language.
 func (a *App) SetLanguage(lang string) {
 	if l, ok := i18n.ParseLang(lang); ok {
 		i18n.SetLang(l)
-		a.prefs.setLanguage(string(l))
+		a.store.SetLanguage(string(l))
 	}
 }
 
@@ -126,11 +130,11 @@ func (a *App) UpdateEnabled() bool { return update.Enabled() }
 func (a *App) CheckUpdate() (*update.Info, error) {
 	ctx, cancel := context.WithTimeout(a.ctx, 15*time.Second)
 	defer cancel()
-	return update.Check(ctx, Version, a.prefs.SkipVersion, nil)
+	return update.Check(ctx, Version, a.store.File().SkipVersion, nil)
 }
 
 // SkipVersion suppresses future prompts for the given release tag.
-func (a *App) SkipVersion(tag string) { a.prefs.setSkipVersion(tag) }
+func (a *App) SkipVersion(tag string) { a.store.SetSkipVersion(tag) }
 
 // StartUpdate downloads, verifies, and extracts the release, emitting
 // "update:progress" events. It returns the staged .app path on success.

@@ -42,6 +42,7 @@ export default {
     remoteMCPURL: 'Remote MCP 地址',
     addressType: '地址类型',
     whitelistAddress: '地址',
+    skillsConfigBase: 'Skills 目录地址',
   },
   ph: {
     chainId: '可从列表选择或自行输入',
@@ -53,6 +54,7 @@ export default {
     llmModel: '默认 deepseek-chat',
     remoteMCPURL: '默认 https://indexer.svpchain.com/mcp',
     whitelistAddress: 'svp1… 或 0x…',
+    skillsConfigBase: '留空使用系统默认配置目录',
   },
   addressType: {
     cosmos: 'SVP Cosmos',
@@ -64,6 +66,8 @@ export default {
     assistantSettings: '在设置页配置 LLM API Key 后即可使用助手。',
     whitelist: '配置白名单后，仅允许向列表中的地址发起 Cosmos 转账或 EVM 原生转账。',
     skills: '关闭的 Skill 不会注入助手 system prompt。保存设置后生效。',
+    skillsConfigBase:
+      '填写配置根目录。实际 Skills 目录为：{路径}/com.svpchain.agent-gui/skills。留空则使用系统默认配置目录。',
   },
   settings: {
     section: {

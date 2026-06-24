@@ -47,6 +47,7 @@ internal/
   manage/         # key import / list / delete, MCP config generation, remote URL
   keystore/       # OS credential store read/write
   payload/        # TxPayload / SignedTx / EvmTxPayload types
+  prefs/          # prefs.json schema, load/save (single config source)
   desktop/        # Wails app bindings (keys, MCP config, settings, assistant, security, update)
   update/         # in-app update (GitHub releases, verify, install; macOS DMG + Windows zip)
 packaging/

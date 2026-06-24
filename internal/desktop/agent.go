@@ -12,6 +12,7 @@ import (
 	"github.com/svpchain/svpchain-agent/internal/agent"
 	"github.com/svpchain/svpchain-agent/internal/agent/skills"
 	"github.com/svpchain/svpchain-agent/internal/manage"
+	"github.com/svpchain/svpchain-agent/internal/prefs"
 )
 
 var errAgentBusy = errors.New("assistant is already running")
@@ -21,24 +22,32 @@ type SkillSetting = skills.Setting
 
 // AgentSettings is persisted LLM / MCP configuration for the assistant tab.
 type AgentSettings struct {
-	ChainID        string   `json:"chain_id"`
-	LLMAPIKey      string   `json:"llm_api_key"`
-	LLMBaseURL     string   `json:"llm_base_url"`
-	LLMModel       string   `json:"llm_model"`
-	RemoteMCPURL   string   `json:"remote_mcp_url"`
-	DisabledSkills []string `json:"disabled_skills"`
+	ChainID          string   `json:"chain_id"`
+	LLMAPIKey        string   `json:"llm_api_key"`
+	LLMBaseURL       string   `json:"llm_base_url"`
+	LLMModel         string   `json:"llm_model"`
+	RemoteMCPURL     string   `json:"remote_mcp_url"`
+	DisabledSkills   []string `json:"disabled_skills"`
+	SkillsConfigBase string   `json:"skills_config_base"`
 }
 
 // AgentGetSettings returns saved assistant settings (API key included for local use only).
 func (a *App) AgentGetSettings() AgentSettings {
+	s := a.store.AgentSettings()
 	return AgentSettings{
-		ChainID:        a.prefs.AgentChainID,
-		LLMAPIKey:      a.prefs.LLMAPIKey,
-		LLMBaseURL:     a.prefs.LLMBaseURL,
-		LLMModel:       a.prefs.LLMModel,
-		RemoteMCPURL:   a.prefs.RemoteMCPURL,
-		DisabledSkills: append([]string(nil), a.prefs.DisabledSkills...),
+		ChainID:          s.ChainID,
+		LLMAPIKey:        s.LLMAPIKey,
+		LLMBaseURL:       s.LLMBaseURL,
+		LLMModel:         s.LLMModel,
+		RemoteMCPURL:     s.RemoteMCPURL,
+		DisabledSkills:   s.DisabledSkills,
+		SkillsConfigBase: s.SkillsConfigBase,
 	}
+}
+
+// AgentDefaultSkillsConfigBase returns the OS default config root for skills.
+func (a *App) AgentDefaultSkillsConfigBase() (string, error) {
+	return skills.DefaultSkillsConfigBase()
 }
 
 // AgentListSkills returns bundled and user skills with enable flags from prefs.
@@ -48,7 +57,16 @@ func (a *App) AgentListSkills() ([]SkillSetting, error) {
 
 // AgentSetSettings persists assistant settings.
 func (a *App) AgentSetSettings(s AgentSettings) {
-	a.prefs.setAgentSettings(s)
+	a.store.SetAgentSettings(prefs.AgentSettings{
+		ChainID:          s.ChainID,
+		LLMAPIKey:        s.LLMAPIKey,
+		LLMBaseURL:       s.LLMBaseURL,
+		LLMModel:         s.LLMModel,
+		RemoteMCPURL:     s.RemoteMCPURL,
+		DisabledSkills:   s.DisabledSkills,
+		SkillsConfigBase: s.SkillsConfigBase,
+	})
+	skills.ApplySkillsConfigBase(s.SkillsConfigBase)
 }
 
 // AgentDefaultRemoteURL returns the production remote MCP endpoint.

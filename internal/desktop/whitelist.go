@@ -1,6 +1,9 @@
 package desktop
 
-import "github.com/svpchain/svpchain-agent/internal/whitelist"
+import (
+	"github.com/svpchain/svpchain-agent/internal/prefs"
+	"github.com/svpchain/svpchain-agent/internal/whitelist"
+)
 
 // WhitelistEntry is one whitelisted address for the Security tab.
 // Field names are PascalCase for Wails JSON bindings (same as manage.Entry).
@@ -10,7 +13,7 @@ type WhitelistEntry struct {
 	Address     string
 }
 
-func toWhitelistEntry(e whitelist.Entry) WhitelistEntry {
+func toWhitelistEntry(e prefs.WhitelistEntry) WhitelistEntry {
 	return WhitelistEntry{
 		ChainID:     e.ChainID,
 		AddressType: e.AddressType,
@@ -20,7 +23,7 @@ func toWhitelistEntry(e whitelist.Entry) WhitelistEntry {
 
 // ListWhitelist returns saved whitelist entries.
 func (a *App) ListWhitelist() []WhitelistEntry {
-	entries := a.prefs.listWhitelist()
+	entries := a.store.ListWhitelist()
 	out := make([]WhitelistEntry, len(entries))
 	for i, e := range entries {
 		out[i] = toWhitelistEntry(e)
@@ -30,14 +33,35 @@ func (a *App) ListWhitelist() []WhitelistEntry {
 
 // AddWhitelist validates and saves a whitelist entry.
 func (a *App) AddWhitelist(chainID, addressType, address string) (WhitelistEntry, error) {
-	entry, err := a.prefs.addWhitelist(chainID, addressType, address)
+	var added prefs.WhitelistEntry
+	err := a.store.UpdateErr(func(f *prefs.File) error {
+		store := whitelist.NewStore(whitelist.EntriesFromPrefs(f.Whitelist))
+		entry, err := store.Add(chainID, addressType, address)
+		if err != nil {
+			return err
+		}
+		f.Whitelist = whitelist.EntriesToPrefs(store.List())
+		added = prefs.WhitelistEntry{
+			ChainID:     entry.ChainID,
+			AddressType: entry.AddressType,
+			Address:     entry.Address,
+		}
+		return nil
+	})
 	if err != nil {
 		return WhitelistEntry{}, err
 	}
-	return toWhitelistEntry(entry), nil
+	return toWhitelistEntry(added), nil
 }
 
 // DeleteWhitelist removes a whitelist entry.
 func (a *App) DeleteWhitelist(chainID, addressType, address string) error {
-	return a.prefs.deleteWhitelist(chainID, addressType, address)
+	return a.store.UpdateErr(func(f *prefs.File) error {
+		store := whitelist.NewStore(whitelist.EntriesFromPrefs(f.Whitelist))
+		if err := store.Delete(chainID, addressType, address); err != nil {
+			return err
+		}
+		f.Whitelist = whitelist.EntriesToPrefs(store.List())
+		return nil
+	})
 }

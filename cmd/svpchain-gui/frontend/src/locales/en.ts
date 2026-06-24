@@ -42,6 +42,7 @@ export default {
     remoteMCPURL: 'Remote MCP URL',
     addressType: 'Address Type',
     whitelistAddress: 'Address',
+    skillsConfigBase: 'Skills directory root',
   },
   ph: {
     chainId: 'Pick from list or type your own',
@@ -53,6 +54,7 @@ export default {
     llmModel: 'Default deepseek-chat',
     remoteMCPURL: 'Default https://indexer.svpchain.com/mcp',
     whitelistAddress: 'svp1… or 0x…',
+    skillsConfigBase: 'Leave empty for the OS default config directory',
   },
   addressType: {
     cosmos: 'SVP Cosmos',
@@ -64,6 +66,8 @@ export default {
     assistantSettings: 'Configure an LLM API key in Settings before using the assistant.',
     whitelist: 'When configured, only whitelisted addresses may receive Cosmos bank sends or native EVM transfers.',
     skills: 'Disabled skills are omitted from the assistant system prompt. Changes apply after Save Settings.',
+    skillsConfigBase:
+      'Config root directory. Resolved skills path: {path}/com.svpchain.agent-gui/skills. Leave empty for the OS default.',
   },
   settings: {
     section: {

@@ -35,12 +35,25 @@ try {
 		throw "install directory not found: $TargetDir"
 	}
 
+	# Guard against overwriting a working install with a half-staged payload:
+	# the new GUI binary must be present before we touch the target directory.
+	$stagedExe = Join-Path $StagedDir "svpchain-gui.exe"
+	if (-not (Test-Path -LiteralPath $stagedExe)) {
+		throw "staged payload is missing svpchain-gui.exe: $stagedExe"
+	}
+
 	Wait-Process -Id $AppPid -ErrorAction SilentlyContinue
 	Start-Sleep -Seconds 1
 
-	Get-ChildItem -LiteralPath $StagedDir -File | ForEach-Object {
+	# Mirror the entire staged tree into the target, preserving subdirectories
+	# (not just top-level files), so nested resources are updated too.
+	Get-ChildItem -LiteralPath $StagedDir -Force | ForEach-Object {
 		$dest = Join-Path $TargetDir $_.Name
-		Copy-Item -LiteralPath $_.FullName -Destination $dest -Force
+		if ($_.PSIsContainer) {
+			Copy-Item -LiteralPath $_.FullName -Destination $dest -Recurse -Force
+		} else {
+			Copy-Item -LiteralPath $_.FullName -Destination $dest -Force
+		}
 	}
 
 	Start-Process -FilePath (Join-Path $TargetDir "svpchain-gui.exe") -WorkingDirectory $TargetDir

@@ -7,7 +7,10 @@ import (
 	"testing"
 	"time"
 
+	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
+	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
 	"github.com/cosmos/gogoproto/proto"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -29,7 +32,17 @@ func newRandomPriv(t *testing.T) *ethsecp256k1.PrivKey {
 
 func newTestPayload(t *testing.T, chainID, signerAddr string) payload.TxPayload {
 	t.Helper()
-	body := &txtypes.TxBody{Memo: "mcp-signer-test"}
+	// Real cosmos.bank.v1beta1.MsgSend body so it passes the signer's message-type
+	// policy (validateTxBody). The from-address mirrors signerAddr; the only test
+	// that reaches validation passes the key's own address.
+	msg := &banktypes.MsgSend{
+		FromAddress: signerAddr,
+		ToAddress:   signerAddr,
+		Amount:      sdk.NewCoins(sdk.NewInt64Coin("asvp", 1)),
+	}
+	anyMsg, err := codectypes.NewAnyWithValue(msg)
+	require.NoError(t, err)
+	body := &txtypes.TxBody{Messages: []*codectypes.Any{anyMsg}}
 	bodyBytes, err := proto.Marshal(body)
 	require.NoError(t, err)
 	return payload.TxPayload{

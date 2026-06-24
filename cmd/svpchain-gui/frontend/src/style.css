@@ -33,7 +33,7 @@ body,
   z-index: 10000 !important;
 }
 
-/* Allow the custom hidden-inset macOS title bar to be draggable. */
+/* Allow the custom hidden macOS title bar region to be draggable. */
 .titlebar-drag {
   --wails-draggable: drag;
 }

@@ -37,6 +37,8 @@ const { t } = useI18n()
 const message = useMessage()
 const dialog = useDialog()
 
+const isMac = /Mac|iPhone|iPad|iPod/i.test(navigator.userAgent)
+
 type Entry = { ChainID: string; Owner: string; EVMAddr: string }
 type WhitelistEntry = { ChainID: string; AddressType: string; Address: string }
 type SkillSetting = {
@@ -93,7 +95,7 @@ const agentChainId = ref('')
 const skillsConfigBase = ref('')
 const defaultSkillsConfigBase = ref('')
 const skillSettings = ref<SkillSetting[]>([])
-const settingsExpandedSections = ref(['basic', 'llm', 'skills'])
+const settingsExpandedSections = ref<string[]>([])
 
 // update
 const version = ref('')
@@ -554,7 +556,13 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="titlebar-drag titlebar" @dblclick="toggleMaximise">svpchain agent</div>
+  <div
+    class="titlebar-drag titlebar"
+    :class="{ 'titlebar--mac': isMac }"
+    @dblclick="toggleMaximise"
+  >
+    svpchain agent
+  </div>
 
   <n-tabs v-model:value="activeTab" type="line" class="tabs" pane-class="pane">
     <!-- Assistant -->
@@ -839,14 +847,21 @@ onMounted(async () => {
 
 <style scoped>
 .titlebar {
-  height: 36px;
-  line-height: 36px;
-  text-align: center;
+  flex-shrink: 0;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   font-weight: 600;
   font-size: 13px;
   color: #555;
   border-bottom: 1px solid #ececec;
   user-select: none;
+  box-sizing: border-box;
+}
+
+.titlebar--mac {
+  padding-left: 70px;
 }
 
 .tabs {
@@ -906,8 +921,25 @@ onMounted(async () => {
 }
 
 .settings-collapse :deep(.n-collapse-item__header) {
-  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 14px;
   font-weight: 600;
+}
+
+.settings-collapse :deep(.n-collapse-item__header-main) {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-height: 44px;
+  line-height: 1.4;
+}
+
+.settings-collapse :deep(.n-collapse-item-arrow) {
+  display: flex;
+  align-items: center;
+  align-self: center;
 }
 
 .settings-collapse :deep(.n-collapse-item__content-inner) {

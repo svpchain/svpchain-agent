@@ -29,7 +29,9 @@ func main() {
 		OnStartup: app.Startup,
 		Bind:      []interface{}{app},
 		Mac: &mac.Options{
-			TitleBar: mac.TitleBarHiddenInset(),
+			// TitleBarHidden (no toolbar) keeps traffic lights vertically centered;
+			// HiddenInset + UseToolbar pins them to the bottom of the toolbar strip.
+			TitleBar: mac.TitleBarHidden(),
 			About: &mac.AboutInfo{
 				Title:   "svpchain agent",
 				Message: "Local-key trading assistant for svpchain",

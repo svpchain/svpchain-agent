@@ -16,7 +16,7 @@ import {
   NDivider,
   NCollapse,
   NCollapseItem,
-  NTooltip,
+  NPopover,
   NSpace,
   NSwitch,
   NModal,
@@ -711,15 +711,20 @@ onMounted(async () => {
               </n-form-item>
               <n-form-item>
                 <template #label>
-                  <n-space align="center" :size="4">
+                  <span class="label-with-help">
                     <span>{{ t('field.skillsConfigBase') }}</span>
-                    <n-tooltip trigger="hover">
+                    <n-popover trigger="hover" placement="top-start" :show-arrow="true">
                       <template #trigger>
-                        <span class="help-icon" tabindex="0">?</span>
+                        <span
+                          class="help-icon"
+                          tabindex="0"
+                          role="button"
+                          :title="t('hint.skillsConfigBase')"
+                        >?</span>
                       </template>
-                      {{ t('hint.skillsConfigBase') }}
-                    </n-tooltip>
-                  </n-space>
+                      <div class="help-tooltip-text">{{ t('hint.skillsConfigBase') }}</div>
+                    </n-popover>
+                  </span>
                 </template>
                 <n-input
                   v-model:value="skillsConfigBase"
@@ -940,13 +945,35 @@ onMounted(async () => {
   justify-content: center;
   width: 16px;
   height: 16px;
+  flex-shrink: 0;
   border-radius: 50%;
-  border: 1px solid #ccc;
+  border: 1px solid #bbb;
+  background: #f4f4f5;
   font-size: 11px;
+  font-weight: 600;
   line-height: 1;
-  color: #888;
+  color: #666;
   cursor: help;
   user-select: none;
+}
+
+.label-with-help {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+}
+
+.label-with-help :deep(.n-popover-trigger) {
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+.help-tooltip-text {
+  display: inline-block;
+  max-width: 280px;
+  white-space: normal;
+  line-height: 1.5;
 }
 
 .preview {

@@ -28,6 +28,11 @@ body,
   flex-direction: column;
 }
 
+/* Wails/WebView2: keep Naive UI popovers/tooltips above the app chrome */
+.n-popover-shared {
+  z-index: 10000 !important;
+}
+
 /* Allow the custom hidden-inset macOS title bar to be draggable. */
 .titlebar-drag {
   --wails-draggable: drag;

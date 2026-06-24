@@ -67,7 +67,7 @@ export default {
     whitelist: 'When configured, only whitelisted addresses may receive Cosmos bank sends or native EVM transfers.',
     skills: 'Disabled skills are omitted from the assistant system prompt. Changes apply after Save Settings.',
     skillsConfigBase:
-      'Config root directory. Resolved skills path: {path}/com.svpchain.agent-gui/skills. Leave empty for the OS default.',
+      "Config root directory. Resolved skills path: {'{path}'}/com.svpchain.agent-gui/skills. Leave empty for the OS default.",
   },
   settings: {
     section: {

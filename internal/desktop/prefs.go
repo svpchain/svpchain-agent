@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+
+	"github.com/svpchain/svpchain-agent/internal/whitelist"
 )
 
 // prefs is a tiny JSON-backed preferences store replacing Fyne's app preferences.
@@ -15,11 +17,13 @@ type prefs struct {
 	SkipVersion string `json:"skip_version,omitempty"`
 
 	// Agent assistant settings.
-	AgentChainID string `json:"agent_chain_id,omitempty"`
-	LLMAPIKey    string `json:"llm_api_key,omitempty"`
-	LLMBaseURL   string `json:"llm_base_url,omitempty"`
-	LLMModel     string `json:"llm_model,omitempty"`
-	RemoteMCPURL string `json:"remote_mcp_url,omitempty"`
+	AgentChainID   string            `json:"agent_chain_id,omitempty"`
+	LLMAPIKey      string            `json:"llm_api_key,omitempty"`
+	LLMBaseURL     string            `json:"llm_base_url,omitempty"`
+	LLMModel       string            `json:"llm_model,omitempty"`
+	RemoteMCPURL   string            `json:"remote_mcp_url,omitempty"`
+	Whitelist      []whitelist.Entry `json:"whitelist,omitempty"`
+	DisabledSkills []string          `json:"disabled_skills,omitempty"`
 }
 
 func loadPrefs() *prefs {
@@ -36,11 +40,7 @@ func loadPrefs() *prefs {
 }
 
 func prefsPath() string {
-	dir, err := os.UserConfigDir()
-	if err != nil {
-		return ""
-	}
-	return filepath.Join(dir, "com.svpchain.agent-gui", "prefs.json")
+	return whitelist.PrefsPath()
 }
 
 func (p *prefs) save() {
@@ -71,6 +71,41 @@ func (p *prefs) setSkipVersion(tag string) {
 	p.save()
 }
 
+func (p *prefs) whitelistStore() *whitelist.Store {
+	return whitelist.NewStore(p.Whitelist)
+}
+
+func (p *prefs) listWhitelist() []whitelist.Entry {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.whitelistStore().List()
+}
+
+func (p *prefs) addWhitelist(chainID, addressType, address string) (whitelist.Entry, error) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	store := p.whitelistStore()
+	entry, err := store.Add(chainID, addressType, address)
+	if err != nil {
+		return whitelist.Entry{}, err
+	}
+	p.Whitelist = store.List()
+	p.save()
+	return entry, nil
+}
+
+func (p *prefs) deleteWhitelist(chainID, addressType, address string) error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	store := p.whitelistStore()
+	if err := store.Delete(chainID, addressType, address); err != nil {
+		return err
+	}
+	p.Whitelist = store.List()
+	p.save()
+	return nil
+}
+
 func (p *prefs) setAgentSettings(s AgentSettings) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -79,5 +114,6 @@ func (p *prefs) setAgentSettings(s AgentSettings) {
 	p.LLMBaseURL = s.LLMBaseURL
 	p.LLMModel = s.LLMModel
 	p.RemoteMCPURL = s.RemoteMCPURL
+	p.DisabledSkills = append([]string(nil), s.DisabledSkills...)
 	p.save()
 }

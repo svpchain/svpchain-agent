@@ -10,29 +10,40 @@ import (
 	wruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 
 	"github.com/svpchain/svpchain-agent/internal/agent"
+	"github.com/svpchain/svpchain-agent/internal/agent/skills"
 	"github.com/svpchain/svpchain-agent/internal/manage"
 )
 
 var errAgentBusy = errors.New("assistant is already running")
 
+// SkillSetting is one assistant skill row for the Settings UI.
+type SkillSetting = skills.Setting
+
 // AgentSettings is persisted LLM / MCP configuration for the assistant tab.
 type AgentSettings struct {
-	ChainID      string `json:"chain_id"`
-	LLMAPIKey    string `json:"llm_api_key"`
-	LLMBaseURL   string `json:"llm_base_url"`
-	LLMModel     string `json:"llm_model"`
-	RemoteMCPURL string `json:"remote_mcp_url"`
+	ChainID        string   `json:"chain_id"`
+	LLMAPIKey      string   `json:"llm_api_key"`
+	LLMBaseURL     string   `json:"llm_base_url"`
+	LLMModel       string   `json:"llm_model"`
+	RemoteMCPURL   string   `json:"remote_mcp_url"`
+	DisabledSkills []string `json:"disabled_skills"`
 }
 
 // AgentGetSettings returns saved assistant settings (API key included for local use only).
 func (a *App) AgentGetSettings() AgentSettings {
 	return AgentSettings{
-		ChainID:      a.prefs.AgentChainID,
-		LLMAPIKey:    a.prefs.LLMAPIKey,
-		LLMBaseURL:   a.prefs.LLMBaseURL,
-		LLMModel:     a.prefs.LLMModel,
-		RemoteMCPURL: a.prefs.RemoteMCPURL,
+		ChainID:        a.prefs.AgentChainID,
+		LLMAPIKey:      a.prefs.LLMAPIKey,
+		LLMBaseURL:     a.prefs.LLMBaseURL,
+		LLMModel:       a.prefs.LLMModel,
+		RemoteMCPURL:   a.prefs.RemoteMCPURL,
+		DisabledSkills: append([]string(nil), a.prefs.DisabledSkills...),
 	}
+}
+
+// AgentListSkills returns bundled and user skills with enable flags from prefs.
+func (a *App) AgentListSkills() ([]SkillSetting, error) {
+	return skills.ListSettings()
 }
 
 // AgentSetSettings persists assistant settings.

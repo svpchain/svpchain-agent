@@ -49,7 +49,7 @@ func TestSignEvm_DecodesRemoteGoldenPayload(t *testing.T) {
 	require.NoError(t, err)
 	priv := &ethsecp256k1.PrivKey{Key: keyBz}
 
-	signed, err := signer.SignEvm(priv, &p)
+	signed, err := signer.SignEvm(priv, &p, "")
 	require.NoError(t, err)
 	require.NotEmpty(t, signed.RawTxHex)
 

@@ -14,7 +14,10 @@ import {
   NFormItem,
   NDataTable,
   NDivider,
+  NCollapse,
+  NCollapseItem,
   NSpace,
+  NSwitch,
   NModal,
   NCard,
   NProgress,
@@ -34,6 +37,14 @@ const message = useMessage()
 const dialog = useDialog()
 
 type Entry = { ChainID: string; Owner: string; EVMAddr: string }
+type WhitelistEntry = { ChainID: string; AddressType: string; Address: string }
+type SkillSetting = {
+  name: string
+  description: string
+  enabled: boolean
+  locked: boolean
+  source: string
+}
 type UpdateInfo = {
   Current: string
   Latest: string
@@ -53,6 +64,18 @@ const defaultChainIds = ref<string[]>([])
 const importChainId = ref('')
 const importKey = ref('')
 
+// security / whitelist
+const whitelistEntries = ref<WhitelistEntry[]>([])
+const selectedWhitelist = ref<WhitelistEntry | null>(null)
+const whitelistChainId = ref('')
+const whitelistAddressType = ref('cosmos')
+const whitelistAddress = ref('')
+
+const addressTypeOptions = [
+  { label: () => t('addressType.cosmos'), value: 'cosmos' },
+  { label: () => t('addressType.evm'), value: 'evm' },
+]
+
 // config
 const agents = ref<string[]>([])
 const agent = ref('')
@@ -66,6 +89,8 @@ const llmBaseURL = ref('')
 const llmModel = ref('')
 const remoteMCPURL = ref('')
 const agentChainId = ref('')
+const skillSettings = ref<SkillSetting[]>([])
+const settingsExpandedSections = ref(['basic', 'llm', 'skills'])
 
 // update
 const version = ref('')
@@ -124,6 +149,99 @@ function addressCell(addr: string) {
       { default: () => t('btn.copyShort') },
     )
   ])
+}
+
+function whitelistKey(row: WhitelistEntry) {
+  return `${row.ChainID}|${row.AddressType}|${row.Address}`
+}
+
+function addressTypeLabel(type: string) {
+  return type === 'evm' ? t('addressType.evm') : t('addressType.cosmos')
+}
+
+const whitelistColumns: DataTableColumns<WhitelistEntry> = [
+  { title: () => t('col.chainId'), key: 'ChainID', width: 140 },
+  {
+    title: () => t('col.addressType'),
+    key: 'AddressType',
+    width: 140,
+    render: (row) => addressTypeLabel(row.AddressType),
+  },
+  {
+    title: () => t('col.address'),
+    key: 'Address',
+    render: (row) => addressCell(row.Address),
+  },
+]
+
+async function refreshWhitelist() {
+  try {
+    const list = (await App.ListWhitelist()) as WhitelistEntry[]
+    whitelistEntries.value = list || []
+    selectedWhitelist.value = null
+    if (whitelistEntries.value.length === 0) {
+      setStatus(t('status.noWhitelist'))
+    } else {
+      setStatus(t('status.whitelistCount', { n: whitelistEntries.value.length }))
+    }
+  } catch (err) {
+    setStatus(t('status.readWhitelistFailed', { err: String(err) }))
+  }
+}
+
+function selectWhitelistRow(row: WhitelistEntry) {
+  selectedWhitelist.value = row
+  whitelistChainId.value = row.ChainID
+  whitelistAddressType.value = row.AddressType
+  whitelistAddress.value = row.Address
+}
+
+async function saveWhitelist() {
+  const chainID = whitelistChainId.value.trim()
+  const address = whitelistAddress.value.trim()
+  if (!chainID) {
+    setStatus(t('status.enterChainId'))
+    return
+  }
+  if (!address) {
+    setStatus(t('status.enterWhitelistAddress'))
+    return
+  }
+  try {
+    const saved = (await App.AddWhitelist(chainID, whitelistAddressType.value, address)) as WhitelistEntry
+    whitelistAddress.value = ''
+    await refreshWhitelist()
+    setStatus(t('status.savedWhitelist', { address: saved.Address, chain: saved.ChainID }))
+  } catch (err) {
+    message.error(String(err))
+  }
+}
+
+function deleteSelectedWhitelist() {
+  const row = selectedWhitelist.value
+  if (!row) {
+    setStatus(t('status.selectWhitelistToDelete'))
+    return
+  }
+  dialog.warning({
+    title: t('dialog.confirmDeleteWhitelistTitle'),
+    content: t('dialog.confirmDeleteWhitelistBody', {
+      chain: row.ChainID,
+      type: addressTypeLabel(row.AddressType),
+      address: row.Address,
+    }),
+    positiveText: t('dialog.confirm'),
+    negativeText: t('dialog.cancel'),
+    onPositiveClick: async () => {
+      try {
+        await App.DeleteWhitelist(row.ChainID, row.AddressType, row.Address)
+        await refreshWhitelist()
+        setStatus(t('status.deletedWhitelist', { address: row.Address }))
+      } catch (err) {
+        message.error(String(err))
+      }
+    },
+  })
 }
 
 async function refreshKeys() {
@@ -254,6 +372,27 @@ async function onLanguageChange(lang: string) {
   await App.SetLanguage(lang)
 }
 
+function skillLabel(name: string): string {
+  const key = `skill.names.${name}`
+  const translated = t(key)
+  return translated === key ? name : translated
+}
+
+async function loadSkillSettings() {
+  try {
+    const rows = (await App.AgentListSkills()) as SkillSetting[]
+    skillSettings.value = rows.map((row) => ({
+      name: row.name ?? (row as unknown as { Name?: string }).Name ?? '',
+      description: row.description ?? (row as unknown as { Description?: string }).Description ?? '',
+      enabled: row.enabled ?? (row as unknown as { Enabled?: boolean }).Enabled ?? true,
+      locked: row.locked ?? (row as unknown as { Locked?: boolean }).Locked ?? false,
+      source: row.source ?? (row as unknown as { Source?: string }).Source ?? '',
+    }))
+  } catch {
+    skillSettings.value = []
+  }
+}
+
 async function loadAgentSettings() {
   try {
     const s = (await App.AgentGetSettings()) as {
@@ -271,6 +410,7 @@ async function loadAgentSettings() {
     if (!remoteMCPURL.value) {
       remoteMCPURL.value = await App.AgentDefaultRemoteURL()
     }
+    await loadSkillSettings()
   } catch {
     /* bindings not generated yet */
   }
@@ -278,6 +418,9 @@ async function loadAgentSettings() {
 
 async function saveAgentSettings() {
   try {
+    const disabledSkills = skillSettings.value
+      .filter((s) => !s.enabled && !s.locked)
+      .map((s) => s.name)
     await App.AgentSetSettings(
       desktop.AgentSettings.createFrom({
         chain_id: agentChainId.value,
@@ -285,7 +428,8 @@ async function saveAgentSettings() {
         llm_base_url: llmBaseURL.value,
         llm_model: llmModel.value,
         remote_mcp_url: remoteMCPURL.value,
-      }),
+        disabled_skills: disabledSkills,
+      } as Record<string, unknown>),
     )
     setStatus(t('status.settingsSaved'))
   } catch (err) {
@@ -367,12 +511,14 @@ onMounted(async () => {
 
   defaultChainIds.value = (await App.DefaultChainIDs()) || []
   importChainId.value = defaultChainIds.value[0] || ''
+  whitelistChainId.value = defaultChainIds.value[0] || ''
 
   agents.value = (await App.AgentNames()) || []
   agent.value = await App.DefaultAgent()
   signerPath.value = await App.GuessSignerPath()
 
   await refreshKeys()
+  await refreshWhitelist()
   await loadAgentSettings()
   if (!agentChainId.value && entries.value.length > 0) {
     agentChainId.value = entries.value[0].ChainID
@@ -469,43 +615,116 @@ onMounted(async () => {
       </div>
     </n-tab-pane>
 
+    <!-- Security: whitelist -->
+    <n-tab-pane name="security" :tab="t('tab.security')">
+      <div class="pane-body">
+        <n-divider title-placement="left" class="section-divider">{{ t('tab.addWhitelist') }}</n-divider>
+        <n-form label-placement="top">
+          <n-form-item :label="t('field.chainId')">
+            <n-select
+              v-model:value="whitelistChainId"
+              filterable
+              tag
+              :placeholder="t('ph.chainId')"
+              :options="defaultChainIds.map((c) => ({ label: c, value: c }))"
+            />
+          </n-form-item>
+          <n-form-item :label="t('field.addressType')">
+            <n-select
+              v-model:value="whitelistAddressType"
+              :options="addressTypeOptions.map((o) => ({ label: o.label(), value: o.value }))"
+            />
+          </n-form-item>
+          <n-form-item :label="t('field.whitelistAddress')">
+            <n-input v-model:value="whitelistAddress" :placeholder="t('ph.whitelistAddress')" />
+          </n-form-item>
+        </n-form>
+        <n-button type="primary" @click="saveWhitelist">{{ t('btn.saveWhitelist') }}</n-button>
+        <n-text depth="3" class="hint">{{ t('hint.whitelist') }}</n-text>
+
+        <n-divider title-placement="left" class="section-divider">{{ t('tab.storedWhitelist') }}</n-divider>
+        <n-data-table
+          :columns="whitelistColumns"
+          :data="whitelistEntries"
+          :row-key="(row: WhitelistEntry) => whitelistKey(row)"
+          :row-props="(row: WhitelistEntry) => ({
+            onClick: () => selectWhitelistRow(row),
+            class: selectedWhitelist && whitelistKey(row) === whitelistKey(selectedWhitelist) ? 'row-selected' : '',
+          })"
+          size="small"
+          :max-height="360"
+        />
+        <n-space class="actions">
+          <n-button @click="refreshWhitelist">{{ t('btn.refresh') }}</n-button>
+          <n-button type="error" ghost @click="deleteSelectedWhitelist">{{ t('btn.delete') }}</n-button>
+        </n-space>
+      </div>
+    </n-tab-pane>
+
     <!-- Settings -->
     <n-tab-pane name="settings" :tab="t('tab.settings')">
       <div class="pane-body">
-        <n-form label-placement="top">
-          <n-form-item :label="t('field.language')">
-            <n-radio-group :value="language" @update:value="onLanguageChange">
-              <n-radio-button value="zh">{{ t('lang.chinese') }}</n-radio-button>
-              <n-radio-button value="en">{{ t('lang.english') }}</n-radio-button>
-            </n-radio-group>
-          </n-form-item>
-          <n-form-item :label="t('field.chainId')">
-            <n-select
-              v-model:value="agentChainId"
-              :placeholder="t('ph.chainConfig')"
-              :options="entries.map((e) => ({ label: e.ChainID, value: e.ChainID }))"
-            />
-          </n-form-item>
-          <n-form-item :label="t('field.llmApiKey')">
-            <n-input
-              v-model:value="llmApiKey"
-              type="password"
-              show-password-on="click"
-              :placeholder="t('ph.llmApiKey')"
-            />
-          </n-form-item>
-          <n-form-item :label="t('field.llmBaseURL')">
-            <n-input v-model:value="llmBaseURL" :placeholder="t('ph.llmBaseURL')" />
-          </n-form-item>
-          <n-form-item :label="t('field.llmModel')">
-            <n-input v-model:value="llmModel" :placeholder="t('ph.llmModel')" />
-          </n-form-item>
-          <n-form-item :label="t('field.remoteMCPURL')">
-            <n-input v-model:value="remoteMCPURL" :placeholder="t('ph.remoteMCPURL')" />
-          </n-form-item>
-        </n-form>
-        <n-button type="primary" @click="saveAgentSettings">{{ t('btn.saveSettings') }}</n-button>
-        <n-text depth="3" class="hint">{{ t('hint.assistantSettings') }}</n-text>
+        <n-collapse
+          v-model:expanded-names="settingsExpandedSections"
+          class="settings-collapse"
+        >
+          <n-collapse-item :title="t('settings.section.basic')" name="basic">
+            <n-form label-placement="top">
+              <n-form-item :label="t('field.language')">
+                <n-radio-group :value="language" @update:value="onLanguageChange">
+                  <n-radio-button value="zh">{{ t('lang.chinese') }}</n-radio-button>
+                  <n-radio-button value="en">{{ t('lang.english') }}</n-radio-button>
+                </n-radio-group>
+              </n-form-item>
+              <n-form-item :label="t('field.chainId')">
+                <n-select
+                  v-model:value="agentChainId"
+                  :placeholder="t('ph.chainConfig')"
+                  :options="entries.map((e) => ({ label: e.ChainID, value: e.ChainID }))"
+                />
+              </n-form-item>
+            </n-form>
+          </n-collapse-item>
+
+          <n-collapse-item :title="t('settings.section.llm')" name="llm">
+            <n-form label-placement="top">
+              <n-form-item :label="t('field.llmApiKey')">
+                <n-input
+                  v-model:value="llmApiKey"
+                  type="password"
+                  show-password-on="click"
+                  :placeholder="t('ph.llmApiKey')"
+                />
+              </n-form-item>
+              <n-form-item :label="t('field.llmBaseURL')">
+                <n-input v-model:value="llmBaseURL" :placeholder="t('ph.llmBaseURL')" />
+              </n-form-item>
+              <n-form-item :label="t('field.llmModel')">
+                <n-input v-model:value="llmModel" :placeholder="t('ph.llmModel')" />
+              </n-form-item>
+              <n-form-item :label="t('field.remoteMCPURL')">
+                <n-input v-model:value="remoteMCPURL" :placeholder="t('ph.remoteMCPURL')" />
+              </n-form-item>
+            </n-form>
+            <n-text depth="3" class="hint">{{ t('hint.assistantSettings') }}</n-text>
+          </n-collapse-item>
+
+          <n-collapse-item :title="t('skill.section')" name="skills">
+            <div v-if="skillSettings.length" class="skill-list">
+              <div v-for="skill in skillSettings" :key="skill.name" class="skill-row">
+                <div class="skill-copy">
+                  <n-text strong>{{ skillLabel(skill.name) }}</n-text>
+                  <n-text depth="3" tag="div" class="skill-desc">{{ skill.description }}</n-text>
+                </div>
+                <n-switch v-model:value="skill.enabled" :disabled="skill.locked" />
+              </div>
+            </div>
+            <n-text v-else depth="3" class="hint">{{ t('skill.empty') }}</n-text>
+            <n-text depth="3" class="hint">{{ t('hint.skills') }}</n-text>
+          </n-collapse-item>
+        </n-collapse>
+
+        <n-button type="primary" class="settings-save" @click="saveAgentSettings">{{ t('btn.saveSettings') }}</n-button>
       </div>
     </n-tab-pane>
 
@@ -614,6 +833,62 @@ onMounted(async () => {
 
 .hint {
   font-size: 12px;
+}
+
+.skill-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+
+.settings-collapse {
+  margin-bottom: 12px;
+}
+
+.settings-collapse :deep(.n-collapse-item) {
+  border: 1px solid #ececec;
+  border-radius: 10px;
+  overflow: hidden;
+  margin-top: 0;
+}
+
+.settings-collapse :deep(.n-collapse-item + .n-collapse-item) {
+  margin-top: 10px;
+}
+
+.settings-collapse :deep(.n-collapse-item__header) {
+  padding: 10px 14px;
+  font-weight: 600;
+}
+
+.settings-collapse :deep(.n-collapse-item__content-inner) {
+  padding: 0 14px 14px;
+}
+
+.settings-save {
+  margin-top: 4px;
+}
+
+.skill-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 12px;
+  border: 1px solid #ececec;
+  border-radius: 8px;
+}
+
+.skill-copy {
+  min-width: 0;
+  flex: 1;
+}
+
+.skill-desc {
+  margin-top: 4px;
+  font-size: 12px;
+  line-height: 1.4;
 }
 
 .preview {

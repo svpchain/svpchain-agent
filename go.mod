@@ -15,6 +15,7 @@ require (
 	github.com/wailsapp/wails/v2 v2.12.0
 	golang.org/x/mod v0.26.0
 	golang.org/x/term v0.34.0
+	gopkg.in/yaml.v3 v3.0.1
 )
 
 // bytedance/sonic (pulled in via gin) must match the chain monorepo pin —
@@ -200,7 +201,6 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250818200422-3122310a409c // indirect
 	google.golang.org/grpc v1.75.0 // indirect
 	google.golang.org/protobuf v1.36.10 // indirect
-	gopkg.in/yaml.v3 v3.0.1 // indirect
 	gotest.tools/v3 v3.5.2 // indirect
 	nhooyr.io/websocket v1.8.11 // indirect
 	pgregory.net/rapid v1.2.0 // indirect

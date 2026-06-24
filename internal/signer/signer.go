@@ -137,7 +137,7 @@ func Sign(priv *ethsecp256k1.PrivKey, p *payload.TxPayload) (*payload.SignedTx, 
 
 	// The remote builder is untrusted: decode the body and enforce the signer's
 	// own message-type policy before signing, rather than treating it as opaque.
-	if err := validateTxBody(bodyBytes, p.Summary, signerAddr); err != nil {
+	if err := validateTxBody(bodyBytes, p.Summary, signerAddr, p.ChainID); err != nil {
 		return nil, fmt.Errorf("tx body policy check failed: %w", err)
 	}
 

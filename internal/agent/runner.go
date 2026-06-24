@@ -9,6 +9,7 @@ import (
 
 	"github.com/99designs/keyring"
 
+	"github.com/svpchain/svpchain-agent/internal/agent/skills"
 	"github.com/svpchain/svpchain-agent/internal/keystore"
 	"github.com/svpchain/svpchain-agent/internal/manage"
 	"github.com/svpchain/svpchain-agent/internal/signer"
@@ -41,24 +42,6 @@ type Config struct {
 }
 
 const maxAgentIterations = 25
-
-const systemPrompt = `You are an svpchain trading assistant with access to MCP tools.
-
-Workflow for on-chain writes:
-1. Use remote build_* tools to construct unsigned transactions (or EVM payloads).
-2. Sign locally with sign_transaction / sign_evm_transaction (never skip signing).
-3. Broadcast with broadcast_signed_tx or broadcast_evm_tx on the remote server.
-4. Pass signed_tx fields VERBATIM from sign_* to broadcast_*.
-
-For x402 paid HTTP content: use http_fetch; on 402, parse payment requirements from the body/headers, build EIP-712 typed_data, sign with sign_typed_data, encode payment in X-PAYMENT header, retry http_fetch.
-
-Sending SVP (or any bank denom) to a 0x EVM address: build_bank_send only accepts svp1… recipients. When the user gives a 0x address, FIRST call evm_to_bech32 to convert it, then use the returned svp1… owner as build_bank_send.recipient (denom "asvp" for SVP). Never pass a 0x address straight to build_bank_send.
-
-For ERC20/ERC721 contract calls (transfer, approve, transferFrom, safeTransferFrom, setApprovalForAll): use the remote build_erc20_* / build_erc721_* tools — they return a ready-to-sign EVMTxPayload (nonce/gas/fees filled). ERC20 amounts are human units; ERC721 uses token_id. Then sign_evm_transaction and broadcast_evm_tx, exactly like build_swap.
-
-Use signer_whoami to confirm which local key is loaded. Remote whoami returns tenant policy after auth.
-
-Be concise in final answers. Show tx hashes and key numbers when operations succeed.`
 
 // Run executes one user message through the agent loop.
 func Run(ctx context.Context, cfg Config, userMessage string) (string, error) {
@@ -110,6 +93,11 @@ func Run(ctx context.Context, cfg Config, userMessage string) (string, error) {
 	tools, err := buildToolList(ctx, remote)
 	if err != nil {
 		return "", err
+	}
+
+	systemPrompt, err := skills.ComposeSystemPrompt(toolNames(tools))
+	if err != nil {
+		return "", fmt.Errorf("load agent skills: %w", err)
 	}
 
 	llm := NewLLMClient(cfg.LLM)
@@ -197,4 +185,14 @@ func dispatchTool(ctx context.Context, remote *RemoteClient, local *LocalSigner,
 		return local.CallTool(ctx, name, args)
 	}
 	return remote.CallTool(ctx, name, args)
+}
+
+func toolNames(tools []llmTool) []string {
+	names := make([]string, 0, len(tools))
+	for _, t := range tools {
+		if n := strings.TrimSpace(t.Function.Name); n != "" {
+			names = append(names, n)
+		}
+	}
+	return names
 }

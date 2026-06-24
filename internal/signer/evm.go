@@ -14,6 +14,7 @@ import (
 	ethcrypto "github.com/ethereum/go-ethereum/crypto"
 
 	"github.com/svpchain/svpchain-agent/internal/payload"
+	"github.com/svpchain/svpchain-agent/internal/whitelist"
 )
 
 // DeriveEvmAddress returns the 0x-checksummed Ethereum address derived from
@@ -45,14 +46,8 @@ func EvmToBech32(evmAddr string) (string, error) {
 // returns the canonical RLP-encoded signed transaction (hex) ready for
 // eth_sendRawTransaction. Supports EIP-1559 (type 2) and legacy txs.
 //
-// Cross-checks (mirror of Sign for the Cosmos path):
-//   - p.Version must equal payload.CurrentVersion.
-//   - If p.SignerAddress is non-empty it must equal the key-derived 0x
-//     address; empty is tolerated for ad-hoc demos.
-//
-// The EVM chain-id replay guard (payload chain id == the signer's bound chain)
-// lives in the handler, before this is called, alongside the Cosmos one.
-func SignEvm(priv *ethsecp256k1.PrivKey, p *payload.EvmTxPayload) (*payload.SignedEvmTx, error) {
+// chainID is the Cosmos chain id string (--chain-id) used for whitelist lookup.
+func SignEvm(priv *ethsecp256k1.PrivKey, p *payload.EvmTxPayload, cosmosChainID string) (*payload.SignedEvmTx, error) {
 	if p.Version != payload.CurrentVersion {
 		return nil, fmt.Errorf("unsupported EvmTxPayload version %d (want %d)", p.Version, payload.CurrentVersion)
 	}
@@ -68,11 +63,11 @@ func SignEvm(priv *ethsecp256k1.PrivKey, p *payload.EvmTxPayload) (*payload.Sign
 		}
 	}
 
-	chainID, err := parseBigInt(p.EVMChainID, "evm_chain_id")
+	evmChainID, err := parseBigInt(p.EVMChainID, "evm_chain_id")
 	if err != nil {
 		return nil, err
 	}
-	if chainID.Sign() <= 0 {
+	if evmChainID.Sign() <= 0 {
 		return nil, fmt.Errorf("evm_chain_id must be positive, got %q", p.EVMChainID)
 	}
 	nonce, err := strconv.ParseUint(p.Nonce, 10, 64)
@@ -91,12 +86,17 @@ func SignEvm(priv *ethsecp256k1.PrivKey, p *payload.EvmTxPayload) (*payload.Sign
 	if err != nil {
 		return nil, err
 	}
+	if to != nil && value.Sign() > 0 {
+		if err := whitelist.CheckEVMRecipient(cosmosChainID, to.Hex()); err != nil {
+			return nil, err
+		}
+	}
 	data, err := parseData(p.Data)
 	if err != nil {
 		return nil, err
 	}
 
-	inner, err := buildTxData(p, chainID, nonce, gas, value, to, data)
+	inner, err := buildTxData(p, evmChainID, nonce, gas, value, to, data)
 	if err != nil {
 		return nil, err
 	}
@@ -105,7 +105,7 @@ func SignEvm(priv *ethsecp256k1.PrivKey, p *payload.EvmTxPayload) (*payload.Sign
 	if err != nil {
 		return nil, fmt.Errorf("convert key to ecdsa: %w", err)
 	}
-	signed, err := ethtypes.SignTx(ethtypes.NewTx(inner), ethtypes.LatestSignerForChainID(chainID), ecdsaKey)
+	signed, err := ethtypes.SignTx(ethtypes.NewTx(inner), ethtypes.LatestSignerForChainID(evmChainID), ecdsaKey)
 	if err != nil {
 		return nil, fmt.Errorf("sign evm tx: %w", err)
 	}

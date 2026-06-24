@@ -92,7 +92,7 @@ func (h *Handlers) SignEvmTransaction(
 			in.Payload.EVMChainID, want,
 		)
 	}
-	signed, err := signer.SignEvm(h.Priv, &in.Payload)
+	signed, err := signer.SignEvm(h.Priv, &in.Payload, h.ChainID)
 	if err != nil {
 		return nil, SignEvmTransactionOutput{}, err
 	}

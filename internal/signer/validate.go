@@ -9,6 +9,7 @@ import (
 	"github.com/cosmos/gogoproto/proto"
 
 	"github.com/svpchain/svpchain-agent/internal/payload"
+	"github.com/svpchain/svpchain-agent/internal/whitelist"
 )
 
 // bankMsgSendTypeURL is the Any type URL for a x/bank send; the only message
@@ -55,7 +56,7 @@ var allowedMsgTypeURLs = map[string]struct{}{
 // This guards only against a hostile builder returning a different transaction
 // than expected; it cannot know the user's intended recipient/amount, which is
 // out of scope here (would require caller-supplied intent or a confirmation step).
-func validateTxBody(bodyBytes []byte, summary payload.Summary, signerAddr string) error {
+func validateTxBody(bodyBytes []byte, summary payload.Summary, signerAddr, chainID string) error {
 	var body txtypes.TxBody
 	if err := proto.Unmarshal(bodyBytes, &body); err != nil {
 		return fmt.Errorf("decode tx body: %w", err)
@@ -76,7 +77,7 @@ func validateTxBody(bodyBytes []byte, summary payload.Summary, signerAddr string
 			summaryTypeSeen = true
 		}
 		if msg.TypeUrl == bankMsgSendTypeURL {
-			if err := validateBankSend(msg.Value, summary, signerAddr); err != nil {
+			if err := validateBankSend(msg.Value, summary, signerAddr, chainID); err != nil {
 				return fmt.Errorf("message %d: %w", i, err)
 			}
 		}
@@ -95,7 +96,7 @@ func validateTxBody(bodyBytes []byte, summary payload.Summary, signerAddr string
 // fields: the sender must be this signer (when known), the amount must be a
 // valid non-empty coin set, and — when the Summary names a recipient — it must
 // match the on-chain ToAddress.
-func validateBankSend(value []byte, summary payload.Summary, signerAddr string) error {
+func validateBankSend(value []byte, summary payload.Summary, signerAddr, chainID string) error {
 	var msg banktypes.MsgSend
 	if err := proto.Unmarshal(value, &msg); err != nil {
 		return fmt.Errorf("decode MsgSend: %w", err)
@@ -119,5 +120,5 @@ func validateBankSend(value []byte, summary payload.Summary, signerAddr string) 
 		return fmt.Errorf("summary.recipient_owner %q does not match MsgSend.to_address %q",
 			summary.RecipientOwner, msg.ToAddress)
 	}
-	return nil
+	return whitelist.CheckCosmosRecipient(chainID, msg.ToAddress)
 }

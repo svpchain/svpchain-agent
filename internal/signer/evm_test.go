@@ -48,7 +48,7 @@ func TestSignEvm_EIP1559_RoundTrip(t *testing.T) {
 	addr := signer.DeriveEvmAddress(priv)
 	p := newEvmPayload(addr)
 
-	signed, err := signer.SignEvm(priv, p)
+	signed, err := signer.SignEvm(priv, p, "")
 	require.NoError(t, err)
 	require.NotEmpty(t, signed.RawTxHex)
 	require.NotEmpty(t, signed.TxHash)
@@ -80,7 +80,7 @@ func TestSignEvm_Legacy_RoundTrip(t *testing.T) {
 	p.MaxPriorityFeePerGas = ""
 	p.GasPrice = "3000000000"
 
-	signed, err := signer.SignEvm(priv, p)
+	signed, err := signer.SignEvm(priv, p, "")
 	require.NoError(t, err)
 
 	tx := decodeRaw(t, signed.RawTxHex)
@@ -100,7 +100,7 @@ func TestSignEvm_InfersTypeFromFields(t *testing.T) {
 	// No TxType, max_fee_per_gas set => EIP-1559.
 	p := newEvmPayload(addr)
 	p.TxType = ""
-	signed, err := signer.SignEvm(priv, p)
+	signed, err := signer.SignEvm(priv, p, "")
 	require.NoError(t, err)
 	require.Equal(t, uint8(ethtypes.DynamicFeeTxType), decodeRaw(t, signed.RawTxHex).Type())
 
@@ -110,7 +110,7 @@ func TestSignEvm_InfersTypeFromFields(t *testing.T) {
 	p.MaxFeePerGas = ""
 	p.MaxPriorityFeePerGas = ""
 	p.GasPrice = "3000000000"
-	signed, err = signer.SignEvm(priv, p)
+	signed, err = signer.SignEvm(priv, p, "")
 	require.NoError(t, err)
 	require.Equal(t, uint8(ethtypes.LegacyTxType), decodeRaw(t, signed.RawTxHex).Type())
 }
@@ -122,7 +122,7 @@ func TestSignEvm_ContractCreation_NilTo(t *testing.T) {
 	p.To = ""
 	p.Data = "0x6001600101"
 
-	signed, err := signer.SignEvm(priv, p)
+	signed, err := signer.SignEvm(priv, p, "")
 	require.NoError(t, err)
 	tx := decodeRaw(t, signed.RawTxHex)
 	require.Nil(t, tx.To(), "empty To must yield a contract-creation tx")
@@ -132,7 +132,7 @@ func TestSignEvm_ContractCreation_NilTo(t *testing.T) {
 func TestSignEvm_RejectsAddressMismatch(t *testing.T) {
 	priv := newRandomPriv(t)
 	p := newEvmPayload("0x1111111111111111111111111111111111111111")
-	_, err := signer.SignEvm(priv, p)
+	_, err := signer.SignEvm(priv, p, "")
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "does not match payload.signer_address")
 }
@@ -140,7 +140,7 @@ func TestSignEvm_RejectsAddressMismatch(t *testing.T) {
 func TestSignEvm_AcceptsEmptySignerAddress(t *testing.T) {
 	priv := newRandomPriv(t)
 	p := newEvmPayload("")
-	signed, err := signer.SignEvm(priv, p)
+	signed, err := signer.SignEvm(priv, p, "")
 	require.NoError(t, err)
 	require.NotEmpty(t, signed.RawTxHex)
 }
@@ -149,7 +149,7 @@ func TestSignEvm_RejectsUnsupportedVersion(t *testing.T) {
 	priv := newRandomPriv(t)
 	p := newEvmPayload(signer.DeriveEvmAddress(priv))
 	p.Version = 9999
-	_, err := signer.SignEvm(priv, p)
+	_, err := signer.SignEvm(priv, p, "")
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "unsupported EvmTxPayload version")
 }
@@ -158,7 +158,7 @@ func TestSignEvm_RejectsBadChainID(t *testing.T) {
 	priv := newRandomPriv(t)
 	p := newEvmPayload(signer.DeriveEvmAddress(priv))
 	p.EVMChainID = "0"
-	_, err := signer.SignEvm(priv, p)
+	_, err := signer.SignEvm(priv, p, "")
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "evm_chain_id must be positive")
 }

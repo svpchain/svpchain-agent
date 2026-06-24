@@ -7,7 +7,8 @@ import { EventsOn } from '../wailsjs/runtime/runtime'
 
 const { t } = useI18n()
 
-type Entry = { ChainID: string; Owner: string; EVMAddr: string }
+import type { Entry } from './types'
+
 type ChatLine = { role: 'user' | 'assistant' | 'step'; text: string; kind?: string }
 
 const props = defineProps<{ entries: Entry[] }>()

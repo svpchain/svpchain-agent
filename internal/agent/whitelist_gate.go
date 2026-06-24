@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/svpchain/svpchain-agent/internal/whitelist"
@@ -42,15 +43,23 @@ func (e *WhitelistRejection) Error() string { return e.Err.Error() }
 
 func (e *WhitelistRejection) Unwrap() error { return e.Err }
 
-// checkWhitelistGate rejects a guarded tool call whose recipient/spender is not
-// on the whitelist for chainID. It returns nil for tools that are not gated and
-// when whitelist enforcement is inactive (no entries), reusing the same
-// semantics as the signer-layer checks in internal/whitelist/enforce.go. A
-// rejection is wrapped in *WhitelistRejection so the caller can terminate.
+// checkWhitelistGate rejects a guarded tool call before it reaches the remote
+// MCP. For the GUI assistant the whitelist is mandatory: if NO whitelist is
+// configured, every transfer/approval tool is refused with a prompt to add one
+// first (this is stricter than the signer-layer "empty = unrestricted" default
+// in internal/whitelist/enforce.go, and applies only to the assistant). When a
+// whitelist exists, the recipient/spender must be on it. A rejection is wrapped
+// in *WhitelistRejection so the caller terminates instead of retrying.
 func checkWhitelistGate(chainID, name string, args map[string]any) error {
 	g, ok := transferGuardedTools[name]
 	if !ok {
 		return nil
+	}
+	// Mandatory whitelist: refuse all transfers until the user configures one.
+	if !whitelist.LoadStore().Enforced() {
+		return &WhitelistRejection{Err: fmt.Errorf(
+			"no whitelist configured for chain %q — add a recipient in the Security tab before transferring",
+			chainID)}
 	}
 	addr := ""
 	if args != nil {
@@ -58,9 +67,8 @@ func checkWhitelistGate(chainID, name string, args map[string]any) error {
 			addr = strings.TrimSpace(v)
 		}
 	}
-	// An empty address either means "to self" (optional, e.g. bridge deposit) or
-	// is a malformed call the downstream builder will reject; either way the
-	// whitelist gate has nothing to check.
+	// An empty address means "to self" (e.g. bridge deposit) or a malformed call
+	// the downstream builder will reject; the whitelist gate has nothing to check.
 	if addr == "" {
 		return nil
 	}

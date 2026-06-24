@@ -42,12 +42,23 @@ func TestCheckWhitelistGate(t *testing.T) {
 	allowedCosmos := cosmosAddr(0x11)
 	blockedCosmos := cosmosAddr(0x22)
 
-	t.Run("empty whitelist allows everything", func(t *testing.T) {
+	t.Run("empty whitelist rejects transfers", func(t *testing.T) {
 		writePrefs(t, `{}`)
-		require.NoError(t, checkWhitelistGate(gateChainID, "build_erc20_transfer",
-			map[string]any{"to": blockedEVM}))
-		require.NoError(t, checkWhitelistGate(gateChainID, "build_bank_send",
-			map[string]any{"recipient": blockedCosmos}))
+		err := checkWhitelistGate(gateChainID, "build_erc20_transfer",
+			map[string]any{"to": blockedEVM})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "no whitelist configured")
+		var rej *WhitelistRejection
+		require.ErrorAs(t, err, &rej)
+
+		err = checkWhitelistGate(gateChainID, "build_bank_send",
+			map[string]any{"recipient": blockedCosmos})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "no whitelist configured")
+
+		// Non-transfer tools stay allowed even with no whitelist configured.
+		require.NoError(t, checkWhitelistGate(gateChainID, "get_balance",
+			map[string]any{"owner": blockedCosmos}))
 	})
 
 	t.Run("evm transfer enforced", func(t *testing.T) {

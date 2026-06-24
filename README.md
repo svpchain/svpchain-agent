@@ -30,7 +30,7 @@ The signer runs over **stdio** (no network port; the process that starts it is t
                               (Keychain / Cred Mgr / Secret Service)
 ```
 
-On-chain write flow the assistant follows: remote `build_*` → local `sign_*` → remote `broadcast_*`, passing `signed_tx` fields verbatim. Authentication uses a signed `svpchain-mcp-auth-v1:` challenge (signed locally), exchanged for a bearer token. When configured, the local signer also enforces a transfer whitelist before signing.
+On-chain write flow the assistant follows: remote `build_*` → local `sign_*` → remote `broadcast_*`, passing `signed_tx` fields verbatim. Authentication uses a signed `svpchain-mcp-auth-v1:` challenge (signed locally), exchanged for a bearer token. When configured, a transfer whitelist is enforced both before the assistant builds a transfer (pre-flight, covering contract transfers) and again at the local signer.
 
 ## Project layout
 
@@ -39,11 +39,11 @@ cmd/
   svpchain-mcp/   # stdio signing MCP CLI: serve (default) / import / delete / list
   svpchain-gui/   # Wails GUI: Go entry + embedded Vue frontend
 internal/
-  agent/          # LLM tool-calling loop: remote MCP client + in-process local signer
+  agent/          # LLM tool-calling loop: remote MCP client + in-process local signer; pre-flight whitelist gate on transfers
     skills/       # Bundled SKILL.md modules; composes the assistant system prompt
   mcp/            # MCP tool handlers (sign_transaction / sign_evm_transaction / sign_typed_data / sign_challenge / whoami)
   signer/         # transaction + challenge signing (eth_secp256k1); transfer policy checks
-  whitelist/      # address whitelist store + enforcement at sign time
+  whitelist/      # address whitelist store + recipient checks (used by the agent gate and the signer)
   manage/         # key import / list / delete, MCP config generation, remote URL
   keystore/       # OS credential store read/write
   payload/        # TxPayload / SignedTx / EvmTxPayload types
@@ -68,7 +68,7 @@ These run in the local signer (and in-process inside the GUI assistant). Every t
 | `sign_challenge` | `challenge` (text) → `{signature, owner}` | Signs an svpchain self-service auth challenge. **Refuses** any text that does not start with `svpchain-mcp-auth-v1:` plus a matching chain id — never a generic message-signing oracle. |
 | `whoami` | none → `{owner, chain_id, evm_owner, evm_chain_id}` | Returns the bech32 `svp1…` address **and** the corresponding `0x` EVM address (same key), plus the configured Cosmos/EVM chain ids. The key itself is never exposed. |
 
-`v0.1` auto-approves well-formed payloads that pass chain-id and signer-address cross-checks. **Transfer whitelist** (Cosmos `MsgSend` and EVM native sends) is enforced when the GUI whitelist is non-empty. Per-tool limits, prompt modes, and MCP elicitation are planned.
+`v0.1` auto-approves well-formed payloads that pass chain-id and signer-address cross-checks. The **transfer whitelist** is enforced when the GUI whitelist is non-empty — at the assistant pre-flight gate (transfers, approvals, bridge, including ERC-20/721 contract calls) and again at the signer layer (Cosmos `MsgSend` and EVM native sends); see [Transfer whitelist](#transfer-whitelist). Per-tool limits, prompt modes, and MCP elicitation are planned.
 
 ## Graphical app (svpchain-gui)
 
@@ -93,12 +93,25 @@ The app supports **English and Chinese** (Settings → Basic; persisted). Overri
 
 ### Transfer whitelist
 
-Whitelist entries live in the GUI preferences file (`prefs.json` under the app config directory) and are checked **before signing**:
+Whitelist entries live in the GUI preferences file (`prefs.json` under the app config directory). Empty list = no restriction (backward compatible). Enforcement happens at **two layers**:
+
+**1. Assistant pre-flight gate (agent layer).** Before the assistant forwards a transfer/approval `build_*` tool call to the remote MCP, the recipient/spender taken straight from the tool arguments is checked against the whitelist. A non-whitelisted address is rejected up front with `… is not on the whitelist …` — no `build`, `sign`, or `broadcast` happens. Because the address comes from the tool arguments (not raw calldata), this also covers **ERC-20/721 contract transfers**. Gated tools:
+
+| Tool | Checked argument | Type |
+|------|------------------|------|
+| `build_bank_send` | `recipient` | Cosmos |
+| `build_erc20_transfer`, `build_erc20_transfer_from` | `to` | EVM |
+| `build_erc721_transfer_from`, `build_erc721_safe_transfer_from` | `to` | EVM |
+| `build_bridge_deposit` | `recipient` (empty = self, allowed) | EVM |
+| `build_erc20_approve`, `build_erc721_approve` | `spender` | EVM |
+| `build_erc721_set_approval_for_all` | `operator` | EVM |
+
+**2. Signer fallback (sign layer).** As a second line of defense, the local signer also checks at sign time:
 
 - **Cosmos** — `cosmos.bank.v1beta1.MsgSend` recipient (`to_address`)
 - **EVM** — native transfers only (`to` non-empty and `value` > 0)
 
-Contract calls and zero-value EVM transactions are not filtered by the whitelist today. The same rules apply to the in-app assistant and the standalone `svpchain-mcp` signer (both read the shared `prefs.json`).
+At the signer layer, contract calls and zero-value EVM transactions are not decoded, so they are caught by the pre-flight gate above rather than here. The same rules apply to the in-app assistant and the standalone `svpchain-mcp` signer (both read the shared `prefs.json`).
 
 ### Assistant skills
 

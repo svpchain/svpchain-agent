@@ -135,7 +135,7 @@ func Run(ctx context.Context, cfg Config, userMessage string) (string, error) {
 			}
 			emit(Step{Kind: StepTool, Title: "Calling " + name, Detail: truncate(tc.Function.Arguments, 300)})
 
-			result, callErr := dispatchTool(ctx, remote, local, name, args)
+			result, callErr := dispatchTool(ctx, chainID, remote, local, name, args)
 			if callErr != nil {
 				result = fmt.Sprintf("error: %v", callErr)
 				emit(Step{Kind: StepError, Title: name + " failed", Detail: callErr.Error()})
@@ -177,7 +177,12 @@ func buildToolList(ctx context.Context, remote *RemoteClient) ([]llmTool, error)
 	return out, nil
 }
 
-func dispatchTool(ctx context.Context, remote *RemoteClient, local *LocalSigner, name string, args map[string]any) (string, error) {
+func dispatchTool(ctx context.Context, chainID string, remote *RemoteClient, local *LocalSigner, name string, args map[string]any) (string, error) {
+	// Whitelist gate: reject a transfer/approval to a non-whitelisted recipient
+	// before the build_* call is forwarded — no build, sign, or broadcast happens.
+	if err := checkWhitelistGate(chainID, name, args); err != nil {
+		return "", err
+	}
 	if isHttpTool(name) {
 		return HTTPFetchFromArgs(args)
 	}

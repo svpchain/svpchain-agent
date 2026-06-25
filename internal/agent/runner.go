@@ -203,6 +203,16 @@ func dispatchTool(ctx context.Context, chainID string, remote *RemoteClient, loc
 	if isHttpTool(name) {
 		return HTTPFetchFromArgs(args)
 	}
+	if isX402Tool(name) {
+		switch name {
+		case "x402_prepare_typed_data":
+			return x402PrepareFromArgs(args)
+		case "x402_build_payment":
+			return x402BuildPaymentFromArgs(args)
+		default:
+			return "", fmt.Errorf("unknown x402 tool %q", name)
+		}
+	}
 	if isLocalTool(name) {
 		return local.CallTool(ctx, name, args)
 	}

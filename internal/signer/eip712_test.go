@@ -199,6 +199,18 @@ func TestSignTypedData_RejectsFromMismatch(t *testing.T) {
 	require.Contains(t, err.Error(), "message.from")
 }
 
+func TestSignTypedData_AcceptsShortNonceByLeftPadding(t *testing.T) {
+	priv := newRandomPriv(t)
+	addr := signer.DeriveEvmAddress(priv)
+	td := newX402TypedData(addr)
+	// LLMs often emit 31-byte nonces (62 hex chars) — signer left-pads to bytes32.
+	td.Message["nonce"] = "0x8a4f3c9d2e1b7a5f6c8d0e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3"
+
+	signed, err := signer.SignTypedData(priv, td, 1234)
+	require.NoError(t, err)
+	require.NotEmpty(t, signed.Signature)
+}
+
 func TestSignTypedData_DisabledWhenNoChainID(t *testing.T) {
 	priv := newRandomPriv(t)
 	td := newX402TypedData(signer.DeriveEvmAddress(priv))

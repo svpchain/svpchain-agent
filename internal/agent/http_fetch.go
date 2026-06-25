@@ -44,12 +44,14 @@ func HTTPFetch(method, url string, headers map[string]string, body string) (stri
 		"body":        string(bz),
 	}
 	if resp.StatusCode == http.StatusPaymentRequired {
-		// Surface common x402 header for the LLM.
-		if pay := resp.Header.Get("X-PAYMENT-REQUIREMENTS"); pay != "" {
-			out["x_payment_requirements"] = pay
+		if pay := firstHeader(resp.Header, "Payment-Required", "PAYMENT-REQUIRED", "X-PAYMENT-REQUIREMENTS"); pay != "" {
+			out["payment_required"] = pay
 		}
 		if www := resp.Header.Get("WWW-Authenticate"); www != "" {
 			out["www_authenticate"] = www
+		}
+		if submit := firstHeader(resp.Header, "X-Payment-Submit-Header"); submit != "" {
+			out["payment_submit_header"] = submit
 		}
 	}
 	b, err := json.Marshal(out)
@@ -67,6 +69,17 @@ func headerMap(h http.Header) map[string]string {
 		}
 	}
 	return m
+}
+
+func firstHeader(h http.Header, names ...string) string {
+	for _, name := range names {
+		for k, vs := range h {
+			if strings.EqualFold(k, name) && len(vs) > 0 && vs[0] != "" {
+				return vs[0]
+			}
+		}
+	}
+	return ""
 }
 
 // BuildXPaymentHeader encodes an x402 payment payload for the X-PAYMENT header.

@@ -234,7 +234,7 @@ func LocalToolDefs() []llmTool {
 			Type: "function",
 			Function: llmFunction{
 				Name:        "http_fetch",
-				Description: "HTTP GET/POST for x402 paid content. On 402, parse payment requirements, sign with sign_typed_data, retry with X-PAYMENT header (base64 JSON payment payload).",
+				Description: "HTTP GET/POST for x402 paid content. On 402, read payment_required from the response, call x402_prepare_typed_data, sign_typed_data, x402_build_payment, then retry with X-PAYMENT or PAYMENT-SIGNATURE header.",
 				Parameters: map[string]any{
 					"type": "object",
 					"properties": map[string]any{
@@ -244,6 +244,38 @@ func LocalToolDefs() []llmTool {
 						"body":    map[string]any{"type": "string"},
 					},
 					"required": []string{"url"},
+				},
+			},
+		},
+		{
+			Type: "function",
+			Function: llmFunction{
+				Name:        "x402_prepare_typed_data",
+				Description: "Build EIP-712 TransferWithAuthorization typed_data from a base64 PAYMENT-REQUIRED header. Generates a cryptographically random 32-byte nonce and validBefore window — do NOT invent nonce by hand.",
+				Parameters: map[string]any{
+					"type": "object",
+					"properties": map[string]any{
+						"payment_required": map[string]any{"type": "string", "description": "Base64 PAYMENT-REQUIRED header from http_fetch 402 response"},
+						"from":             map[string]any{"type": "string", "description": "Payer 0x address (evm_owner from signer_whoami)"},
+					},
+					"required": []string{"payment_required", "from"},
+				},
+			},
+		},
+		{
+			Type: "function",
+			Function: llmFunction{
+				Name:        "x402_build_payment",
+				Description: "Assemble x402 v2 payment payload and base64 header value after sign_typed_data. Pass accepted from x402_prepare_typed_data, signature from sign_typed_data, and authorization from typed_data.message.",
+				Parameters: map[string]any{
+					"type": "object",
+					"properties": map[string]any{
+						"accepted":      map[string]any{"type": "object"},
+						"signature":     map[string]any{"type": "string"},
+						"authorization": map[string]any{"type": "object"},
+						"x402_version":  map[string]any{"type": "integer"},
+					},
+					"required": []string{"accepted", "signature", "authorization"},
 				},
 			},
 		},

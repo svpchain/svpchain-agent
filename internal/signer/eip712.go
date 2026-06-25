@@ -91,6 +91,9 @@ func SignTypedData(priv *ethsecp256k1.PrivKey, td *payload.EIP712TypedData, evmC
 		if err := validateTransferWithAuthorization(td); err != nil {
 			return nil, err
 		}
+		if err := normalizeTransferWithAuthorizationMessage(td.Message); err != nil {
+			return nil, err
+		}
 		from, err := messageAddress(td.Message, "from")
 		if err != nil {
 			return nil, err
@@ -157,6 +160,55 @@ func validateTransferWithAuthorization(td *payload.EIP712TypedData) error {
 		return fmt.Errorf("domain.verifyingContract %q is not a valid 0x address", td.Domain.VerifyingContract)
 	}
 	return nil
+}
+
+// normalizeTransferWithAuthorizationMessage fixes common wire-format issues before hashing,
+// especially LLM-generated nonces that are shorter than 32 bytes.
+func normalizeTransferWithAuthorizationMessage(msg map[string]interface{}) error {
+	if msg == nil {
+		return fmt.Errorf("message is required")
+	}
+	raw, ok := msg["nonce"]
+	if !ok || raw == nil {
+		return fmt.Errorf("message.nonce is required")
+	}
+	s, ok := raw.(string)
+	if !ok {
+		return fmt.Errorf("message.nonce must be a 0x hex string")
+	}
+	normalized, err := normalizeBytes32Hex(s)
+	if err != nil {
+		return fmt.Errorf("message.nonce: %w", err)
+	}
+	msg["nonce"] = normalized
+	return nil
+}
+
+func normalizeBytes32Hex(s string) (string, error) {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return "", fmt.Errorf("bytes32 value is required")
+	}
+	if !strings.HasPrefix(s, "0x") && !strings.HasPrefix(s, "0X") {
+		return "", fmt.Errorf("bytes32 must be 0x-prefixed hex")
+	}
+	hexStr := strings.TrimPrefix(strings.TrimPrefix(s, "0x"), "0X")
+	if len(hexStr)%2 == 1 {
+		hexStr = "0" + hexStr
+	}
+	bz, err := hexutil.Decode("0x" + hexStr)
+	if err != nil {
+		return "", fmt.Errorf("invalid hex: %w", err)
+	}
+	switch {
+	case len(bz) < 32:
+		padded := make([]byte, 32)
+		copy(padded[32-len(bz):], bz)
+		bz = padded
+	case len(bz) > 32:
+		return "", fmt.Errorf("bytes32 must be at most 32 bytes (got %d)", len(bz))
+	}
+	return hexutil.Encode(bz), nil
 }
 
 func validatePermitWitnessTransferFrom(td *payload.EIP712TypedData) error {

@@ -29,6 +29,7 @@ Usage:
   svpchain-mcp import --chain-id <id>   store a key in the OS credential store
   svpchain-mcp delete --chain-id <id>   remove a stored key
   svpchain-mcp list                     list stored chain ids
+  svpchain-mcp a2a serve                expose this agent via Google A2A protocol
   svpchain-mcp help                     show this help
 
 One key per chain: the signing key is read from the OS credential store

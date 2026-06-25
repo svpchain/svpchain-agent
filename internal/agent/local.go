@@ -265,6 +265,21 @@ func LocalToolDefs() []llmTool {
 		{
 			Type: "function",
 			Function: llmFunction{
+				Name:        "a2a_send_message",
+				Description: "Send a message to another A2A-compatible agent and return its reply. Use for delegating sub-tasks (compliance review, research, etc.) to remote agents. agent_url is the base URL of the remote agent (Agent Card is fetched from /.well-known/agent-card.json).",
+				Parameters: map[string]any{
+					"type": "object",
+					"properties": map[string]any{
+						"agent_url": map[string]any{"type": "string", "description": "Base URL of the remote A2A agent, e.g. http://localhost:9001"},
+						"message":   map[string]any{"type": "string", "description": "User message to send to the remote agent"},
+					},
+					"required": []string{"agent_url", "message"},
+				},
+			},
+		},
+		{
+			Type: "function",
+			Function: llmFunction{
 				Name:        "x402_build_payment",
 				Description: "Assemble x402 v2 payment payload and base64 header value after sign_typed_data. Pass accepted from x402_prepare_typed_data, signature from sign_typed_data, and authorization from typed_data.message.",
 				Parameters: map[string]any{

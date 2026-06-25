@@ -87,6 +87,7 @@ func TestLoadAll_includesBundledSkills(t *testing.T) {
 	require.Contains(t, names, "base")
 	require.Contains(t, names, "onchain-workflow")
 	require.Contains(t, names, "x402")
+	require.Contains(t, names, "a2a")
 }
 
 func TestToolPatternMatch(t *testing.T) {

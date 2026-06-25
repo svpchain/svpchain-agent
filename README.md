@@ -1,10 +1,13 @@
 # svpchain-agent
 
+**English** | [简体中文](README.zh-CN.md)
+
 A local-key **trading agent** for svpchain, built around a strict separation of trust:
 
 - **Local signing MCP service** (`svpchain-mcp`) — keeps the user's signing key on the local machine, never exposes it, and only signs payloads/challenges that pass strict cross-checks.
 - **Remote build + broadcast MCP service** — constructs unsigned transactions, serves market data, and broadcasts signed transactions. Runs off-machine (`https://indexer.svpchain.com/mcp`).
 - **Built-in LLM assistant** (`svpchain-gui`) — an OpenAI-compatible tool-calling loop that orchestrates the two: the remote side *builds* and *broadcasts*, the local side *signs*. Keys never leave the machine. Optional **transfer whitelist** and modular **assistant skills** tighten outbound transfers and prompt behavior.
+- **Google A2A (Agent-to-Agent)** — expose this agent as an A2A-compliant HTTP service, or delegate sub-tasks to other A2A agents via `a2a_send_message`.
 
 The signer runs over **stdio** (no network port; the process that starts it is the trust boundary). The remote side is reached over HTTP and gated by a signed-challenge bearer token, so the remote never holds a key either.
 
@@ -32,15 +35,19 @@ The signer runs over **stdio** (no network port; the process that starts it is t
 
 On-chain write flow the assistant follows: remote `build_*` → local `sign_*` → remote `broadcast_*`, passing `signed_tx` fields verbatim. Authentication uses a signed `svpchain-mcp-auth-v1:` challenge (signed locally), exchanged for a bearer token. When configured, a transfer whitelist is enforced both before the assistant builds a transfer (pre-flight, covering contract transfers) and again at the local signer.
 
+For **multi-agent** workflows, the assistant can call remote A2A agents with `a2a_send_message`, or you can run `svpchain-mcp a2a serve` to expose the same orchestration loop to other A2A clients over HTTP JSON-RPC.
+
 ## Project layout
 
 ```
 cmd/
-  svpchain-mcp/   # stdio signing MCP CLI: serve (default) / import / delete / list
+  svpchain-mcp/   # stdio signing MCP CLI: serve (default) / import / delete / list / a2a serve
   svpchain-gui/   # Wails GUI: Go entry + embedded Vue frontend
 internal/
   agent/          # LLM tool-calling loop: remote MCP client + in-process local signer; pre-flight whitelist gate on transfers
     skills/       # Bundled SKILL.md modules; composes the assistant system prompt
+  a2a/            # A2A client: resolve Agent Card, SendMessage, parse replies
+  a2aserver/      # A2A HTTP server: Agent Card, JSON-RPC /invoke, executor → agent.Run
   mcp/            # MCP tool handlers (sign_transaction / sign_evm_transaction / sign_typed_data / sign_challenge / whoami)
   signer/         # transaction + challenge signing (eth_secp256k1); transfer policy checks
   whitelist/      # address whitelist store + recipient checks (used by the agent gate and the signer)
@@ -67,6 +74,15 @@ These run in the local signer (and in-process inside the GUI assistant). Every t
 | `sign_typed_data` | `typed_data` (EIP-712 / `eth_signTypedData_v4`) → `{signature, signer}` | Signs **x402** gasless payments via EIP-3009 `TransferWithAuthorization` (USDC) or Permit2 `PermitWitnessTransferFrom` (ERC-20 fallback). Allowed `primaryType` values only; `domain.chainId` must match the signer's EVM chain. |
 | `sign_challenge` | `challenge` (text) → `{signature, owner}` | Signs an svpchain self-service auth challenge. **Refuses** any text that does not start with `svpchain-mcp-auth-v1:` plus a matching chain id — never a generic message-signing oracle. |
 | `whoami` | none → `{owner, chain_id, evm_owner, evm_chain_id}` | Returns the bech32 `svp1…` address **and** the corresponding `0x` EVM address (same key), plus the configured Cosmos/EVM chain ids. The key itself is never exposed. |
+
+The GUI assistant also exposes **local-only** tools that are not part of the stdio MCP server:
+
+| Tool | Description |
+|------|-------------|
+| `evm_to_bech32` | Convert a `0x` address to the matching `svp1…` bech32 address (required before `build_bank_send` to an EVM address). |
+| `http_fetch` | HTTP GET/POST for x402 paywalled content. |
+| `x402_prepare_typed_data` / `x402_build_payment` | Build and assemble x402 v2 EIP-3009 payment headers after a 402 response. |
+| `a2a_send_message` | Send a message to another **A2A-compatible agent** and return its reply (see [Agent-to-Agent (A2A)](#agent-to-agent-a2a)). |
 
 `v0.1` auto-approves well-formed payloads that pass chain-id and signer-address cross-checks. The **transfer whitelist** is enforced at the assistant pre-flight gate (transfers, approvals, bridge, including ERC-20/721 contract calls — and **mandatory: no whitelist means no transfers**) and again at the signer layer (Cosmos `MsgSend` and EVM native sends, where an empty list stays unrestricted); see [Transfer whitelist](#transfer-whitelist). Per-tool limits, prompt modes, and MCP elicitation are planned.
 
@@ -115,7 +131,7 @@ At the signer layer, contract calls and zero-value EVM transactions are not deco
 
 ### Assistant skills
 
-The assistant system prompt is assembled from modular **skills** (`internal/agent/skills/bundled/*/SKILL.md`), not a single hard-coded string. Each skill covers one workflow (on-chain build/sign/broadcast, x402 payments, bank send to `0x`, ERC-20/721, etc.).
+The assistant system prompt is assembled from modular **skills** (`internal/agent/skills/bundled/*/SKILL.md`), not a single hard-coded string. Each skill covers one workflow (on-chain build/sign/broadcast, x402 payments, bank send to `0x`, ERC-20/721, A2A delegation, etc.).
 
 - **Bundled skills** are embedded in the binary.
 - **User skills** — optional overrides in `<config-dir>/com.svpchain.agent-gui/skills/<name>/SKILL.md` (alongside `prefs.json`; e.g. `~/Library/Application Support/...` on macOS, `%AppData%` on Windows).
@@ -163,6 +179,54 @@ make package-windows-app
 This produces `build\svpchain agent\` (contains `svpchain-gui.exe` + `svpchain-mcp.exe`) and `build\svpchain-agent-<version>-windows-amd64.zip`. Extract the zip and run `svpchain-gui.exe`. Both executables must stay in the same folder. Read **运行前先阅读.txt** before forwarding to other users.
 
 The Windows GUI supports in-app updates from GitHub Releases (stable tags only): download the release zip, verify `SHA256SUMS`, replace the install folder, and restart. Dev builds (`*-dev`) skip this check.
+
+## Agent-to-Agent (A2A)
+
+This project implements [Google's A2A protocol](https://google.github.io/A2A/) via [`a2a-go`](https://github.com/a2aproject/a2a-go). A2A complements MCP: MCP connects the assistant to tools; A2A connects agents to other agents.
+
+### Expose this agent (A2A server)
+
+Run an HTTP JSON-RPC server that advertises an **Agent Card** and executes incoming tasks through the same `agent.Run` loop as the GUI assistant (remote MCP build/broadcast + local signing):
+
+```sh
+./build/svpchain-mcp a2a serve --chain-id svp-2517-1 --listen :8080 --public-url http://127.0.0.1:8080
+```
+
+| Flag | Required | Description |
+|------|----------|-------------|
+| `--chain-id` | no* | Cosmos chain id. Defaults to `agent_chain_id` in `prefs.json`. |
+| `--listen` | no | TCP listen address (default `:8080`). |
+| `--public-url` | no | Public base URL embedded in the Agent Card (default `http://127.0.0.1` + listen port). Set this when behind a reverse proxy or on a public host. |
+
+\* Chain id is required from either the flag or `prefs.json`.
+
+**Endpoints:**
+
+| Path | Purpose |
+|------|---------|
+| `GET /.well-known/agent-card.json` | Agent Card discovery (skills, capabilities, invoke URL) |
+| `POST /invoke` | JSON-RPC A2A methods (`SendMessage`, task streaming, cancel) |
+
+LLM settings (`llm_api_key`, `llm_base_url`, `llm_model`) and the remote MCP URL are read from `prefs.json`. Progress steps from the agent loop are streamed as A2A artifacts; task cancellation propagates to the running agent context.
+
+### Call other agents (A2A client)
+
+The GUI assistant can delegate sub-tasks to remote A2A agents with the local tool `a2a_send_message`:
+
+| Argument | Description |
+|----------|-------------|
+| `agent_url` | Base URL of the remote agent (the client fetches `/.well-known/agent-card.json` from this URL). Example: `http://localhost:9001` |
+| `message` | Plain-text user message for the remote agent |
+
+Returns JSON: `{ "task_id", "context_id", "state", "response" }`.
+
+The bundled **a2a** skill is injected when `a2a_send_message` is available. Toggle it under **Settings → Assistant Skills**.
+
+### Security notes
+
+- Remote A2A agents **never** receive local signing keys.
+- Do not send private keys, mnemonics, or raw key material in A2A messages.
+- Prefer delegating read-only or advisory tasks unless the remote agent is fully trusted for signing workflows.
 
 ## Build
 

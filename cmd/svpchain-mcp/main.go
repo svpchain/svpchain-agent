@@ -41,8 +41,10 @@ func run(args []string) error {
 		return runDelete(args)
 	case "list":
 		return runList(args)
+	case "a2a":
+		return runA2A(args)
 	default:
 		usage(os.Stderr)
-		return fmt.Errorf("unknown subcommand %q (want: serve, import, delete, list)", cmd)
+		return fmt.Errorf("unknown subcommand %q (want: serve, import, delete, list, a2a)", cmd)
 	}
 }

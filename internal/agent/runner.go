@@ -213,6 +213,9 @@ func dispatchTool(ctx context.Context, chainID string, remote *RemoteClient, loc
 			return "", fmt.Errorf("unknown x402 tool %q", name)
 		}
 	}
+	if isA2ATool(name) {
+		return a2aSendFromArgs(ctx, args)
+	}
 	if isLocalTool(name) {
 		return local.CallTool(ctx, name, args)
 	}

@@ -53,7 +53,7 @@ export default {
     binary: 'Absolute path to svpchain-mcp',
     llmApiKey: 'DeepSeek / OpenAI-compatible API key',
     llmBaseURL: 'Default https://api.deepseek.com',
-    llmModel: 'Default deepseek-chat',
+    llmModel: 'Default deepseek-v4-flash',
     remoteMCPURL: 'Default https://indexer.svpchain.com/mcp',
     whitelistAddress: 'svp1… or 0x…',
     whitelistAlias: 'Optional, e.g. Team Treasury',

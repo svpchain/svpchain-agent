@@ -53,7 +53,7 @@ export default {
     binary: 'svpchain-mcp 可执行文件的绝对路径',
     llmApiKey: 'DeepSeek / OpenAI 兼容 API Key',
     llmBaseURL: '默认 https://api.deepseek.com',
-    llmModel: '默认 deepseek-chat',
+    llmModel: '默认 deepseek-v4-flash',
     remoteMCPURL: '默认 https://indexer.svpchain.com/mcp',
     whitelistAddress: 'svp1… 或 0x…',
     whitelistAlias: '可选，例如 团队金库',

@@ -139,7 +139,7 @@ func Run(ctx context.Context, cfg Config, userMessage string) (string, error) {
 			if tc.Function.Arguments != "" {
 				_ = json.Unmarshal([]byte(tc.Function.Arguments), &args)
 			}
-			emit(Step{Kind: StepTool, Title: "Calling " + name, Detail: truncate(tc.Function.Arguments, 300)})
+			emit(Step{Kind: StepTool, Title: "Calling " + name, Detail: truncate(tc.Function.Arguments, 4000)})
 
 			result, callErr := dispatchTool(ctx, chainID, remote, local, name, args)
 			if callErr != nil {
@@ -158,7 +158,7 @@ func Run(ctx context.Context, cfg Config, userMessage string) (string, error) {
 				emit(Step{Kind: StepAnswer, Title: "Stopped", Detail: answer})
 				return answer, nil
 			}
-			emit(Step{Kind: StepTool, Title: name + " ok", Detail: truncate(result, 400)})
+			emit(Step{Kind: StepTool, Title: name + " ok", Detail: truncate(result, 4000)})
 			messages = append(messages, llmMessage{
 				Role:       "tool",
 				ToolCallID: tc.ID,

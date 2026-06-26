@@ -12,6 +12,7 @@ import (
 
 	wruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 
+	"github.com/svpchain/svpchain-agent/internal/agent"
 	"github.com/svpchain/svpchain-agent/internal/agent/skills"
 	"github.com/svpchain/svpchain-agent/internal/i18n"
 	"github.com/svpchain/svpchain-agent/internal/manage"
@@ -35,6 +36,11 @@ func NewApp() *App {
 // Startup is wired to Wails OnStartup; it captures the runtime context.
 func (a *App) Startup(ctx context.Context) {
 	a.ctx = ctx
+}
+
+// Shutdown releases pooled remote MCP sessions when the app exits.
+func (a *App) Shutdown(ctx context.Context) {
+	agent.ShutdownRemotePool()
 }
 
 // --- metadata ---

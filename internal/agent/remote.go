@@ -32,13 +32,15 @@ func (t *bearerRoundTripper) RoundTrip(req *http.Request) (*http.Response, error
 
 // RemoteClient talks to the svpchain remote MCP server over Streamable HTTP.
 type RemoteClient struct {
-	url    string
-	client *mcp.Client
+	url     string
+	client  *mcp.Client
 	session *mcp.ClientSession
 
 	mu          sync.Mutex
 	bearer      string
 	bearerUntil time.Time
+
+	forceConnected bool // tests only: treat client as connected without a live session
 }
 
 // NewRemoteClient creates a client for endpoint (empty → production default).
@@ -52,7 +54,7 @@ func NewRemoteClient(endpoint string) *RemoteClient {
 // Connect opens the MCP session.
 func (r *RemoteClient) Connect(ctx context.Context) error {
 	r.mu.Lock()
-	if r.session != nil {
+	if r.session != nil || r.forceConnected {
 		r.mu.Unlock()
 		return nil
 	}
@@ -86,6 +88,20 @@ func (r *RemoteClient) Connect(ctx context.Context) error {
 	return nil
 }
 
+// IsConnected reports whether the MCP session is open.
+func (r *RemoteClient) IsConnected() bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.session != nil || r.forceConnected
+}
+
+// BearerValid reports whether the cached bearer token is still usable.
+func (r *RemoteClient) BearerValid() bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.bearer != "" && time.Now().Before(r.bearerUntil.Add(-time.Minute))
+}
+
 // currentBearer returns the live bearer token if still valid, else "".
 func (r *RemoteClient) currentBearer() string {
 	r.mu.Lock()
@@ -102,6 +118,7 @@ func (r *RemoteClient) Close() error {
 	sess := r.session
 	r.session = nil
 	r.client = nil
+	r.forceConnected = false
 	r.mu.Unlock()
 	if sess == nil {
 		return nil
@@ -166,13 +183,9 @@ type authVerifyOut struct {
 
 // EnsureAuth runs auth_challenge → signChallenge → auth_verify when needed.
 func (r *RemoteClient) EnsureAuth(ctx context.Context, owner string, signChallenge func(challenge string) (signatureB64 string, err error)) error {
-	r.mu.Lock()
-	if r.bearer != "" && time.Now().Before(r.bearerUntil.Add(-time.Minute)) {
-		r.mu.Unlock()
+	if r.BearerValid() {
 		return nil
 	}
-	r.mu.Unlock()
-
 	chRes, err := r.CallTool(ctx, "auth_challenge", map[string]any{"owner": owner})
 	if err != nil {
 		return fmt.Errorf("auth_challenge: %w", err)

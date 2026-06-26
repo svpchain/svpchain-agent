@@ -26,8 +26,9 @@ func main() {
 		AssetServer: &assetserver.Options{
 			Assets: assets,
 		},
-		OnStartup: app.Startup,
-		Bind:      []interface{}{app},
+		OnStartup:  app.Startup,
+		OnShutdown: app.Shutdown,
+		Bind:       []interface{}{app},
 		Mac: &mac.Options{
 			// TitleBarHidden (no toolbar) keeps traffic lights vertically centered;
 			// HiddenInset + UseToolbar pins them to the bottom of the toolbar strip.

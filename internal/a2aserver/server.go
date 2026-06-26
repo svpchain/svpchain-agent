@@ -9,6 +9,8 @@ import (
 	"os"
 
 	"github.com/a2aproject/a2a-go/v2/a2asrv"
+
+	svpagent "github.com/svpchain/svpchain-agent/internal/agent"
 )
 
 // StartServer binds and serves the A2A JSON-RPC endpoint and Agent Card.
@@ -31,6 +33,8 @@ func StartServer(ctx context.Context, cfg ServerConfig) error {
 		<-ctx.Done()
 		_ = srv.Close()
 	}()
+
+	defer svpagent.ShutdownRemotePool()
 
 	fmt.Fprintf(os.Stderr, "svpchain-a2a: listening on %s (chain %s)\n", cfg.ListenAddr, cfg.ChainID)
 	fmt.Fprintf(os.Stderr, "svpchain-a2a: agent card at %s%s\n", cfg.PublicURL, a2asrv.WellKnownAgentCardPath)

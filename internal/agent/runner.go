@@ -76,20 +76,10 @@ func Run(ctx context.Context, cfg Config, userMessage string) (string, error) {
 	local := NewLocalSigner(priv, chainID, evmID)
 	owner := local.Owner()
 
-	remote := NewRemoteClient(cfg.RemoteURL)
-
-	emit(Step{Kind: StepThink, Title: "Connecting to remote MCP…", Detail: cfg.RemoteURL})
-	if err := remote.Connect(ctx); err != nil {
-		return "", fmt.Errorf("connect remote mcp: %w", err)
+	remote, err := acquireRemote(ctx, chainID, cfg.RemoteURL, owner, local.SignChallenge, emit)
+	if err != nil {
+		return "", fmt.Errorf("remote mcp: %w", err)
 	}
-	defer remote.Close()
-
-	emit(Step{Kind: StepAuth, Title: "Authenticating with remote MCP…"})
-	if err := remote.EnsureAuth(ctx, owner, local.SignChallenge); err != nil {
-		emit(Step{Kind: StepError, Title: "Authentication failed", Detail: err.Error()})
-		return "", err
-	}
-	emit(Step{Kind: StepAuth, Title: "Authenticated", Detail: owner})
 
 	sessionMem, err := resolveSessionMemory(ctx, chainID, cfg.RemoteURL, owner, local, remote, emit)
 	if err != nil {
@@ -138,7 +128,7 @@ func Run(ctx context.Context, cfg Config, userMessage string) (string, error) {
 			if answer == "" {
 				answer = "(no response)"
 			}
-			emit(Step{Kind: StepAnswer, Title: "Done", Detail: answer})
+			emit(Step{Kind: StepAnswer, Title: "Done"})
 			return answer, nil
 		}
 

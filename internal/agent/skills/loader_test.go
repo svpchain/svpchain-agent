@@ -56,7 +56,7 @@ func TestComposeSystemPrompt_includesX402SkillWhenToolsPresent(t *testing.T) {
 func TestComposeSystemPrompt_alwaysIncludesBase(t *testing.T) {
 	got, err := skills.ComposeSystemPrompt([]string{"build_bank_send"})
 	require.NoError(t, err)
-	require.Contains(t, got, "svpchain trading assistant")
+	require.Contains(t, got, "svpchain agent")
 	require.Contains(t, got, "# Red lines")
 	require.Contains(t, got, "build_bank_send only accepts svp1")
 	require.NotContains(t, got, "Never invent `nonce` by hand")

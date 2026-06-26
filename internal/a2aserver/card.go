@@ -27,14 +27,18 @@ func BuildAgentCard(publicURL string) *a2a.AgentCard {
 		},
 		Skills: []a2a.AgentSkill{
 			{
-				ID:          "svpchain-trading",
-				Name:        "svpchain Trading Assistant",
-				Description: "Cosmos/EVM DEX trading via remote MCP build/broadcast and local signing. Keys never leave the machine.",
-				Tags:        []string{"trading", "cosmos", "evm", "defi", "dex", "dydx"},
+				ID:   "svpchain-onchain",
+				Name: "svpchain On-Chain Assistant",
+				Description: "Cosmos/EVM operations via remote MCP build/broadcast and local signing — " +
+					"perpetual trading, swap, bank/EVM transfer, bridge, ERC-20/721, and account queries. Keys never leave the machine.",
+				Tags: []string{"cosmos", "evm", "defi", "trading", "swap", "bridge", "transfer", "dex"},
 				Examples: []string{
 					"What is my account balance?",
 					"Place a limit buy order on BTC-USD",
+					"Swap 100 USDC for SVP",
+					"Bridge 50 USDC to my subaccount",
 					"Transfer 10 SVP to svp1…",
+					"Approve USDC for the router then swap",
 				},
 			},
 			{

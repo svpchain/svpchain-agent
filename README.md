@@ -2,7 +2,7 @@
 
 **English** | [简体中文](README.zh-CN.md)
 
-A local-key **trading agent** for svpchain, built around a strict separation of trust:
+A local-key **on-chain agent** for svpchain (Cosmos/EVM), built around a strict separation of trust:
 
 - **Local signing MCP service** (`svpchain-mcp`) — keeps the user's signing key on the local machine, never exposes it, and only signs payloads/challenges that pass strict cross-checks.
 - **Remote build + broadcast MCP service** — constructs unsigned transactions, serves market data, and broadcasts signed transactions. Runs off-machine (`https://indexer.svpchain.com/mcp`).
@@ -11,7 +11,7 @@ A local-key **trading agent** for svpchain, built around a strict separation of 
 
 The signer runs over **stdio** (no network port; the process that starts it is the trust boundary). The remote side is reached over HTTP and gated by a signed-challenge bearer token, so the remote never holds a key either.
 
-**Quick start (GUI):** import a key → **Settings** (language, chain id, LLM API key; expand **LLM** and **Skills** as needed) → optional **Security** whitelist → trade from **Assistant** or export **MCP** config for Cursor.
+**Quick start (GUI):** import a key → **Settings** (language, chain id, LLM API key; expand **LLM** and **Skills** as needed) → optional **Security** whitelist → use **Assistant** for on-chain actions, or export **MCP** config for Cursor.
 
 ## Architecture
 

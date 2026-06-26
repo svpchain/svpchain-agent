@@ -10,7 +10,7 @@ import (
 const (
 	AgentName        = "svpchain agent"
 	AgentVersion     = "v0.1.0"
-	AgentDescription = "Local-key svpchain trading assistant. Builds and broadcasts via remote MCP; signs Cosmos/EVM transactions locally. Supports x402 paid HTTP content."
+	AgentDescription = "Local-key svpchain on-chain assistant for Cosmos/EVM. Remote MCP builds unsigned payloads and broadcasts signed transactions; local signer holds the key. Supports trading, swap, transfer, bridge, ERC-20/721, x402 paid HTTP content, and A2A delegation."
 )
 
 // LLMConfig holds LLM credentials for the A2A server executor.

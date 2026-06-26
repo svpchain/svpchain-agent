@@ -2,7 +2,7 @@
 
 [English](README.md) | **简体中文**
 
-面向 svpchain 的本地密钥 **交易 Agent**，采用严格的信任分离设计：
+面向 svpchain 的本地密钥 **链上 Agent**（Cosmos/EVM），采用严格的信任分离设计：
 
 - **本地签名 MCP 服务**（`svpchain-mcp`）—— 签名密钥仅保存在本机，永不外泄；只对通过严格交叉校验的 payload / challenge 进行签名。
 - **远程构建 + 广播 MCP 服务** —— 构造未签名交易、提供行情数据、广播已签名交易。运行于远端（`https://indexer.svpchain.com/mcp`）。
@@ -11,7 +11,7 @@
 
 签名服务通过 **stdio** 运行（无网络端口；启动它的进程即为信任边界）。远端通过 HTTP 访问，并以签名 challenge 换取 bearer token 鉴权，远端同样不持有密钥。
 
-**快速上手（GUI）：** 导入密钥 → **设置**（语言、链 ID、LLM API Key；按需展开 **LLM** 与 **Skills**）→ 可选 **安全** 白名单 → 在 **助手** 中交易，或导出 **MCP** 配置供 Cursor 使用。
+**快速上手（GUI）：** 导入密钥 → **设置**（语言、链 ID、LLM API Key；按需展开 **LLM** 与 **Skills**）→ 可选 **安全** 白名单 → 在 **助手** 中发起链上操作，或导出 **MCP** 配置供 Cursor 使用。
 
 ## 架构
 

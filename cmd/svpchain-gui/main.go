@@ -35,7 +35,7 @@ func main() {
 			TitleBar: mac.TitleBarHidden(),
 			About: &mac.AboutInfo{
 				Title:   "svpchain agent",
-				Message: "Local-key trading assistant for svpchain",
+				Message: "Local-key on-chain assistant for svpchain",
 			},
 		},
 	})

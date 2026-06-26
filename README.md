@@ -44,7 +44,7 @@ cmd/
   svpchain-mcp/   # stdio signing MCP CLI: serve (default) / import / delete / list / a2a serve
   svpchain-gui/   # Wails GUI: Go entry + embedded Vue frontend
 internal/
-  agent/          # LLM tool-calling loop: remote MCP client + in-process local signer; pre-flight whitelist gate on transfers
+  agent/          # LLM tool-calling loop: remote MCP client + in-process local signer; pre-flight whitelist gate; session memory
     skills/       # Bundled SKILL.md modules; composes the assistant system prompt
   a2a/            # A2A client: resolve Agent Card, SendMessage, parse replies
   a2aserver/      # A2A HTTP server: Agent Card, JSON-RPC /invoke, executor → agent.Run
@@ -106,6 +106,31 @@ The GUI covers key management, MCP export, security policy, and the built-in ass
 The assistant uses an OpenAI-compatible API (default base `https://api.deepseek.com`, model `deepseek-v4-flash`). Configure API key, base URL, model, and remote MCP endpoint under **Settings → LLM**, then save. The remote MCP endpoint defaults to `https://indexer.svpchain.com/mcp`.
 
 The app supports **English and Chinese** (Settings → Basic; persisted). Override first-launch detection with `SVPCHAIN_AGENT_LANG=zh|en`.
+
+### Session memory
+
+Every assistant run used to start with the LLM calling `signer_whoami` (local key) and `whoami` (remote tenant policy). **Session memory** caches both results on disk and injects them into the system prompt so later conversations skip those round-trips.
+
+**How it works:**
+
+1. After remote MCP auth, the agent loads `agent_memory.json` (same config directory as `prefs.json`).
+2. If a valid entry exists for the current **chain id + remote MCP URL + local owner**, its JSON is appended to the system prompt as **Cached session context** — the LLM is instructed not to call `signer_whoami` or `whoami` again.
+3. If missing or stale, the agent fetches both once (UI step: `Loading session context…`), saves to disk, then injects the prompt.
+4. If the LLM still calls either tool, `dispatchTool` returns the cached JSON without a network/local repeat.
+
+**Cache invalidation** — a refresh runs when any of these change:
+
+- Chain id
+- Remote MCP URL
+- Local signing key (owner address)
+
+**File location** (alongside `prefs.json`):
+
+- macOS: `~/Library/Application Support/com.svpchain.agent-gui/agent_memory.json`
+- Windows: `%AppData%\com.svpchain.agent-gui\agent_memory.json`
+- Linux: `~/.config/com.svpchain.agent-gui/agent_memory.json`
+
+The same mechanism applies to `svpchain-mcp a2a serve` runs.
 
 ### Transfer whitelist
 

@@ -24,7 +24,7 @@ Sending SVP (or any bank denom) to a 0x EVM address: build_bank_send only accept
 
 For ERC20/ERC721 contract calls (transfer, approve, transferFrom, safeTransferFrom, setApprovalForAll): use the remote build_erc20_* / build_erc721_* tools — they return a ready-to-sign EVMTxPayload (nonce/gas/fees filled). ERC20 amounts are human units; ERC721 uses token_id. Then sign_evm_transaction and broadcast_evm_tx, exactly like build_swap.
 
-Use signer_whoami to confirm which local key is loaded. Remote whoami returns tenant policy after auth.
+When **Cached session context** is present in the system prompt, use that data directly — do not call signer_whoami or whoami unless the user changed chain, signing key, or remote MCP endpoint. Otherwise call signer_whoami for the local key and whoami for remote tenant policy after auth.
 
 Be concise in final answers. Show tx hashes and key numbers when operations succeed.`
 

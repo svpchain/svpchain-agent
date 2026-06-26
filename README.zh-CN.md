@@ -44,7 +44,7 @@ cmd/
   svpchain-mcp/   # stdio 签名 MCP CLI：serve（默认）/ import / delete / list / a2a serve
   svpchain-gui/   # Wails GUI：Go 入口 + 内嵌 Vue 前端
 internal/
-  agent/          # LLM 工具调用循环：远程 MCP 客户端 + 进程内本地签名器；转账预检白名单门控
+  agent/          # LLM 工具调用循环：远程 MCP 客户端 + 进程内本地签名器；转账预检白名单；会话记忆
     skills/       # 内置 SKILL.md 模块；组装助手 system prompt
   a2a/            # A2A 客户端：解析 Agent Card、SendMessage、解析回复
   a2aserver/      # A2A HTTP 服务端：Agent Card、JSON-RPC /invoke、executor → agent.Run
@@ -106,6 +106,31 @@ GUI 涵盖密钥管理、MCP 导出、安全策略与内置助手。
 助手使用兼容 OpenAI 的 API（默认 base `https://api.deepseek.com`，模型 `deepseek-v4-flash`）。在 **设置 → LLM** 中配置 API Key、Base URL、模型与远程 MCP 端点并保存。远程 MCP 默认 `https://indexer.svpchain.com/mcp`。
 
 应用支持 **中英文**（设置 → 基本；持久化）。可用 `SVPCHAIN_AGENT_LANG=zh|en` 覆盖首次启动语言检测。
+
+### 会话记忆（Session memory）
+
+此前每次助手对话开始时，LLM 都会先调用 `signer_whoami`（本地密钥信息）和 `whoami`（远端租户策略）。**会话记忆** 将这两份结果持久化到文件，并在后续对话中直接注入 system prompt，从而跳过重复的 tool 调用。
+
+**工作流程：**
+
+1. 远程 MCP 鉴权完成后，agent 读取 `agent_memory.json`（与 `prefs.json` 同目录）。
+2. 若当前 **链 ID + 远程 MCP URL + 本地 owner** 存在有效缓存，将其 JSON 以 **Cached session context** 段落追加到 system prompt —— 并指示 LLM 勿再调用 `signer_whoami` 或 `whoami`。
+3. 若无缓存或已失效，agent 各调用一次（界面显示 `Loading session context…`），写入文件后再注入 prompt。
+4. 若 LLM 仍调用上述工具，`dispatchTool` 直接返回缓存 JSON，不再发起网络/本地重复查询。
+
+**缓存失效** — 以下任一变化会触发重新拉取：
+
+- 链 ID
+- 远程 MCP URL
+- 本地签名密钥（owner 地址）
+
+**文件位置**（与 `prefs.json` 同目录）：
+
+- macOS：`~/Library/Application Support/com.svpchain.agent-gui/agent_memory.json`
+- Windows：`%AppData%\com.svpchain.agent-gui\agent_memory.json`
+- Linux：`~/.config/com.svpchain.agent-gui/agent_memory.json`
+
+`svpchain-mcp a2a serve` 使用同一套机制。
 
 ### 转账白名单
 

@@ -91,6 +91,12 @@ func Run(ctx context.Context, cfg Config, userMessage string) (string, error) {
 	}
 	emit(Step{Kind: StepAuth, Title: "Authenticated", Detail: owner})
 
+	sessionMem, err := resolveSessionMemory(ctx, chainID, cfg.RemoteURL, owner, local, remote, emit)
+	if err != nil {
+		emit(Step{Kind: StepError, Title: "Session context failed", Detail: err.Error()})
+		return "", err
+	}
+
 	tools, err := buildToolList(ctx, remote)
 	if err != nil {
 		return "", err
@@ -99,6 +105,9 @@ func Run(ctx context.Context, cfg Config, userMessage string) (string, error) {
 	systemPrompt, err := skills.ComposeSystemPrompt(toolNames(tools))
 	if err != nil {
 		return "", fmt.Errorf("load agent skills: %w", err)
+	}
+	if block := sessionMemoryPrompt(sessionMem); block != "" {
+		systemPrompt += "\n\n" + block
 	}
 	// Inject whitelist alias → address mappings so the assistant can resolve
 	// "transfer to <alias>" without the user typing the raw address.
@@ -141,7 +150,7 @@ func Run(ctx context.Context, cfg Config, userMessage string) (string, error) {
 			}
 			emit(Step{Kind: StepTool, Title: "Calling " + name, Detail: truncate(tc.Function.Arguments, 4000)})
 
-			result, callErr := dispatchTool(ctx, chainID, remote, local, name, args)
+			result, callErr := dispatchTool(ctx, chainID, remote, local, name, args, &sessionMem)
 			if callErr != nil {
 				// Fail fast: any tool error ends the run. There is no value in
 				// feeding a failed call back to the LLM — it tends to loop or
@@ -194,11 +203,16 @@ func buildToolList(ctx context.Context, remote *RemoteClient) ([]llmTool, error)
 	return out, nil
 }
 
-func dispatchTool(ctx context.Context, chainID string, remote *RemoteClient, local *LocalSigner, name string, args map[string]any) (string, error) {
+func dispatchTool(ctx context.Context, chainID string, remote *RemoteClient, local *LocalSigner, name string, args map[string]any, mem *SessionMemory) (string, error) {
 	// Whitelist gate: reject a transfer/approval to a non-whitelisted recipient
 	// before the build_* call is forwarded — no build, sign, or broadcast happens.
 	if err := checkWhitelistGate(chainID, name, args); err != nil {
 		return "", err
+	}
+	if mem != nil {
+		if cached, ok := mem.toolResult(name); ok {
+			return cached, nil
+		}
 	}
 	if isHttpTool(name) {
 		return HTTPFetchFromArgs(args)
@@ -217,9 +231,19 @@ func dispatchTool(ctx context.Context, chainID string, remote *RemoteClient, loc
 		return a2aSendFromArgs(ctx, args)
 	}
 	if isLocalTool(name) {
-		return local.CallTool(ctx, name, args)
+		result, err := local.CallTool(ctx, name, args)
+		if err == nil && mem != nil && name == "signer_whoami" {
+			mem.setToolResult(name, result)
+			_ = saveSessionMemory(*mem)
+		}
+		return result, err
 	}
-	return remote.CallTool(ctx, name, args)
+	result, err := remote.CallTool(ctx, name, args)
+	if err == nil && mem != nil && name == "whoami" {
+		mem.setToolResult(name, result)
+		_ = saveSessionMemory(*mem)
+	}
+	return result, err
 }
 
 func toolNames(tools []llmTool) []string {

@@ -11,10 +11,9 @@ import (
 	"github.com/svpchain/svpchain-agent/internal/agent/skills"
 )
 
-// legacySystemPrompt is the pre-skills monolithic prompt; composed output must match.
-const legacySystemPrompt = `You are an svpchain trading assistant with access to MCP tools.
-
-Workflow for on-chain writes:
+// legacyTail is the composed prompt suffix when the full trading tool set is available
+// (all skills except x402/a2a, which are tool-gated).
+const legacyTail = `Workflow for on-chain writes:
 1. Use remote build_* tools to construct unsigned transactions (or EVM payloads).
 2. Sign locally with sign_transaction / sign_evm_transaction (never skip signing).
 3. Broadcast with broadcast_signed_tx or broadcast_evm_tx on the remote server.
@@ -39,7 +38,11 @@ func TestComposeSystemPrompt_matchesLegacyWithFullToolSet(t *testing.T) {
 	}
 	got, err := skills.ComposeSystemPrompt(tools)
 	require.NoError(t, err)
-	require.Equal(t, legacySystemPrompt, got)
+	require.True(t, strings.HasPrefix(got, "# Role"))
+	require.Contains(t, got, "# Red lines")
+	require.Contains(t, got, "NEVER** skip local signing")
+	require.Contains(t, got, "transfer whitelist")
+	require.Contains(t, got, legacyTail)
 }
 
 func TestComposeSystemPrompt_includesX402SkillWhenToolsPresent(t *testing.T) {
@@ -54,6 +57,7 @@ func TestComposeSystemPrompt_alwaysIncludesBase(t *testing.T) {
 	got, err := skills.ComposeSystemPrompt([]string{"build_bank_send"})
 	require.NoError(t, err)
 	require.Contains(t, got, "svpchain trading assistant")
+	require.Contains(t, got, "# Red lines")
 	require.Contains(t, got, "build_bank_send only accepts svp1")
 	require.NotContains(t, got, "Never invent `nonce` by hand")
 }
@@ -74,7 +78,7 @@ Custom base instructions.
 	got, err := skills.ComposeSystemPrompt(nil)
 	require.NoError(t, err)
 	require.True(t, strings.HasPrefix(got, "Custom base instructions."))
-	require.NotContains(t, got, "You are an svpchain trading assistant")
+	require.NotContains(t, got, "# Red lines")
 }
 
 func TestLoadAll_includesBundledSkills(t *testing.T) {

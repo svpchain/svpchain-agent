@@ -20,6 +20,7 @@ const running = ref(false)
 const runStatus = ref('')
 const lines = ref<ChatLine[]>([])
 const scrollRef = ref<InstanceType<typeof NScrollbar> | null>(null)
+const imeComposing = ref(false)
 
 // Update both the in-tab execution-status line and the parent's global status bar.
 function report(msg: string) {
@@ -154,6 +155,10 @@ function cancel() {
 
 function onKeydown(e: KeyboardEvent) {
   if (e.key === 'Enter' && !e.shiftKey) {
+    // IME confirmation (e.g. Chinese) also uses Enter; don't send while composing.
+    if (e.isComposing || imeComposing.value || e.keyCode === 229) {
+      return
+    }
     e.preventDefault()
     send()
   }
@@ -213,6 +218,8 @@ onUnmounted(() => {
         :placeholder="t('assistant.ph.message')"
         :disabled="running"
         class="input-box"
+        @compositionstart="imeComposing = true"
+        @compositionend="imeComposing = false"
         @keydown="onKeydown"
       />
       <div class="input-buttons">

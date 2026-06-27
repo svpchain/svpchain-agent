@@ -8,8 +8,8 @@
 #   $env:VERSION = "1.0.0"; .\scripts\package-windows.ps1
 #
 # Output:
-#   build\svpchain agent\svpchain-gui.exe
-#   build\svpchain agent\svpchain-mcp.exe
+#   build\SVPChain Agent\svpchain-gui.exe
+#   build\SVPChain Agent\svpchain-mcp.exe
 #   build\svpchain-agent-<version>-windows-amd64.zip
 
 $ErrorActionPreference = "Stop"
@@ -17,7 +17,7 @@ $ErrorActionPreference = "Stop"
 $Root = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
 Set-Location $Root
 
-$AppDirName = "svpchain agent"
+$AppDirName = "SVPChain Agent"
 $ReleaseStem = "svpchain-agent"
 $BuildDir = if ($env:BUILDDIR) { $env:BUILDDIR } else { Join-Path $Root "build" }
 $AppDir = Join-Path $BuildDir $AppDirName

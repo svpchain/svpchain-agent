@@ -1,9 +1,9 @@
-svpchain agent — macOS: Read Before Running
+SVPChain Agent — macOS: Read Before Running
 ==================================================
 
 This disk image contains:
 
-  • svpchain agent.app   Graphical setup app (import keys, generate MCP config)
+  • SVPChain Agent.app   Graphical setup app (import keys, generate MCP config)
   • This guide (READ-BEFORE-RUN.txt)
   • 运行前先阅读.txt          Chinese version of this guide
 
@@ -14,7 +14,7 @@ The .app bundle already includes svpchain-mcp; no separate download needed.
 ---------------
 
 1. Double-click the DMG to open it (e.g. from Downloads).
-2. Drag svpchain agent.app into Applications (or use the Applications shortcut in the DMG window).
+2. Drag SVPChain Agent.app into Applications (or use the Applications shortcut in the DMG window).
 3. Launch the app once using the “First launch” steps below.
 4. In the app: import your key → generate MCP config → paste into Cursor (or your MCP client).
 
@@ -28,7 +28,7 @@ the app is malware.
 
 [Common dialog — macOS Ventura and later]
 
-  Title: “svpchain agent.app” Not Opened
+  Title: “SVPChain Agent.app” Not Opened
   Text: Apple could not verify … is free of malware …
   Buttons: “Move to Trash” and “Done” only — no “Open” button.
 
@@ -36,7 +36,7 @@ the app is malware.
 
 [Method A — recommended] Right-click → Open
 
-  1. In Finder, locate svpchain agent.app
+  1. In Finder, locate SVPChain Agent.app
   2. Control-click (or two-finger click on a trackpad)
   3. Choose “Open”
   4. In the second dialog, click “Open” again
@@ -46,7 +46,7 @@ the app is malware.
 
   1. Double-click once (when the “Not Opened” dialog appears, click Done)
   2. Open System Settings → Privacy & Security
-  3. Scroll to the Security section; find the svpchain agent message
+  3. Scroll to the Security section; find the SVPChain Agent message
   4. Click “Open Anyway”
   5. Confirm in the follow-up dialog
 
@@ -54,7 +54,7 @@ the app is malware.
 
   In Terminal (adjust the path):
 
-  xattr -cr "/path/to/svpchain agent.app"
+  xattr -cr "/path/to/SVPChain Agent.app"
 
   Then still use Right-click → Open for the first launch.
 

@@ -166,10 +166,10 @@ The assistant system prompt is assembled from modular **skills** (`internal/agen
 
 ```sh
 make package-macos-app
-open "build/svpchain agent.app"
+open "build/SVPChain Agent.app"
 ```
 
-This produces `build/svpchain agent.app` and `build/svpchain-agent-<version>-macos.dmg`. The DMG contains **svpchain agent.app**, README files, and an **Applications** shortcut — drag the app to install. The bundle includes both `svpchain-gui` and `svpchain-mcp`; the config tab can auto-detect the signer path. When forwarding to other Mac users, send the DMG as-is and ask them to **read 运行前先阅读.txt first**.
+This produces `build/SVPChain Agent.app` and `build/svpchain-agent-<version>-macos.dmg`. The DMG contains **SVPChain Agent.app**, README files, and an **Applications** shortcut — drag the app to install. The bundle includes both `svpchain-gui` and `svpchain-mcp`; the config tab can auto-detect the signer path. When forwarding to other Mac users, send the DMG as-is and ask them to **read 运行前先阅读.txt first**.
 
 Optional Developer ID signing for fewer Gatekeeper prompts:
 
@@ -201,7 +201,7 @@ Or with Make (requires PowerShell 7+):
 make package-windows-app
 ```
 
-This produces `build\svpchain agent\` (contains `svpchain-gui.exe` + `svpchain-mcp.exe`) and `build\svpchain-agent-<version>-windows-amd64.zip`. Extract the zip and run `svpchain-gui.exe`. Both executables must stay in the same folder. Read **运行前先阅读.txt** before forwarding to other users.
+This produces `build\SVPChain Agent\` (contains `svpchain-gui.exe` + `svpchain-mcp.exe`) and `build\svpchain-agent-<version>-windows-amd64.zip`. Extract the zip and run `svpchain-gui.exe`. Both executables must stay in the same folder. Read **运行前先阅读.txt** before forwarding to other users.
 
 The Windows GUI supports in-app updates from GitHub Releases (stable tags only): download the release zip, verify `SHA256SUMS`, replace the install folder, and restart. Dev builds (`*-dev`) skip this check.
 

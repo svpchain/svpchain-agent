@@ -1,9 +1,9 @@
-svpchain agent — Windows: Read Before Running
+SVPChain Agent — Windows: Read Before Running
 ==================================================
 
 This zip archive contains a folder:
 
-  svpchain agent\
+  SVPChain Agent\
     svpchain-gui.exe     Graphical setup app (import keys, generate MCP config)
     svpchain-mcp.exe     Local MCP signing service (used by Cursor and other clients)
     READ-BEFORE-RUN.txt
@@ -14,7 +14,7 @@ This zip archive contains a folder:
 ---------------
 
 1. Extract the zip to any folder (e.g. Downloads or C:\Program Files).
-2. Open the extracted "svpchain agent" folder.
+2. Open the extracted "SVPChain Agent" folder.
 3. Launch svpchain-gui.exe using the first-launch steps below.
 4. In the app: import your key → generate MCP config → paste into Cursor (or your MCP client).
 

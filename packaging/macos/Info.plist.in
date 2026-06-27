@@ -9,9 +9,9 @@
 	<key>CFBundleIdentifier</key>
 	<string>@BUNDLE_ID@</string>
 	<key>CFBundleName</key>
-	<string>svpchain agent</string>
+	<string>SVPChain Agent</string>
 	<key>CFBundleDisplayName</key>
-	<string>svpchain agent</string>
+	<string>SVPChain Agent</string>
 	<key>CFBundleLocalizations</key>
 	<array>
 		<string>en</string>

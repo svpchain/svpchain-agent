@@ -1,6 +1,8 @@
 package update
 
+import "github.com/svpchain/svpchain-agent/internal/brand"
+
 const (
-	appBundleName = "svpchain agent.app"
-	appFolderName = "svpchain agent"
+	appBundleName = brand.AppBundleName
+	appFolderName = brand.AppFolderName
 )

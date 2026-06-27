@@ -1,9 +1,9 @@
-svpchain agent — Windows 运行前先阅读
+SVPChain Agent — Windows 运行前先阅读
 ========================================
 
 本 zip 压缩包解压后包含文件夹：
 
-  svpchain agent\
+  SVPChain Agent\
     svpchain-gui.exe     图形化配置工具（导入密钥、生成 MCP 配置）
     svpchain-mcp.exe     本地 MCP 签名服务（供 Cursor 等客户端调用）
     运行前先阅读.txt
@@ -14,7 +14,7 @@ svpchain agent — Windows 运行前先阅读
 ------------
 
 1. 将 zip 解压到任意目录（例如「下载」或 C:\Program Files）。
-2. 进入解压后的「svpchain agent」文件夹。
+2. 进入解压后的「SVPChain Agent」文件夹。
 3. 按下面「首次运行」方式启动 svpchain-gui.exe。
 4. 在应用内完成：导入密钥 → 生成 MCP 配置 → 复制到 Cursor 等客户端设置。
 

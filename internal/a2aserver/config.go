@@ -3,12 +3,13 @@ package a2aserver
 import (
 	"strings"
 
+	"github.com/svpchain/svpchain-agent/internal/brand"
 	"github.com/svpchain/svpchain-agent/internal/manage"
 	"github.com/svpchain/svpchain-agent/internal/prefs"
 )
 
 const (
-	AgentName        = "svpchain agent"
+	AgentName        = brand.AppDisplayName
 	AgentVersion     = "v0.1.0"
 	AgentDescription = "Local-key svpchain on-chain assistant for Cosmos/EVM. Remote MCP builds unsigned payloads and broadcasts signed transactions; local signer holds the key. Supports trading, swap, transfer, bridge, ERC-20/721, x402 paid HTTP content, and A2A delegation."
 )

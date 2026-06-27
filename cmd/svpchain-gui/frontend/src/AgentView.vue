@@ -211,7 +211,7 @@ onUnmounted(() => {
               <path d="M12 3c5.523 0 10 3.582 10 8 0 2.4-1.2 4.56-3.12 6.08L21 21l-4.28-1.42C15.56 20.18 13.82 20.5 12 20.5 6.477 20.5 2 16.918 2 11.5S6.477 3 12 3z" stroke-linejoin="round" />
             </svg>
           </div>
-          <h2 class="welcome-title">svpchain agent</h2>
+          <h2 class="welcome-title">SVPChain Agent</h2>
           <p class="welcome-hint">{{ t('assistant.hint') }}</p>
         </div>
 

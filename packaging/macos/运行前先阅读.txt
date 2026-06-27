@@ -1,9 +1,9 @@
-svpchain agent — macOS 运行前先阅读
+SVPChain Agent — macOS 运行前先阅读
 ========================================
 
 本安装镜像（DMG）包含：
 
-  • svpchain agent.app   图形化配置工具（导入密钥、生成 MCP 配置）
+  • SVPChain Agent.app   图形化配置工具（导入密钥、生成 MCP 配置）
   • 本说明文件
   • READ-BEFORE-RUN.txt       英文版说明（English guide）
 
@@ -14,7 +14,7 @@ svpchain agent — macOS 运行前先阅读
 ------------
 
 1. 双击打开 DMG 文件（例如从「下载」文件夹）。
-2. 将 svpchain agent.app 拖入「应用程序」文件夹（或 DMG 窗口中的 Applications 快捷方式）。
+2. 将 SVPChain Agent.app 拖入「应用程序」文件夹（或 DMG 窗口中的 Applications 快捷方式）。
 3. 按下面「首次打开」方式启动一次。
 4. 在应用内完成：导入密钥 → 生成 MCP 配置 → 复制到 Cursor 等客户端设置。
 
@@ -27,7 +27,7 @@ macOS 可能拦截直接双击，这是正常现象，不是病毒。
 
 【常见弹窗 — macOS Ventura 及更新版本】
 
-  标题类似：「"svpchain agent.app" Not Opened」/「"svpchain agent.app" 未打开」
+  标题类似：「"SVPChain Agent.app" Not Opened」/「"SVPChain Agent.app" 未打开」
   正文：Apple could not verify … is free of malware …
   按钮只有「Move to Trash / 移到废纸篓」和「Done / 完成」——没有「打开」。
 
@@ -37,7 +37,7 @@ macOS 可能拦截直接双击，这是正常现象，不是病毒。
 
 【方式 A — 推荐】右键打开
 
-  1. 在 Finder 中找到 svpchain agent.app
+  1. 在 Finder 中找到 SVPChain Agent.app
   2. 按住 Control 键并点击（或双指点击触控板）
   3. 选择「打开」
   4. 在第二个弹窗中再次点击「打开」
@@ -47,7 +47,7 @@ macOS 可能拦截直接双击，这是正常现象，不是病毒。
 
   1. 先双击一次应用（出现上述「未打开」弹窗后点「完成」）
   2. 打开「系统设置」→「隐私与安全性」
-  3. 向下滚动，在「安全性」区域找到 svpchain agent 相关提示
+  3. 向下滚动，在「安全性」区域找到 SVPChain Agent 相关提示
   4. 点击「仍要打开 / Open Anyway」
   5. 在确认框中再次确认打开
 
@@ -55,7 +55,7 @@ macOS 可能拦截直接双击，这是正常现象，不是病毒。
 
   在终端执行（将路径改为实际解压位置）：
 
-  xattr -cr "/路径/svpchain agent.app"
+  xattr -cr "/路径/SVPChain Agent.app"
 
   然后仍建议使用「右键 → 打开」完成首次启动。
 

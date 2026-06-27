@@ -146,6 +146,6 @@ func TestSelectKey_SurfacesLoadError(t *testing.T) {
 }
 
 func TestGuessSignerBinaryPath(t *testing.T) {
-	got := GuessSignerBinaryPath("/Applications/svpchain agent.app/Contents/MacOS/svpchain-gui")
+	got := GuessSignerBinaryPath("/Applications/SVPChain Agent.app/Contents/MacOS/svpchain-gui")
 	require.True(t, strings.HasSuffix(got, "svpchain-mcp"))
 }

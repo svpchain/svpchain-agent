@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# package-macos-app.sh — Build the double-clickable macOS app "svpchain agent.app"
+# package-macos-app.sh — Build the double-clickable macOS app "SVPChain Agent.app"
 #
 # Bundles svpchain-gui and svpchain-mcp into Contents/MacOS/
 # so the GUI can auto-detect the MCP signer binary path.
@@ -10,7 +10,7 @@
 #   SIGN_IDENTITY="Developer ID Application: …" ./scripts/package-macos-app.sh
 #
 # Output:
-#   build/svpchain agent.app
+#   build/SVPChain Agent.app
 #   build/svpchain-agent-<version>-macos.dmg (drag .app to Applications)
 
 set -euo pipefail
@@ -18,7 +18,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
-APP_NAME="svpchain agent"
+APP_NAME="SVPChain Agent"
 BUNDLE_ID="${BUNDLE_ID:-com.svpchain.agent-gui}"
 BUILDDIR="${BUILDDIR:-$ROOT/build}"
 APP_PATH="${APP_PATH:-$BUILDDIR/$APP_NAME.app}"

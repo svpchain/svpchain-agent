@@ -66,7 +66,7 @@ onMounted(async () => {
     >
       <span class="titlebar-brand">
         <span class="brand-mark">S</span>
-        <span v-show="!sidebarCollapsed" class="titlebar-text">svpchain agent</span>
+        <span v-show="!sidebarCollapsed" class="titlebar-text">SVPChain Agent</span>
       </span>
     </div>
 

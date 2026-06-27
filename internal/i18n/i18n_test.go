@@ -33,11 +33,11 @@ func TestIsChineseTag(t *testing.T) {
 func TestInit_catalog(t *testing.T) {
 	t.Setenv("SVPCHAIN_AGENT_LANG", "en")
 	Init()
-	require.Equal(t, "svpchain agent", T().WindowTitle)
+	require.Equal(t, "SVPChain Agent", T().WindowTitle)
 
 	t.Setenv("SVPCHAIN_AGENT_LANG", "zh")
 	Init()
-	require.Equal(t, "svpchain agent", T().WindowTitle)
+	require.Equal(t, "SVPChain Agent", T().WindowTitle)
 }
 
 func TestInitWithPreference(t *testing.T) {

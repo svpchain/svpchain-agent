@@ -14,6 +14,7 @@ import (
 
 	"github.com/svpchain/svpchain-agent/internal/agent"
 	"github.com/svpchain/svpchain-agent/internal/agent/skills"
+	"github.com/svpchain/svpchain-agent/internal/brand"
 	"github.com/svpchain/svpchain-agent/internal/i18n"
 	"github.com/svpchain/svpchain-agent/internal/manage"
 	"github.com/svpchain/svpchain-agent/internal/prefs"
@@ -49,7 +50,7 @@ func (a *App) Shutdown(ctx context.Context) {
 func (a *App) CurrentVersion() string { return Version }
 
 // WindowTitle returns the application window title.
-func (a *App) WindowTitle() string { return "svpchain agent" }
+func (a *App) WindowTitle() string { return brand.AppDisplayName }
 
 // --- i18n ---
 

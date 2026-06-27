@@ -5,6 +5,8 @@ import (
 	"fmt"
 
 	"github.com/99designs/keyring"
+
+	"github.com/svpchain/svpchain-agent/internal/brand"
 )
 
 // ServiceName is the service/collection name for signing keys in the OS credential store.
@@ -45,8 +47,8 @@ func Store(ring keyring.Keyring, name, hexKey string) error {
 	return ring.Set(keyring.Item{
 		Key:         name,
 		Data:        []byte(hexKey),
-		Label:       fmt.Sprintf("svpchain agent (%s)", name),
-		Description: "svpchain agent private key (hex)",
+		Label:       fmt.Sprintf("%s (%s)", brand.AppDisplayName, name),
+		Description: brand.AppDisplayName + " private key (hex)",
 	})
 }
 

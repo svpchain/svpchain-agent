@@ -166,10 +166,10 @@ GUI 涵盖密钥管理、MCP 导出、安全策略与内置助手。
 
 ```sh
 make package-macos-app
-open "build/svpchain agent.app"
+open "build/SVPChain Agent.app"
 ```
 
-生成 `build/svpchain agent.app` 与 `build/svpchain-agent-<version>-macos.dmg`。DMG 内含 **svpchain agent.app**、README 与 **应用程序** 快捷方式 —— 拖入即可安装。包内包含 `svpchain-gui` 与 `svpchain-mcp`；配置页可自动检测 signer 路径。转发给其他 Mac 用户时，请让对方 **先阅读 运行前先阅读.txt**。
+生成 `build/SVPChain Agent.app` 与 `build/svpchain-agent-<version>-macos.dmg`。DMG 内含 **SVPChain Agent.app**、README 与 **应用程序** 快捷方式 —— 拖入即可安装。包内包含 `svpchain-gui` 与 `svpchain-mcp`；配置页可自动检测 signer 路径。转发给其他 Mac 用户时，请让对方 **先阅读 运行前先阅读.txt**。
 
 可选 Developer ID 签名以减少 Gatekeeper 提示：
 
@@ -201,7 +201,7 @@ $env:CGO_ENABLED = "1"
 make package-windows-app
 ```
 
-生成 `build\svpchain agent\`（含 `svpchain-gui.exe` + `svpchain-mcp.exe`）与 `build\svpchain-agent-<version>-windows-amd64.zip`。解压后运行 `svpchain-gui.exe`。两个 exe 须在同一目录。转发前请阅读 **运行前先阅读.txt**。
+生成 `build\SVPChain Agent\`（含 `svpchain-gui.exe` + `svpchain-mcp.exe`）与 `build\svpchain-agent-<version>-windows-amd64.zip`。解压后运行 `svpchain-gui.exe`。两个 exe 须在同一目录。转发前请阅读 **运行前先阅读.txt**。
 
 Windows GUI 支持从 GitHub Releases 应用内更新（仅 stable 标签）：下载 release zip、校验 `SHA256SUMS`、替换安装目录并重启。开发构建（`*-dev`）跳过此检查。
 

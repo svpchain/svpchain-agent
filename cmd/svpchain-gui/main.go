@@ -8,7 +8,8 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
 	"github.com/wailsapp/wails/v2/pkg/options/mac"
 
-	"github.com/svpchain/svpchain-agent/internal/desktop"
+	"github.com/svpchain/svpchain-agent/internal/brand"
+	
 )
 
 //go:embed all:frontend/dist
@@ -34,7 +35,7 @@ func main() {
 			// HiddenInset + UseToolbar pins them to the bottom of the toolbar strip.
 			TitleBar: mac.TitleBarHidden(),
 			About: &mac.AboutInfo{
-				Title:   "svpchain agent",
+				Title:   brand.AppDisplayName,
 				Message: "Local-key on-chain assistant for svpchain",
 			},
 		},

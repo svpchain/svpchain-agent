@@ -172,13 +172,13 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.VERSION }}
-          name: svpchain agent ${{ env.VERSION }}
+          name: SVPChain Agent ${{ env.VERSION }}
           body: |
             Prebuilt `svpchain-mcp` and `svpchain-gui` binaries for macOS, Windows, and Linux.
 
             - **svpchain-mcp** — stdio MCP signing service (for Cursor and other MCP clients)
             - **svpchain-gui** — graphical setup tool (import keys, generate MCP JSON)
-            - **svpchain-agent-*-macos.dmg** — macOS app disk image (open the DMG, drag `svpchain agent.app` to Applications)
+            - **svpchain-agent-*-macos.dmg** — macOS app disk image (open the DMG, drag `SVPChain Agent.app` to Applications)
             - **svpchain-agent-*-windows-amd64.zip** — Windows app folder (extract and run `svpchain-gui.exe`; includes `svpchain-mcp.exe`)
 
             Verify downloads against `SHA256SUMS` before use, for example:

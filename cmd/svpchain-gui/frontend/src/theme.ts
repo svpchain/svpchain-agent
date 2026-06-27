@@ -8,7 +8,7 @@ const shared = {
   primaryColorSuppl: '#10a37f',
   borderRadius: '10px',
   borderRadiusSmall: '8px',
-  fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+  fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif",
   fontFamilyMono: 'ui-monospace, SFMono-Regular, Menlo, monospace',
 }
 

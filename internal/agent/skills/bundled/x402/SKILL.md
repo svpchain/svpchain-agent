@@ -18,145 +18,142 @@ resource. You sign an **EIP-3009 `TransferWithAuthorization`** off-chain; the
 server's facilitator settles it on-chain — so you **pay no gas and broadcast no
 transaction yourself**.
 
-Worked example used throughout:
-- Resource: `https://www.svpchain.org/zh-TW/x402/article`
-- Guide:    `https://pre-faucet.svpchain.org/api/x402/guide`
+> You have **no shell** — every HTTP call goes through the `http_fetch` tool, and
+> every encode/decode/sign step is a tool call. There is no `curl`, `base64`, or
+> `python`. Never claim to "run" a command; call the tool.
 
-> ⚠️ This costs real (test) funds. Each unlock transfers the `amount` of `asset`
-> stated in the payment requirements. Decode and verify those values before signing.
+> ⚠️ This costs real (test) funds. Each unlock authorizes a transfer of the
+> `value` to the `to` address shown in the typed data. Read those fields off the
+> `x402_prepare_typed_data` output and verify them before you call `sign_typed_data`.
 
 ---
 
-## The 6-step flow
+## The flow (all tool calls)
 
 ```
-1. GET resource (no payment)        ──► 402 + PAYMENT-REQUIRED header
-2. base64-decode PAYMENT-REQUIRED   ──► authoritative PaymentRequirements
-3. x402_prepare_typed_data          ──► typed_data (random 32-byte nonce + validBefore)
-4. sign_typed_data                  ──► 65-byte signature
-5. x402_build_payment              ──► payment_b64 for X-PAYMENT / PAYMENT-SIGNATURE
-6. Resend SAME GET with header      ──► 200 OK + resource body
+1. http_fetch GET (no payment)        ──► 402 + payment_required (base64) in the result
+2. x402_prepare_typed_data            ──► typed_data (random 32-byte nonce + validBefore)
+3. verify typed_data.message.to/value ──► confirm recipient + amount before signing
+4. sign_typed_data                    ──► 65-byte signature
+5. x402_build_payment                 ──► payment_b64 for X-PAYMENT / PAYMENT-SIGNATURE
+6. http_fetch GET the SAME url + header ─► 200 OK + resource body
 ```
-
-> **Never invent `nonce` by hand.** LLMs often produce 31-byte hex strings that
-> break EIP-712 hashing. Always use `x402_prepare_typed_data` for step 3.
 
 ---
 
 ### Step 0 — Confirm the signer (do this first)
 
-```text
-tool: signer_whoami   (local svpchain-agent signer)
-```
-Verify before signing anything:
-- `evm_owner` is the address that will pay (becomes the `from` field).
+Use the **Cached session context** if present; otherwise call `signer_whoami`.
+Confirm before signing anything:
+
+- `evm_owner` is the address that will pay (it becomes the `from` field).
 - `evm_chain_id` == `2517` — the signer refuses to sign for any other chain.
-
-Example output:
-```json
-{ "evm_owner": "0x18cE6b725D5Fa498210bC1788DAcfA5bc14dbadc", "evm_chain_id": "2517" }
-```
-
----
 
 ### Step 1 — Initial request (no payment) → 402
 
-To get the **machine-readable** 402 (not the HTML paywall), send
-`Accept: application/json` **and** a non-browser `User-Agent`.
+Call `http_fetch` with `method: "GET"` and headers that ask for the
+**machine-readable** 402 instead of the HTML paywall — `Accept: application/json`
+plus a non-browser `User-Agent`:
 
-```bash
-curl -s -D - -o /dev/null \
-  -H "Accept: application/json" \
-  -H "User-Agent: svpchain-agent/1.0" \
-  "https://www.svpchain.org/zh-TW/x402/article"
-```
-
-Response headers of interest:
-```
-HTTP/2 402
-payment-required: <base64...>        # the requirements (body is null)
-x-payment-submit-header: PAYMENT-SIGNATURE (direct API) or X-PAYMENT (via web page)
-link: </api/x402/premium>; rel="payment"
-```
-> HTTP/2 lowercases header names — match case-insensitively.
-
----
-
-### Step 2 — Decode the requirements (authoritative)
-
-```bash
-echo "<payment-required-base64>" | base64 -d | python3 -m json.tool
-```
 ```json
 {
-  "x402Version": 2,
-  "accepts": [{
-    "scheme": "exact",
-    "network": "eip155:2517",
-    "asset": "0x013a61E622e6ABFCaB64F52D274C3Fc0aA37f951",
-    "amount": "10000",
-    "payTo": "0xfBd15a89383f82FC869DbAb85480056812722852",
-    "maxTimeoutSeconds": 60,
-    "extra": { "name": "VanToken", "version": "1" }
-  }]
+  "url": "<resource-url the user gave you>",
+  "method": "GET",
+  "headers": { "Accept": "application/json", "User-Agent": "svpchain-agent/1.0" }
 }
 ```
-**The decoded values win over anything cached in a guide.** Read `amount` and
-`payTo` carefully — that is exactly what you're authorizing.
 
----
+> Use the exact URL the user provided — do not edit, guess, or "fix" its path.
+> Many sites carry a locale segment (e.g. `/zh-TW/`, `/en/`) that varies by
+> language; it is **not** a fixed value, so never hard-code or substitute one.
 
-### Step 3 — Prepare typed data (use the tool — do not hand-build nonce)
+On a 402 the result JSON includes:
 
-```text
-tool: x402_prepare_typed_data
-```
+- `status`: `402`
+- `payment_required`: the base64 requirements string (pass this to step 2 verbatim)
+- `payment_submit_header`: which header to send the payment back in —
+  `PAYMENT-SIGNATURE` (direct API) or `X-PAYMENT` (via web page)
+
+If `payment_required` is absent, the server did not return machine-readable
+requirements — stop and report it rather than guessing.
+
+### Step 2 — Prepare typed data (generates the nonce — never hand-build it)
+
+Call `x402_prepare_typed_data`:
+
 ```json
 {
-  "payment_required": "<base64 from http_fetch.payment_required>",
-  "from": "0x18cE6b725D5Fa498210bC1788DAcfA5bc14dbadc"
+  "payment_required": "<payment_required from step 1>",
+  "from": "<evm_owner>"
 }
 ```
-Returns `typed_data`, `accepted`, `nonce`, and `valid_before` with a
-cryptographically random 32-byte nonce.
+
+It decodes the requirements and returns `typed_data`, `accepted`, `nonce`, and
+`valid_before` with a cryptographically random 32-byte nonce. **The decoded
+values in this output are authoritative** — never hard-code amount/payTo from a
+cached guide.
+
+### Step 3 — Verify what you are about to authorize
+
+Read `typed_data.message` from step 2:
+
+- `to` — the recipient you are paying (`payTo`).
+- `value` — the exact amount being transferred.
+- `validBefore` — the authorization expiry.
+
+These are the only values that matter for safety. Confirm they match the
+resource you intend to unlock before continuing.
 
 ### Step 4 — Sign
 
-```text
-tool: sign_typed_data
-```
-Pass the `typed_data` object from step 3 verbatim.
+Call `sign_typed_data`, passing the `typed_data` object from step 2 **verbatim**.
+Returns a 65-byte `0x…` signature (`v` normalized to 27/28). The signer refuses
+any payload whose `domain.chainId` is not its configured chain (2517).
 
-### Step 5 — Build payment header value
+### Step 5 — Build the payment header value
 
-```text
-tool: x402_build_payment
-```
+Call `x402_build_payment`:
+
 ```json
 {
   "accepted": { "...from x402_prepare_typed_data..." },
   "signature": "0x...from sign_typed_data...",
-  "authorization": { "...typed_data.message..." }
+  "authorization": { "...= typed_data.message..." }
 }
 ```
-Returns `payment_b64` — use as `X-PAYMENT` (web) or `PAYMENT-SIGNATURE` (API).
+
+Returns `payment_b64` — the value for the header named by `payment_submit_header`
+(`PAYMENT-SIGNATURE` for direct API, `X-PAYMENT` for web).
 
 ### Step 6 — Resubmit the SAME GET with the payment header
 
-```bash
-curl -s -D - \
-  -H "Accept: application/json" \
-  -H "User-Agent: svpchain-agent/1.0" \
-  -H "X-PAYMENT: $PAYHDR" \
-  "https://www.svpchain.org/zh-TW/x402/article"
+Call `http_fetch` on the **same url** with the same `Accept`/`User-Agent` plus
+the payment header:
+
+```json
+{
+  "url": "<the SAME resource-url from step 1>",
+  "method": "GET",
+  "headers": {
+    "Accept": "application/json",
+    "User-Agent": "svpchain-agent/1.0",
+    "X-PAYMENT": "<payment_b64>"
+  }
+}
 ```
+
+Use the header name from `payment_submit_header` (`X-PAYMENT` or
+`PAYMENT-SIGNATURE`). A `200` returns the unlocked resource body.
 
 ---
 
-## Reference: manual typed_data shape (for debugging only)
+## Reference: typed_data shape (read-only — it is generated for you)
 
-If you must inspect the EIP-712 fields, they look like this — but **always**
-generate nonce via `x402_prepare_typed_data`, not manually:
+`x402_prepare_typed_data` produces this; inspect it only to verify fields. The
+`domain.name`/`version` come from the requirements' `extra`, `verifyingContract`
+is the **asset (token) address itself**, and `chainId` is the numeric part of
+`network`.
+
 ```json
 {
   "types": {
@@ -192,25 +189,24 @@ generate nonce via `x402_prepare_typed_data`, not manually:
   }
 }
 ```
-> `domain.name`/`version` come from `extra`. `verifyingContract` is the **asset
-> (token) address itself**. `chainId` is the numeric part of `network`.
-
-Returns a 65-byte `0x…` signature (`v` normalized to 27/28).
 
 ---
 
 ## Gotchas
 
-- **Nonce must be exactly 32 bytes** (`0x` + 64 hex chars). Use
-  `x402_prepare_typed_data` — never let the LLM invent a nonce.
-- **Always decode `PAYMENT-REQUIRED` per request** — treat its values as
-  authoritative; never hard-code amount/payTo from a cached guide.
-- **HTML vs JSON 402**: a browser-like `Accept: text/html` + `Mozilla` UA gets
-  the rendered HTML paywall. Use JSON `Accept` + non-browser UA for automation.
-- **Window is short**: `validBefore` ~30 min and a fresh random `nonce` each
-  time — re-sign if it expires; never reuse a nonce.
+- **No shell.** Use `http_fetch` for every request and the `x402_*` tools for
+  encode/decode — there is no `curl`/`base64`/`python` available to you.
+- **Never invent the nonce.** It must be exactly 32 bytes (`0x` + 64 hex chars).
+  Always get it from `x402_prepare_typed_data`; a hand-built 31-byte hex string
+  breaks EIP-712 hashing.
+- **Treat each 402's `payment_required` as authoritative** — re-prepare per
+  request; never reuse cached amount/payTo.
+- **HTML vs JSON 402**: a browser-like `Accept: text/html` + `Mozilla` UA returns
+  the rendered HTML paywall. Use `Accept: application/json` + a non-browser UA.
+- **Short window**: `validBefore` is ~30 min with a fresh random nonce each time —
+  if it expires, re-run from step 2; never reuse a nonce.
 - **Chain guard**: the signer only signs for its configured `evm_chain_id`
-  (2517). A payload for another chain is refused before signing.
-- **EIP-3009 only**: this server's token implements EIP-3009, so no `approve`
-  is needed. (A Permit2 `PermitWitnessTransferFrom` fallback exists for tokens
+  (2517); a payload for another chain is refused before signing.
+- **EIP-3009 only**: this server's token implements EIP-3009, so no `approve` is
+  needed. (A Permit2 `PermitWitnessTransferFrom` fallback exists for tokens
   lacking EIP-3009, but is not used here.)

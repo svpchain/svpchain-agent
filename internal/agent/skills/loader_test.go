@@ -50,7 +50,7 @@ func TestComposeSystemPrompt_includesX402SkillWhenToolsPresent(t *testing.T) {
 	got, err := skills.ComposeSystemPrompt(tools)
 	require.NoError(t, err)
 	require.Contains(t, got, "x402_prepare_typed_data")
-	require.Contains(t, got, "Never invent `nonce` by hand")
+	require.Contains(t, got, "Never invent the nonce")
 }
 
 func TestComposeSystemPrompt_alwaysIncludesBase(t *testing.T) {
@@ -59,7 +59,7 @@ func TestComposeSystemPrompt_alwaysIncludesBase(t *testing.T) {
 	require.Contains(t, got, "svpchain agent")
 	require.Contains(t, got, "# Red lines")
 	require.Contains(t, got, "build_bank_send only accepts svp1")
-	require.NotContains(t, got, "Never invent `nonce` by hand")
+	require.NotContains(t, got, "Never invent the nonce")
 }
 
 func TestComposeSystemPrompt_userSkillOverridesBundled(t *testing.T) {

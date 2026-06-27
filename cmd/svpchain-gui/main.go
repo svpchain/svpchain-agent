@@ -9,7 +9,7 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/options/mac"
 
 	"github.com/svpchain/svpchain-agent/internal/brand"
-	
+	"github.com/svpchain/svpchain-agent/internal/desktop"
 )
 
 //go:embed all:frontend/dist

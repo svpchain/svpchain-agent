@@ -29,7 +29,6 @@ onMounted(async () => {
 <style scoped>
 .about-pane {
   width: 100%;
-  max-width: 720px;
   padding-bottom: 24px;
 }
 

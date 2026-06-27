@@ -284,7 +284,6 @@ onUnmounted(() => {
           </button>
         </div>
       </div>
-      <p class="composer-footnote">{{ t('assistant.status.label') }}: {{ runStatus || t('assistant.status.idle') }}</p>
     </footer>
   </div>
 </template>
@@ -638,13 +637,5 @@ onUnmounted(() => {
 .send-btn:disabled {
   opacity: 0.35;
   cursor: not-allowed;
-}
-
-.composer-footnote {
-  max-width: 768px;
-  margin: 8px auto 0;
-  font-size: 11px;
-  color: var(--text-muted);
-  text-align: center;
 }
 </style>

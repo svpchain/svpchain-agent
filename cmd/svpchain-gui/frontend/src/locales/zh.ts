@@ -114,6 +114,18 @@ export default {
       cancelled: '已取消',
       timeout: '请求超时（3 分钟），请检查网络或 Remote MCP 地址',
     },
+    chips: [
+      '查询 BTC-USD 价格',
+      '查询我的账户余额与持仓',
+      '查询当前资金费率',
+      '给白名单地址转 1 SVP',
+    ],
+  },
+  shell: {
+    collapseSidebar: '收起侧栏',
+    expandSidebar: '展开侧栏',
+    themeDark: '深色模式',
+    themeLight: '浅色模式',
   },
   lang: {
     chinese: '中文',

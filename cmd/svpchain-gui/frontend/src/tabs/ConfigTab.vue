@@ -122,12 +122,13 @@ async function browseSigner() {
 .preview {
   flex: 1;
   overflow: auto;
-  background: #f6f7f9;
-  border: 1px solid #ececec;
-  border-radius: 12px;
-  padding: 12px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 12px;
+  color: var(--text-secondary);
   white-space: pre;
   margin: 0;
 }

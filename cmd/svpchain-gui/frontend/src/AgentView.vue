@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { NButton, NInput, NSelect, NScrollbar, NText } from 'naive-ui'
+import { NButton, NInput, NSelect, NScrollbar } from 'naive-ui'
 import * as App from '../wailsjs/go/desktop/App'
 import { EventsOn } from '../wailsjs/runtime/runtime'
 
-const { t } = useI18n()
+const { t, tm } = useI18n()
 
 import type { Entry } from './types'
 
@@ -22,7 +22,16 @@ const lines = ref<ChatLine[]>([])
 const scrollRef = ref<InstanceType<typeof NScrollbar> | null>(null)
 const imeComposing = ref(false)
 
-// Update both the in-tab execution-status line and the parent's global status bar.
+const promptChips = computed(() => {
+  const raw = tm('assistant.chips')
+  return Array.isArray(raw) ? (raw as string[]) : []
+})
+
+function applyChip(text: string) {
+  if (running.value) return
+  input.value = text
+}
+
 function report(msg: string) {
   runStatus.value = msg
   emit('status', msg)
@@ -44,7 +53,6 @@ let watchdog: ReturnType<typeof setTimeout> | null = null
 
 const stepKinds = new Set(['auth', 'tool', 'think', 'answer', 'error'])
 
-// Map an emit kind to a known bubble class, falling back to a neutral default.
 function stepKindClass(kind: string) {
   return 'kind-' + (stepKinds.has(kind) ? kind : 'default')
 }
@@ -155,7 +163,6 @@ function cancel() {
 
 function onKeydown(e: KeyboardEvent) {
   if (e.key === 'Enter' && !e.shiftKey) {
-    // IME confirmation (e.g. Chinese) also uses Enter; don't send while composing.
     if (e.isComposing || imeComposing.value || e.keyCode === 229) {
       return
     }
@@ -182,58 +189,103 @@ onUnmounted(() => {
 
 <template>
   <div class="assistant-pane">
-    <n-select
-      v-model:value="chainId"
-      :placeholder="t('assistant.ph.chainId')"
-      :options="entries.map((e) => ({ label: e.ChainID, value: e.ChainID }))"
-      size="small"
-      class="chain-select"
-    />
+    <header class="chat-header">
+      <n-select
+        v-model:value="chainId"
+        :placeholder="t('assistant.ph.chainId')"
+        :options="entries.map((e) => ({ label: e.ChainID, value: e.ChainID }))"
+        size="small"
+        class="chain-select"
+      />
+      <span v-if="running" class="running-badge">
+        <span class="running-pulse" />
+        {{ runStatus || t('assistant.status.running') }}
+      </span>
+    </header>
 
     <n-scrollbar ref="scrollRef" class="chat-log">
-      <div v-for="(line, i) in lines" :key="i" class="chat-line" :class="line.role">
-        <template v-if="line.role === 'user'">
-          <n-text strong>{{ t('assistant.you') }}</n-text>
-          <pre class="chat-text">{{ line.text }}</pre>
-        </template>
-        <template v-else-if="line.role === 'assistant'">
-          <n-text type="success" strong>{{ t('assistant.reply') }}</n-text>
-          <pre class="chat-text">{{ line.text }}</pre>
-        </template>
-        <template v-else>
-          <div class="step-bubble" :class="stepKindClass(line.kind || '')">
-            <span class="step-title">{{ line.text.split('\n')[0] }}</span>
-            <pre v-if="line.text.includes('\n')" class="chat-detail">{{ line.text.slice(line.text.indexOf('\n') + 1) }}</pre>
+      <div class="chat-inner">
+        <div v-if="lines.length === 0" class="welcome">
+          <div class="welcome-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M12 3c5.523 0 10 3.582 10 8 0 2.4-1.2 4.56-3.12 6.08L21 21l-4.28-1.42C15.56 20.18 13.82 20.5 12 20.5 6.477 20.5 2 16.918 2 11.5S6.477 3 12 3z" stroke-linejoin="round" />
+            </svg>
           </div>
-        </template>
+          <h2 class="welcome-title">svpchain agent</h2>
+          <p class="welcome-hint">{{ t('assistant.hint') }}</p>
+        </div>
+
+        <div v-for="(line, i) in lines" :key="i" class="chat-line" :class="line.role">
+          <template v-if="line.role === 'user'">
+            <div class="bubble user-bubble">{{ line.text }}</div>
+          </template>
+          <template v-else-if="line.role === 'assistant'">
+            <div class="assistant-block">
+              <div class="assistant-avatar" aria-hidden="true">S</div>
+              <div class="bubble assistant-bubble">{{ line.text }}</div>
+            </div>
+          </template>
+          <template v-else>
+            <div class="step-bubble" :class="stepKindClass(line.kind || '')">
+              <span class="step-title">{{ line.text.split('\n')[0] }}</span>
+              <pre v-if="line.text.includes('\n')" class="chat-detail">{{ line.text.slice(line.text.indexOf('\n') + 1) }}</pre>
+            </div>
+          </template>
+        </div>
       </div>
-      <n-text v-if="lines.length === 0" depth="3" class="empty-hint">{{ t('assistant.hint') }}</n-text>
     </n-scrollbar>
 
-    <div class="input-row">
-      <n-input
-        v-model:value="input"
-        type="textarea"
-        :autosize="{ minRows: 3, maxRows: 6 }"
-        :placeholder="t('assistant.ph.message')"
-        :disabled="running"
-        class="input-box"
-        @compositionstart="imeComposing = true"
-        @compositionend="imeComposing = false"
-        @keydown="onKeydown"
-      />
-      <div class="input-buttons">
-        <n-button v-if="running" type="warning" @click="cancel">{{ t('assistant.btn.cancel') }}</n-button>
-        <n-button type="primary" :loading="running" :disabled="running" @click="send">
-          {{ t('assistant.btn.send') }}
-        </n-button>
+    <footer class="composer">
+      <div v-if="lines.length === 0 && promptChips.length" class="composer-chips">
+        <button
+          v-for="(chip, idx) in promptChips"
+          :key="'c-' + idx"
+          type="button"
+          class="prompt-chip"
+          :disabled="running"
+          @click="applyChip(chip)"
+        >
+          {{ chip }}
+        </button>
       </div>
-    </div>
-
-    <div class="status-line">
-      <span class="status-label">{{ t('assistant.status.label') }}:</span>
-      <span class="status-text" :class="{ running }">{{ runStatus || t('assistant.status.idle') }}</span>
-    </div>
+      <div class="composer-box" :class="{ 'composer-box--running': running }">
+        <n-input
+          v-model:value="input"
+          type="textarea"
+          :autosize="{ minRows: 1, maxRows: 6 }"
+          :placeholder="t('assistant.ph.message')"
+          :disabled="running"
+          class="composer-input"
+          :bordered="false"
+          @compositionstart="imeComposing = true"
+          @compositionend="imeComposing = false"
+          @keydown="onKeydown"
+        />
+        <div class="composer-actions">
+          <n-button
+            v-if="running"
+            size="small"
+            quaternary
+            class="cancel-btn"
+            @click="cancel"
+          >
+            {{ t('assistant.btn.cancel') }}
+          </n-button>
+          <button
+            type="button"
+            class="send-btn"
+            :disabled="running || !input.trim()"
+            :aria-label="t('assistant.btn.send')"
+            @click="send"
+          >
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path d="M3.4 20.4 22 12 3.4 3.6 3 10.8 17.6 12 3 13.2 3.4 20.4z" />
+            </svg>
+          </button>
+        </div>
+      </div>
+      <p class="composer-footnote">{{ t('assistant.status.label') }}: {{ runStatus || t('assistant.status.idle') }}</p>
+    </footer>
   </div>
 </template>
 
@@ -241,193 +293,358 @@ onUnmounted(() => {
 .assistant-pane {
   display: flex;
   flex-direction: column;
-  gap: 10px;
   height: 100%;
   min-height: 0;
+  background: var(--bg-base);
+}
+
+.chat-header {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 24px;
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--bg-base);
 }
 
 .chain-select {
-  max-width: 280px;
+  max-width: 200px;
+}
+
+.running-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--accent);
+  max-width: 50%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.running-pulse {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: pulse 1.4s ease-in-out infinite;
   flex-shrink: 0;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.4;
+    transform: scale(0.85);
+  }
 }
 
 .chat-log {
   flex: 1;
   min-height: 0;
-  border: 1px solid #ececec;
-  border-radius: 12px;
-  padding: 10px;
-  background: #fafafa;
 }
 
-/* Keep scrolling functional but hide the scrollbar in the assistant chat area. */
 .chat-log :deep(.n-scrollbar-rail) {
   display: none;
 }
 
-.chat-line {
-  margin-bottom: 10px;
+.chat-inner {
+  max-width: 768px;
+  margin: 0 auto;
+  padding: 24px 24px 16px;
+  min-height: 100%;
+  box-sizing: border-box;
 }
 
-/* Highlight the user's own input as a right-aligned accent bubble so it stands
-   out from assistant replies and step logs. */
-.chat-line.user {
+.welcome {
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  min-height: 280px;
+  padding: 40px 20px;
 }
 
-.chat-line.user .chat-text {
-  margin: 4px 0 0;
-  align-self: flex-end;
+.welcome-icon {
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 14px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  color: var(--accent);
+  margin-bottom: 16px;
+}
+
+.welcome-icon svg {
+  width: 24px;
+  height: 24px;
+}
+
+.welcome-title {
+  margin: 0 0 8px;
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+}
+
+.welcome-hint {
+  margin: 0;
+  max-width: 420px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+
+.chat-line {
+  margin-bottom: 20px;
+}
+
+.chat-line.user {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.user-bubble {
   max-width: 85%;
-  background: #18a058;
+  padding: 12px 16px;
+  border-radius: 20px 20px 4px 20px;
+  background: var(--bg-user-bubble);
+  color: var(--text-primary);
+  font-size: 14px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+  border: 1px solid var(--border-subtle);
+}
+
+.assistant-block {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.assistant-avatar {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, var(--accent) 0%, #0d8c6d 100%);
   color: #fff;
-  padding: 8px 12px;
-  border-radius: 10px 10px 2px 10px;
-  white-space: pre-wrap;
-  word-break: break-word;
-  font-family: inherit;
-  font-size: 13px;
-  line-height: 1.5;
+  font-size: 12px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.chat-line.assistant .chat-text {
-  margin: 4px 0 0;
+.assistant-bubble {
+  flex: 1;
+  min-width: 0;
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--text-primary);
   white-space: pre-wrap;
   word-break: break-word;
-  font-family: inherit;
-  font-size: 13px;
-  line-height: 1.5;
 }
 
-/* Step events render as a tinted bubble with a colored left accent, so the
-   emit kind (auth / tool / think / answer / error) is identifiable at a glance. */
 .step-bubble {
-  margin: 4px 0 0;
-  padding: 6px 10px;
-  border-left: 3px solid transparent;
-  border-radius: 4px 8px 8px 4px;
-  background: #f5f5f5;
+  margin-left: 40px;
+  padding: 8px 12px;
+  border-left: 2px solid transparent;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-left-width: 2px;
 }
 
 .step-title {
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 500;
   line-height: 1.5;
+  color: var(--text-secondary);
 }
 
 .step-bubble.kind-auth {
-  background: #f3effc;
-  border-left-color: #7c4dff;
-}
-
-.step-bubble.kind-auth .step-title {
-  color: #5a32c4;
+  border-left-color: #9b7bff;
+  background: rgba(155, 123, 255, 0.08);
 }
 
 .step-bubble.kind-tool {
-  background: #eef5fd;
-  border-left-color: #2080f0;
-}
-
-.step-bubble.kind-tool .step-title {
-  color: #1763c4;
+  border-left-color: #5b9cf5;
+  background: rgba(91, 156, 245, 0.08);
 }
 
 .step-bubble.kind-think {
-  background: #f5f3ef;
-  border-left-color: #c08a2d;
-}
-
-.step-bubble.kind-think .step-title {
-  color: #8a6420;
+  border-left-color: #d4a24a;
+  background: rgba(212, 162, 74, 0.08);
 }
 
 .step-bubble.kind-answer {
-  background: #ecf7f0;
-  border-left-color: #18a058;
-}
-
-.step-bubble.kind-answer .step-title {
-  color: #107a42;
+  border-left-color: var(--accent);
+  background: var(--accent-muted);
 }
 
 .step-bubble.kind-error {
-  background: #fdeeee;
-  border-left-color: #d03050;
-}
-
-.step-bubble.kind-error .step-title {
-  color: #a82440;
+  border-left-color: #e55353;
+  background: rgba(229, 83, 83, 0.1);
 }
 
 .step-bubble.kind-default {
-  background: #f5f5f5;
-  border-left-color: #cfcfcf;
-}
-
-.step-bubble.kind-default .step-title {
-  color: #666;
+  border-left-color: var(--text-muted);
 }
 
 .chat-detail {
-  margin: 4px 0 0;
-  padding: 6px 8px;
-  background: #f0f0f0;
-  border-radius: 4px;
+  margin: 6px 0 0;
+  padding: 8px 10px;
+  background: var(--bg-base);
+  border-radius: var(--radius-sm);
   font-size: 11px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--text-secondary);
   white-space: pre-wrap;
   word-break: break-all;
   max-height: 120px;
   overflow: auto;
 }
 
-.empty-hint {
-  font-size: 12px;
+.composer-chips {
+  max-width: 768px;
+  margin: 0 auto 10px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
 }
 
-.input-row {
+.prompt-chip {
+  padding: 8px 14px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-full);
+  background: var(--bg-chip);
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: 12px;
+  line-height: 1.4;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.prompt-chip:hover:not(:disabled) {
+  background: var(--bg-chip-hover);
+  border-color: var(--border-default);
+  color: var(--text-primary);
+}
+
+.prompt-chip:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.composer {
+  flex-shrink: 0;
+  padding: 12px 24px 16px;
+  background: linear-gradient(to top, var(--bg-base) 70%, transparent);
+}
+
+.composer-box {
+  max-width: 768px;
+  margin: 0 auto;
   display: flex;
   align-items: flex-end;
-  gap: 10px;
-  flex-shrink: 0;
-}
-
-.input-box {
-  flex: 1;
-}
-
-.input-buttons {
-  display: flex;
-  flex-direction: column;
   gap: 8px;
-  flex-shrink: 0;
+  padding: 10px 10px 10px 16px;
+  background: var(--bg-input);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-input);
+  transition: box-shadow 0.2s ease;
 }
 
-.status-line {
-  flex-shrink: 0;
+.composer-box:focus-within {
+  box-shadow: 0 0 0 1px var(--accent), 0 4px 16px rgba(16, 163, 127, 0.15);
+}
+
+.composer-box--running {
+  opacity: 0.85;
+}
+
+.composer-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.composer-input :deep(.n-input__textarea-el) {
+  font-size: 14px;
+  line-height: 1.5;
+  padding: 4px 0 !important;
+  background: transparent !important;
+}
+
+.composer-input :deep(.n-input-wrapper) {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.composer-actions {
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  color: #888;
-  border-top: 1px solid #ececec;
-  padding-top: 6px;
-}
-
-.status-label {
-  color: #aaa;
+  gap: 4px;
   flex-shrink: 0;
 }
 
-.status-text {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.cancel-btn {
+  font-size: 12px;
 }
 
-.status-text.running {
-  color: #18a058;
+.send-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  cursor: pointer;
+  transition: background 0.15s ease, opacity 0.15s ease, transform 0.1s ease;
+  flex-shrink: 0;
+}
+
+.send-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.send-btn:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.send-btn:active:not(:disabled) {
+  transform: scale(0.94);
+}
+
+.send-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.composer-footnote {
+  max-width: 768px;
+  margin: 8px auto 0;
+  font-size: 11px;
+  color: var(--text-muted);
+  text-align: center;
 }
 </style>

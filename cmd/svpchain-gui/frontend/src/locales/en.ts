@@ -114,6 +114,18 @@ export default {
       cancelled: 'Cancelled',
       timeout: 'Timed out after 3 minutes — check network or Remote MCP URL',
     },
+    chips: [
+      'Check BTC-USD price',
+      'Show my balance and positions',
+      'Current funding rate',
+      'Send 1 SVP to a whitelisted address',
+    ],
+  },
+  shell: {
+    collapseSidebar: 'Collapse sidebar',
+    expandSidebar: 'Expand sidebar',
+    themeDark: 'Dark mode',
+    themeLight: 'Light mode',
   },
   lang: {
     chinese: 'Chinese',

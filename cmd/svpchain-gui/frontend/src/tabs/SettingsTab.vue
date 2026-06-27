@@ -234,10 +234,11 @@ onMounted(init)
 }
 
 .settings-collapse :deep(.n-collapse-item) {
-  border: 1px solid #ececec;
-  border-radius: 10px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
   overflow: hidden;
   margin-top: 0;
+  background: var(--bg-elevated);
 }
 
 .settings-collapse :deep(.n-collapse-item + .n-collapse-item) {
@@ -286,9 +287,10 @@ onMounted(init)
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 10px 12px;
-  border: 1px solid #ececec;
-  border-radius: 8px;
+  padding: 12px 14px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
 }
 
 .skill-copy {
@@ -310,12 +312,12 @@ onMounted(init)
   height: 16px;
   flex-shrink: 0;
   border-radius: 50%;
-  border: 1px solid #bbb;
-  background: #f4f4f5;
+  border: 1px solid var(--border-default);
+  background: var(--bg-hover);
   font-size: 11px;
   font-weight: 600;
   line-height: 1;
-  color: #666;
+  color: var(--text-secondary);
   cursor: help;
   user-select: none;
 }

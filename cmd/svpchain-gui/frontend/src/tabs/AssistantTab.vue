@@ -7,13 +7,17 @@ const emit = defineEmits<{ status: [msg: string] }>()
 </script>
 
 <template>
-  <div class="pane-body assistant-tab">
+  <div class="assistant-tab">
     <AgentView :entries="entries" @status="emit('status', $event)" />
   </div>
 </template>
 
 <style scoped>
 .assistant-tab {
-  min-height: 380px;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
 }
 </style>

@@ -164,6 +164,37 @@ func TestSignEvmTransaction_ChainIDMismatch(t *testing.T) {
 	require.Contains(t, err.Error(), "9999")
 }
 
+func TestSignEvmTransaction_AllowsBridgeChains(t *testing.T) {
+	// The signer is bound to its own EVM chain (1234) but must also sign
+	// build_bridge_deposit txs on the allowlisted deposit source chains.
+	priv := newRandomPriv(t)
+	addr := signer.DeriveEvmAddress(priv)
+	h := &Handlers{Priv: priv, ChainID: "localsvp_1234-1", EVMChainID: 1234}
+
+	for _, evmChainID := range []string{"421614", "11155111"} {
+		_, out, err := h.SignEvmTransaction(context.Background(), nil, SignEvmTransactionInput{
+			Payload: newTestEvmPayload(evmChainID, addr),
+		})
+		require.NoError(t, err, "evm_chain_id %s should be allowed", evmChainID)
+		require.NotEmpty(t, out.SignedTx.RawTxHex)
+		require.NotEmpty(t, out.SignedTx.TxHash)
+	}
+}
+
+func TestSignEvmTransaction_BridgeAllowlistRequiresConfiguredEVM(t *testing.T) {
+	// A bridge chain id must not bypass the "EVM signing not configured" guard:
+	// EVMChainID 0 disables every EVM signature, allowlist included.
+	priv := newRandomPriv(t)
+	addr := signer.DeriveEvmAddress(priv)
+	h := &Handlers{Priv: priv, ChainID: "localsvp-1"}
+
+	_, _, err := h.SignEvmTransaction(context.Background(), nil, SignEvmTransactionInput{
+		Payload: newTestEvmPayload("421614", addr),
+	})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "EVM signing is not configured")
+}
+
 func TestSignEvmTransaction_DisabledWhenNoChainID(t *testing.T) {
 	// EVMChainID 0 means the signer couldn't determine its EVM chain id; it
 	// must refuse rather than sign for an attacker-chosen chain.

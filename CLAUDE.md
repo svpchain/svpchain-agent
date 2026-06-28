@@ -64,3 +64,13 @@ The standalone `svpchain-mcp` signer reads the same `prefs.json` but does **not*
 - Keys: OS credential store (Keychain / Cred Manager / Secret Service), service `svpchain-agent`, account = chain id. **One key per chain.** No `--key-hex` flag by design (would leak into process args). Headless fallback: `SIGNER_KEY_HEX`.
 - Config: `prefs.json` in the app config dir (`~/Library/Application Support/com.svpchain.agent-gui/` on macOS, `%AppData%` on Windows). Holds LLM settings, remote MCP URL, whitelist, `disabled_skills`. `agent_memory.json` sits alongside it.
 - EVM chain id: parsed from `--chain-id` (`svp_2517-1` → `2517`) unless `--evm-chain-id` overrides. No chain number + no flag = EVM signing disabled, Cosmos unaffected.
+
+## Conventions for code changes
+
+- **CGO always.** Build/test with `CGO_ENABLED=1` (libsecp256k1). Use `make build` / `make test`; a single test is `go test ./internal/signer/ -run TestName -v`.
+- **Format and vet.** Run `gofmt -w` on every edited `.go` file and `go vet ./...` before considering work done.
+- **Keep `internal/payload/` I/O-free.** It carries wire types only so the signer can be imported without chain/HTTP deps — no `net/http`, file, or chain imports there.
+- **Trust-boundary files need extra care.** Changes under `internal/signer/`, `internal/payload/`, `internal/whitelist/`, `internal/mcp/`, `internal/agent/whitelist_gate.go`, or `internal/agent/chainid.go` touch the security boundary. Preserve the chain-id binding and `signer_address` cross-checks, the `svpchain-mcp-auth-v1:` challenge prefix guard, and the two-layer whitelist semantics (gate: empty = refuse all; signer: empty = unrestricted). Add or extend tests in the matching `_test.go`.
+- **Bundled agent skills are data, not code.** A new runtime skill is a new `internal/agent/skills/bundled/<name>/SKILL.md` with `name`/`description` frontmatter, gated on tool availability — don't hardcode prompt text in Go.
+
+This repo ships Claude Code developer config under `.claude/` (active automatically, no install): `/verify` (build + test + gofmt -l + vet) and `/trust-check` (audit the current diff) commands, a `trust-boundary-auditor` subagent, dev skills (`build-and-test`, `trust-boundary-review`, `authoring-agent-skills`), and a PostToolUse hook (`.claude/hooks/go-postedit.sh`) that runs `gofmt -w` on saved Go files and flags edits to trust-boundary files.

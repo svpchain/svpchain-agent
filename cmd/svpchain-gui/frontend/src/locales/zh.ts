@@ -38,6 +38,7 @@ export default {
     agent: 'AI Agent',
     language: '语言',
     llmApiKey: 'LLM API Key',
+    llmProvider: '服务商',
     llmBaseURL: 'LLM API 地址',
     llmModel: '模型',
     remoteMCPURL: 'Remote MCP 地址',

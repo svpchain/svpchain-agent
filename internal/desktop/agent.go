@@ -26,6 +26,7 @@ type AgentSettings struct {
 	LLMAPIKey        string   `json:"llm_api_key"`
 	LLMBaseURL       string   `json:"llm_base_url"`
 	LLMModel         string   `json:"llm_model"`
+	LLMProvider      string   `json:"llm_provider"`
 	RemoteMCPURL     string   `json:"remote_mcp_url"`
 	DisabledSkills   []string `json:"disabled_skills"`
 	SkillsConfigBase string   `json:"skills_config_base"`
@@ -39,6 +40,7 @@ func (a *App) AgentGetSettings() AgentSettings {
 		LLMAPIKey:        s.LLMAPIKey,
 		LLMBaseURL:       s.LLMBaseURL,
 		LLMModel:         s.LLMModel,
+		LLMProvider:      s.LLMProvider,
 		RemoteMCPURL:     s.RemoteMCPURL,
 		DisabledSkills:   s.DisabledSkills,
 		SkillsConfigBase: s.SkillsConfigBase,
@@ -62,6 +64,7 @@ func (a *App) AgentSetSettings(s AgentSettings) {
 		LLMAPIKey:        s.LLMAPIKey,
 		LLMBaseURL:       s.LLMBaseURL,
 		LLMModel:         s.LLMModel,
+		LLMProvider:      s.LLMProvider,
 		RemoteMCPURL:     s.RemoteMCPURL,
 		DisabledSkills:   s.DisabledSkills,
 		SkillsConfigBase: s.SkillsConfigBase,
@@ -87,6 +90,10 @@ func emitAgentStep(ctx context.Context, step agent.Step) {
 
 func emitAgentError(ctx context.Context, err error) {
 	wruntime.EventsEmit(ctx, "agent:error", map[string]string{"error": err.Error()})
+}
+
+func emitAgentDelta(ctx context.Context, text string) {
+	wruntime.EventsEmit(ctx, "agent:delta", map[string]string{"text": text})
 }
 
 // AgentSend starts processing a user message asynchronously.
@@ -141,12 +148,16 @@ func (a *App) AgentSend(chainID, message string) error {
 			ChainID:   chainID,
 			RemoteURL: remoteURL,
 			LLM: agent.LLMConfig{
-				APIKey:  settings.LLMAPIKey,
-				BaseURL: settings.LLMBaseURL,
-				Model:   settings.LLMModel,
+				APIKey:   settings.LLMAPIKey,
+				BaseURL:  settings.LLMBaseURL,
+				Model:    settings.LLMModel,
+				Provider: settings.LLMProvider,
 			},
 			OnStep: func(step agent.Step) {
 				emitAgentStep(a.ctx, step)
+			},
+			OnDelta: func(text string) {
+				emitAgentDelta(a.ctx, text)
 			},
 		}, message)
 

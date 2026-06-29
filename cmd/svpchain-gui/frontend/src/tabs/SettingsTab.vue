@@ -29,6 +29,7 @@ const message = useMessage()
 
 const language = ref('en')
 const llmApiKey = ref('')
+const llmProvider = ref('openai')
 const llmBaseURL = ref('')
 const llmModel = ref('')
 const remoteMCPURL = ref('')
@@ -74,12 +75,14 @@ async function loadAgentSettings() {
     const s = (await App.AgentGetSettings()) as {
       chain_id?: string
       llm_api_key?: string
+      llm_provider?: string
       llm_base_url?: string
       llm_model?: string
       remote_mcp_url?: string
       skills_config_base?: string
     }
     llmApiKey.value = s.llm_api_key || ''
+    llmProvider.value = s.llm_provider || 'openai'
     llmBaseURL.value = s.llm_base_url || ''
     llmModel.value = s.llm_model || ''
     remoteMCPURL.value = s.remote_mcp_url || ''
@@ -108,6 +111,7 @@ async function saveAgentSettings() {
       desktop.AgentSettings.createFrom({
         chain_id: agentChainId.value,
         llm_api_key: llmApiKey.value,
+        llm_provider: llmProvider.value,
         llm_base_url: llmBaseURL.value,
         llm_model: llmModel.value,
         remote_mcp_url: remoteMCPURL.value,
@@ -188,6 +192,15 @@ onMounted(init)
 
       <n-collapse-item :title="t('settings.section.llm')" name="llm">
         <n-form label-placement="top">
+          <n-form-item :label="t('field.llmProvider')">
+            <n-select
+              v-model:value="llmProvider"
+              :options="[
+                { label: 'OpenAI-compatible', value: 'openai' },
+                { label: 'Anthropic', value: 'anthropic' },
+              ]"
+            />
+          </n-form-item>
           <n-form-item :label="t('field.llmApiKey')">
             <n-input
               v-model:value="llmApiKey"

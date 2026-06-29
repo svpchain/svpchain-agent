@@ -40,6 +40,8 @@ type Config struct {
 	RemoteURL string
 	LLM       LLMConfig
 	OnStep    func(Step)
+	// OnDelta, if set, receives assistant text increments as they stream in.
+	OnDelta func(string)
 }
 
 const maxAgentIterations = 25
@@ -116,7 +118,7 @@ func Run(ctx context.Context, cfg Config, userMessage string) (string, error) {
 			return "", ctx.Err()
 		}
 		emit(Step{Kind: StepThink, Title: fmt.Sprintf("Thinking… (round %d)", i+1)})
-		reply, err := llm.Chat(ctx, messages, tools)
+		reply, err := llm.Chat(ctx, messages, tools, cfg.OnDelta)
 		if err != nil {
 			emit(Step{Kind: StepError, Title: "LLM error", Detail: err.Error()})
 			return "", err
@@ -128,7 +130,7 @@ func Run(ctx context.Context, cfg Config, userMessage string) (string, error) {
 			if answer == "" {
 				answer = "(no response)"
 			}
-			emit(Step{Kind: StepAnswer, Title: "Done"})
+			//emit(Step{Kind: StepAnswer, Title: "Done"})
 			return answer, nil
 		}
 

@@ -37,6 +37,7 @@ type File struct {
 	LLMAPIKey        string           `json:"llm_api_key,omitempty"`
 	LLMBaseURL       string           `json:"llm_base_url,omitempty"`
 	LLMModel         string           `json:"llm_model,omitempty"`
+	LLMProvider      string           `json:"llm_provider,omitempty"`
 	RemoteMCPURL     string           `json:"remote_mcp_url,omitempty"`
 	Whitelist        []WhitelistEntry `json:"whitelist,omitempty"`
 	DisabledSkills   []string         `json:"disabled_skills,omitempty"`

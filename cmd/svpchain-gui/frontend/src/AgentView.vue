@@ -50,6 +50,9 @@ watch(
 
 let unsubs: Array<() => void> = []
 let watchdog: ReturnType<typeof setTimeout> | null = null
+// Index of the assistant bubble currently being streamed into, or -1 if none open.
+// Any step event closes it, so each round's text lands in its own bubble.
+let streamingIdx = -1
 
 const stepKinds = new Set(['auth', 'tool', 'think', 'answer', 'error'])
 
@@ -67,6 +70,9 @@ function normalizeStep(raw: Record<string, unknown>): { kind: string; title: str
 function pushStep(raw: Record<string, unknown>) {
   const { kind, title, detail } = normalizeStep(raw)
   if (!title && !detail) return
+  // A step interrupts streaming: close the current bubble so the next delta
+  // (e.g. the answer after a tool call) opens a fresh one.
+  streamingIdx = -1
   const text = detail ? `${title}\n${detail}` : title
   lines.value.push({ role: 'step', text, kind })
 }
@@ -116,6 +122,7 @@ async function send() {
   lines.value.push({ role: 'user', text: msg })
   input.value = ''
   running.value = true
+  streamingIdx = -1
   armWatchdog()
   report(t('assistant.status.running'))
 
@@ -136,10 +143,25 @@ function onStep(raw: Record<string, unknown>) {
   if (title) runStatus.value = title
 }
 
+function onDelta(e: { text?: string }) {
+  const text = e?.text || ''
+  if (!text) return
+  if (streamingIdx < 0) {
+    lines.value.push({ role: 'assistant', text: '' })
+    streamingIdx = lines.value.length - 1
+  }
+  lines.value[streamingIdx].text += text
+  scrollToBottom()
+}
+
 function onDone(e: { answer?: string }) {
   clearWatchdog()
   running.value = false
-  if (e.answer) {
+  if (streamingIdx >= 0) {
+    // Finalize the streamed bubble with the authoritative answer.
+    if (e.answer) lines.value[streamingIdx].text = e.answer
+    streamingIdx = -1
+  } else if (e.answer) {
     lines.value.push({ role: 'assistant', text: e.answer })
   }
   report(t('assistant.status.done'))
@@ -148,6 +170,7 @@ function onDone(e: { answer?: string }) {
 function onError(e: { error?: string }) {
   clearWatchdog()
   running.value = false
+  streamingIdx = -1
   const err = e.error || t('assistant.status.failed')
   lines.value.push({ role: 'step', text: err, kind: 'error' })
   report(err)
@@ -157,6 +180,7 @@ function cancel() {
   clearWatchdog()
   App.AgentCancel()
   running.value = false
+  streamingIdx = -1
   lines.value.push({ role: 'step', text: t('assistant.status.cancelled'), kind: 'error' })
   report(t('assistant.status.cancelled'))
 }
@@ -175,6 +199,7 @@ onMounted(async () => {
   await loadSettings()
   unsubs = [
     EventsOn('agent:step', onStep),
+    EventsOn('agent:delta', onDelta),
     EventsOn('agent:done', onDone),
     EventsOn('agent:error', onError),
   ]

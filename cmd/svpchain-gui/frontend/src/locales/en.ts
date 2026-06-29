@@ -38,6 +38,7 @@ export default {
     agent: 'AI Agent',
     language: 'Language',
     llmApiKey: 'LLM API Key',
+    llmProvider: 'Provider',
     llmBaseURL: 'LLM API base URL',
     llmModel: 'Model',
     remoteMCPURL: 'Remote MCP URL',

@@ -22,6 +22,7 @@ type AgentSettings struct {
 	LLMAPIKey        string
 	LLMBaseURL       string
 	LLMModel         string
+	LLMProvider      string
 	RemoteMCPURL     string
 	DisabledSkills   []string
 	SkillsConfigBase string
@@ -35,6 +36,7 @@ func (s *Store) AgentSettings() AgentSettings {
 		LLMAPIKey:        f.LLMAPIKey,
 		LLMBaseURL:       f.LLMBaseURL,
 		LLMModel:         f.LLMModel,
+		LLMProvider:      f.LLMProvider,
 		RemoteMCPURL:     f.RemoteMCPURL,
 		DisabledSkills:   append([]string(nil), f.DisabledSkills...),
 		SkillsConfigBase: f.SkillsConfigBase,
@@ -48,6 +50,7 @@ func (s *Store) SetAgentSettings(in AgentSettings) {
 		f.LLMAPIKey = in.LLMAPIKey
 		f.LLMBaseURL = in.LLMBaseURL
 		f.LLMModel = in.LLMModel
+		f.LLMProvider = in.LLMProvider
 		f.RemoteMCPURL = in.RemoteMCPURL
 		f.DisabledSkills = append([]string(nil), in.DisabledSkills...)
 		f.SkillsConfigBase = strings.TrimSpace(in.SkillsConfigBase)

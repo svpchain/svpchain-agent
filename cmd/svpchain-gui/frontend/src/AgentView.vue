@@ -587,16 +587,18 @@ onUnmounted(() => {
   margin: 0 auto;
   display: flex;
   align-items: flex-end;
-  gap: 8px;
-  padding: 10px 10px 10px 16px;
+  gap: 4px;
+  padding: 8px 6px 8px 14px;
   background: var(--bg-input);
+  border: 1px solid var(--border-default);
   border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-input);
-  transition: box-shadow 0.2s ease;
+  box-shadow: none;
+  transition: border-color 0.15s ease;
 }
 
 .composer-box:focus-within {
-  box-shadow: 0 0 0 1px var(--accent), 0 4px 16px rgba(16, 163, 127, 0.15);
+  border-color: var(--accent);
+  box-shadow: none;
 }
 
 .composer-box--running {
@@ -608,27 +610,45 @@ onUnmounted(() => {
   min-width: 0;
 }
 
-.composer-input :deep(.n-input__textarea-el) {
-  font-size: 14px;
-  line-height: 1.5;
-  padding: 4px 0 !important;
+.composer-input :deep(.n-input) {
   background: transparent !important;
 }
 
 .composer-input :deep(.n-input-wrapper) {
   background: transparent !important;
   box-shadow: none !important;
+  padding: 0 !important;
+}
+
+.composer-input :deep(.n-input__border),
+.composer-input :deep(.n-input__state-border) {
+  display: none !important;
+}
+
+.composer-input :deep(.n-input__textarea-el) {
+  font-size: 14px;
+  line-height: 1.5;
+  text-align: left;
+  padding: 4px 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.composer-input :deep(.n-input__placeholder) {
+  text-align: left;
 }
 
 .composer-actions {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
   flex-shrink: 0;
+  margin-left: 2px;
 }
 
 .cancel-btn {
   font-size: 12px;
+  padding: 0 6px !important;
 }
 
 .send-btn {
@@ -637,6 +657,7 @@ onUnmounted(() => {
   justify-content: center;
   width: 32px;
   height: 32px;
+  margin: 0;
   border: none;
   border-radius: 50%;
   background: var(--accent);
@@ -644,6 +665,7 @@ onUnmounted(() => {
   cursor: pointer;
   transition: background 0.15s ease, opacity 0.15s ease, transform 0.1s ease;
   flex-shrink: 0;
+  box-shadow: none;
 }
 
 .send-btn svg {

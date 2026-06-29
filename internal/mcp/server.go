@@ -19,6 +19,29 @@ import (
 // (attackers could trick users into signing arbitrary text and forge valid content on some chains).
 const ChallengePrefix = "svpchain-mcp-auth-v1:"
 
+// bridgeEVMChainIDs are external EVM chains whose raw Ethereum transactions
+// sign_evm_transaction will sign in addition to the signer's own configured
+// EVM chain (h.EVMChainID). The remote build_bridge_deposit tool produces
+// deposit txs on these source chains, which the bound key must sign even
+// though they are not the svpchain EVM chain. This is a deliberate, narrow
+// widening of the cross-chain replay guard: only these fixed deposit source
+// chains are accepted, and only for sign_evm_transaction (the Cosmos and
+// EIP-712/x402 paths stay bound to the single configured chain).
+var bridgeEVMChainIDs = map[uint64]bool{
+	421614:   true, // Arbitrum Sepolia
+	11155111: true, // Ethereum Sepolia
+}
+
+// isBridgeEVMChainID reports whether the decimal evm_chain_id string names one
+// of the allowlisted bridge deposit source chains.
+func isBridgeEVMChainID(evmChainID string) bool {
+	id, err := strconv.ParseUint(evmChainID, 10, 64)
+	if err != nil {
+		return false
+	}
+	return bridgeEVMChainIDs[id]
+}
+
 // Handlers holds process state: loaded private key plus chain id boundaries for refused signatures.
 // ChainID is the Cosmos chain id (string); EVMChainID is the numeric EIP-155 chain id used when signing
 // raw Ethereum transactions with the same key. Both come from --chain-id at startup (EVMChainID derived from it,
@@ -70,9 +93,10 @@ type SignEvmTransactionOutput struct {
 
 // SignEvmTransaction signs a raw Ethereum transaction (EIP-1559 or legacy)
 // built from the structured fields in the payload, returning RLP-encoded hex
-// for eth_sendRawTransaction. It enforces the same cross-chain replay guard as
-// the Cosmos path, on the numeric EVM chain id: a signer bound to one chain
-// refuses payloads targeting another.
+// for eth_sendRawTransaction. It enforces a cross-chain replay guard on the
+// numeric EVM chain id: a signer bound to one chain refuses payloads targeting
+// another, except for the fixed bridgeEVMChainIDs deposit source chains, which
+// are also accepted so the key can sign build_bridge_deposit txs.
 func (h *Handlers) SignEvmTransaction(
 	_ context.Context,
 	_ *mcp.CallToolRequest,
@@ -86,9 +110,9 @@ func (h *Handlers) SignEvmTransaction(
 			"EVM signing is not configured: start the signer with --evm-chain-id (or an evmos-style --chain-id)")
 	}
 	want := strconv.FormatUint(h.EVMChainID, 10)
-	if in.Payload.EVMChainID != want {
+	if in.Payload.EVMChainID != want && !isBridgeEVMChainID(in.Payload.EVMChainID) {
 		return nil, SignEvmTransactionOutput{}, fmt.Errorf(
-			"payload.evm_chain_id %q does not match signer evm chain id %q",
+			"payload.evm_chain_id %q does not match signer evm chain id %q or an allowed bridge chain",
 			in.Payload.EVMChainID, want,
 		)
 	}
@@ -236,7 +260,7 @@ func Register(srv *mcp.Server, h *Handlers) {
 
 	mcp.AddTool(srv, &mcp.Tool{
 		Name:        "sign_evm_transaction",
-		Description: "Sign a raw Ethereum transaction (EIP-1559 or legacy) from an EvmTxPayload produced by the svpchain remote MCP server's EVM build_* tools, using the same key as sign_transaction. ONLY signs payloads whose evm_chain_id matches this signer's configured chain; payloads for other chains are refused pre-signature. Returns RLP-encoded hex (raw_tx_hex) ready for eth_sendRawTransaction.",
+		Description: "Sign a raw Ethereum transaction (EIP-1559 or legacy) from an EvmTxPayload produced by the svpchain remote MCP server's EVM build_* tools, using the same key as sign_transaction. ONLY signs payloads whose evm_chain_id matches this signer's configured chain or an allowlisted bridge deposit source chain (Arbitrum Sepolia 421614, Ethereum Sepolia 11155111); payloads for other chains are refused pre-signature. Returns RLP-encoded hex (raw_tx_hex) ready for eth_sendRawTransaction.",
 	}, h.SignEvmTransaction)
 
 	mcp.AddTool(srv, &mcp.Tool{

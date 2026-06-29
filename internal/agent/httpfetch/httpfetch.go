@@ -1,4 +1,4 @@
-package agent
+package httpfetch
 
 import (
 	"encoding/base64"
@@ -91,8 +91,8 @@ func BuildXPaymentHeader(payload map[string]any) (string, error) {
 	return base64.StdEncoding.EncodeToString(bz), nil
 }
 
-// HTTPFetchFromArgs parses tool arguments for http_fetch.
-func HTTPFetchFromArgs(args map[string]any) (string, error) {
+// FromArgs parses tool arguments for http_fetch.
+func FromArgs(args map[string]any) (string, error) {
 	url, _ := args["url"].(string)
 	if url == "" {
 		return "", fmt.Errorf("url is required")
@@ -110,7 +110,7 @@ func HTTPFetchFromArgs(args map[string]any) (string, error) {
 	return HTTPFetch(method, url, headers, body)
 }
 
-func isHttpTool(name string) bool {
+func IsTool(name string) bool {
 	switch name {
 	case "http_fetch":
 		return true

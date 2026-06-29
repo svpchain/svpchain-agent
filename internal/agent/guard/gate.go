@@ -1,4 +1,4 @@
-package agent
+package guard
 
 import (
 	"fmt"
@@ -33,31 +33,31 @@ var transferGuardedTools = map[string]guardedTool{
 	"build_erc721_set_approval_for_all": {field: "operator", addressType: whitelist.AddressTypeEVM},
 }
 
-// WhitelistRejection marks a tool call refused by the pre-flight whitelist gate.
+// Rejection marks a tool call refused by the pre-flight whitelist gate.
 // The agent loop detects it (via errors.As) and stops immediately instead of
 // feeding the error back to the LLM, so a non-whitelisted transfer ends the run
 // rather than prompting the model to retry.
-type WhitelistRejection struct{ Err error }
+type Rejection struct{ Err error }
 
-func (e *WhitelistRejection) Error() string { return e.Err.Error() }
+func (e *Rejection) Error() string { return e.Err.Error() }
 
-func (e *WhitelistRejection) Unwrap() error { return e.Err }
+func (e *Rejection) Unwrap() error { return e.Err }
 
-// checkWhitelistGate rejects a guarded tool call before it reaches the remote
+// Check rejects a guarded tool call before it reaches the remote
 // MCP. For the GUI assistant the whitelist is mandatory: if NO whitelist is
 // configured, every transfer/approval tool is refused with a prompt to add one
 // first (this is stricter than the signer-layer "empty = unrestricted" default
 // in internal/whitelist/enforce.go, and applies only to the assistant). When a
 // whitelist exists, the recipient/spender must be on it. A rejection is wrapped
-// in *WhitelistRejection so the caller terminates instead of retrying.
-func checkWhitelistGate(chainID, name string, args map[string]any) error {
+// in *Rejection so the caller terminates instead of retrying.
+func Check(chainID, name string, args map[string]any) error {
 	g, ok := transferGuardedTools[name]
 	if !ok {
 		return nil
 	}
 	// Mandatory whitelist: refuse all transfers until the user configures one.
 	if !whitelist.LoadStore().Enforced() {
-		return &WhitelistRejection{Err: fmt.Errorf(
+		return &Rejection{Err: fmt.Errorf(
 			"no whitelist configured for chain %q — add a recipient in the Security tab before transferring",
 			chainID)}
 	}
@@ -80,7 +80,7 @@ func checkWhitelistGate(chainID, name string, args map[string]any) error {
 		err = whitelist.CheckEVMRecipient(chainID, addr)
 	}
 	if err != nil {
-		return &WhitelistRejection{Err: err}
+		return &Rejection{Err: err}
 	}
 	return nil
 }

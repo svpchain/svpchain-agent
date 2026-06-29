@@ -1,4 +1,4 @@
-package agent
+package guard
 
 import (
 	"strings"
@@ -18,12 +18,12 @@ func TestWhitelistAliasPrompt(t *testing.T) {
 
 	t.Run("empty whitelist yields no section", func(t *testing.T) {
 		writePrefs(t, `{}`)
-		require.Equal(t, "", whitelistAliasPrompt(gateChainID))
+		require.Equal(t, "", AliasPrompt(gateChainID))
 	})
 
 	t.Run("entries without alias are skipped", func(t *testing.T) {
 		writePrefs(t, `{"whitelist":[{"chain_id":"`+gateChainID+`","address_type":"evm","address":"`+evmA+`"}]}`)
-		require.Equal(t, "", whitelistAliasPrompt(gateChainID))
+		require.Equal(t, "", AliasPrompt(gateChainID))
 	})
 
 	t.Run("aliases for the chain are listed; others excluded", func(t *testing.T) {
@@ -32,7 +32,7 @@ func TestWhitelistAliasPrompt(t *testing.T) {
 			`{"chain_id":"`+gateChainID+`","address_type":"cosmos","address":"`+cosmos+`","alias":"Treasury"},`+
 			`{"chain_id":"other-1","address_type":"evm","address":"`+evmA+`","alias":"Elsewhere"}`+
 			`]}`)
-		out := whitelistAliasPrompt(gateChainID)
+		out := AliasPrompt(gateChainID)
 		require.Contains(t, out, "Bob")
 		require.Contains(t, out, evmA)
 		require.Contains(t, out, "Treasury")
@@ -43,8 +43,8 @@ func TestWhitelistAliasPrompt(t *testing.T) {
 
 	t.Run("blank chain id yields nothing", func(t *testing.T) {
 		writePrefs(t, `{"whitelist":[{"chain_id":"`+gateChainID+`","address_type":"evm","address":"`+evmA+`","alias":"Bob"}]}`)
-		require.Equal(t, "", whitelistAliasPrompt("  "))
+		require.Equal(t, "", AliasPrompt("  "))
 		// Sanity: the same store does produce output for the right chain.
-		require.True(t, strings.Contains(whitelistAliasPrompt(gateChainID), "Bob"))
+		require.True(t, strings.Contains(AliasPrompt(gateChainID), "Bob"))
 	})
 }

@@ -1,4 +1,4 @@
-package agent
+package llm
 
 import (
 	"context"
@@ -30,11 +30,11 @@ func isRetryable(err error) bool {
 // withRetry retries do() on transient errors with exponential backoff, but stops
 // retrying the moment any delta has been emitted (started bit) — re-running a stream
 // after partial output would double tokens. The wrapped emit sets started on first call.
-func (c *LLMClient) withRetry(ctx context.Context, do func(emit func(string)) (llmMessage, error), onDelta func(string)) (llmMessage, error) {
+func (c *Client) withRetry(ctx context.Context, do func(emit func(string)) (Message, error), onDelta func(string)) (Message, error) {
 	var lastErr error
 	for attempt := 0; attempt <= llmMaxRetries; attempt++ {
 		if ctx.Err() != nil {
-			return llmMessage{}, ctx.Err()
+			return Message{}, ctx.Err()
 		}
 		started := false
 		emit := func(s string) {
@@ -50,13 +50,13 @@ func (c *LLMClient) withRetry(ctx context.Context, do func(emit func(string)) (l
 		lastErr = err
 		// Do not retry once tokens have reached the caller, or for non-transient errors.
 		if started || !isRetryable(err) || attempt == llmMaxRetries {
-			return llmMessage{}, err
+			return Message{}, err
 		}
 		select {
 		case <-ctx.Done():
-			return llmMessage{}, ctx.Err()
+			return Message{}, ctx.Err()
 		case <-time.After(llmRetryBaseDelay << attempt):
 		}
 	}
-	return llmMessage{}, lastErr
+	return Message{}, lastErr
 }

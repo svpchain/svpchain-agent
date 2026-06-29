@@ -1,13 +1,13 @@
-package agent
+package chainid
 
 import (
 	"strconv"
 	"strings"
 )
 
-// ParseEVMChainID extracts the numeric EIP-155 chain id from a cosmos chain id
+// ParseEVM extracts the numeric EIP-155 chain id from a cosmos chain id
 // of the form name<sep><number>-<epoch> (e.g. svp-2517-1 → 2517).
-func ParseEVMChainID(cosmosChainID string) (uint64, bool) {
+func ParseEVM(cosmosChainID string) (uint64, bool) {
 	dash := strings.LastIndex(cosmosChainID, "-")
 	if dash < 0 {
 		return 0, false

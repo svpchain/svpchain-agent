@@ -1,4 +1,4 @@
-package agent
+package remote
 
 import (
 	"context"
@@ -6,18 +6,20 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/svpchain/svpchain-agent/internal/agent/step"
 )
 
 func TestRemotePoolReusesSession(t *testing.T) {
-	t.Cleanup(func() { SetRemotePoolForTest(NewRemotePool()) })
+	t.Cleanup(func() { SetPoolForTest(NewPool()) })
 
-	pool := NewRemotePool()
-	SetRemotePoolForTest(pool)
+	pool := NewPool()
+	SetPoolForTest(pool)
 
 	var steps []string
-	emit := func(s Step) { steps = append(steps, s.Title) }
+	emit := func(s step.Step) { steps = append(steps, s.Title) }
 
-	remote := NewRemoteClient("https://example.com/mcp")
+	remote := NewClient("https://example.com/mcp")
 	remote.forceConnected = true
 	remote.mu.Lock()
 	remote.bearer = "tok"
@@ -42,12 +44,12 @@ func TestRemotePoolReusesSession(t *testing.T) {
 }
 
 func TestRemotePoolReauthsWhenBearerExpired(t *testing.T) {
-	t.Cleanup(func() { SetRemotePoolForTest(NewRemotePool()) })
+	t.Cleanup(func() { SetPoolForTest(NewPool()) })
 
-	pool := NewRemotePool()
-	SetRemotePoolForTest(pool)
+	pool := NewPool()
+	SetPoolForTest(pool)
 
-	remote := NewRemoteClient("https://example.com/mcp")
+	remote := NewClient("https://example.com/mcp")
 	remote.forceConnected = true
 	remote.mu.Lock()
 	remote.bearer = "old"
@@ -64,7 +66,7 @@ func TestRemotePoolReauthsWhenBearerExpired(t *testing.T) {
 	pool.mu.Unlock()
 
 	var steps []string
-	emit := func(s Step) { steps = append(steps, s.Title) }
+	emit := func(s step.Step) { steps = append(steps, s.Title) }
 
 	_, err := pool.Acquire(context.Background(), "svp-2517-1", "https://example.com/mcp", "svp1abc", func(string) (string, error) {
 		return "", nil
@@ -74,10 +76,10 @@ func TestRemotePoolReauthsWhenBearerExpired(t *testing.T) {
 }
 
 func TestRemotePoolInvalidatesOnOwnerChange(t *testing.T) {
-	t.Cleanup(func() { SetRemotePoolForTest(NewRemotePool()) })
+	t.Cleanup(func() { SetPoolForTest(NewPool()) })
 
-	pool := NewRemotePool()
-	old := NewRemoteClient("https://example.com/mcp")
+	pool := NewPool()
+	old := NewClient("https://example.com/mcp")
 	old.forceConnected = true
 
 	pool.mu.Lock()
@@ -89,7 +91,7 @@ func TestRemotePoolInvalidatesOnOwnerChange(t *testing.T) {
 	}
 	pool.mu.Unlock()
 
-	emit := func(Step) {}
+	emit := func(step.Step) {}
 	got, err := pool.Acquire(context.Background(), "svp-2517-1", "https://example.com/mcp", "svp1new", func(string) (string, error) {
 		return "", nil
 	}, emit)
@@ -105,8 +107,8 @@ func TestRemotePoolInvalidatesOnOwnerChange(t *testing.T) {
 }
 
 func TestRemotePoolShutdown(t *testing.T) {
-	pool := NewRemotePool()
-	r1 := NewRemoteClient("https://a.example/mcp")
+	pool := NewPool()
+	r1 := NewClient("https://a.example/mcp")
 	r1.forceConnected = true
 	pool.entries["k1"] = &remotePoolEntry{remote: r1}
 	pool.Shutdown()
@@ -116,7 +118,7 @@ func TestRemotePoolShutdown(t *testing.T) {
 
 func TestBearerValid(t *testing.T) {
 	t.Parallel()
-	r := NewRemoteClient("")
+	r := NewClient("")
 	require.False(t, r.BearerValid())
 
 	r.mu.Lock()

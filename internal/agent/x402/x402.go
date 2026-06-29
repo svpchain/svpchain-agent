@@ -1,4 +1,4 @@
-package agent
+package x402
 
 import (
 	"crypto/rand"
@@ -186,7 +186,7 @@ func BuildX402PaymentPayload(x402Version int, accepted x402Accept, signature str
 	}, base64.StdEncoding.EncodeToString(bz), nil
 }
 
-func x402PrepareFromArgs(args map[string]any) (string, error) {
+func PrepareFromArgs(args map[string]any) (string, error) {
 	paymentRequired, _ := args["payment_required"].(string)
 	from, _ := args["from"].(string)
 	result, err := PrepareX402TypedData(paymentRequired, from)
@@ -207,7 +207,7 @@ func x402PrepareFromArgs(args map[string]any) (string, error) {
 	return string(bz), nil
 }
 
-func x402BuildPaymentFromArgs(args map[string]any) (string, error) {
+func BuildPaymentFromArgs(args map[string]any) (string, error) {
 	signature, _ := args["signature"].(string)
 	if strings.TrimSpace(signature) == "" {
 		return "", fmt.Errorf("signature is required")
@@ -292,7 +292,7 @@ func randomBytes32Hex() (string, error) {
 	return "0x" + hex.EncodeToString(b[:]), nil
 }
 
-func isX402Tool(name string) bool {
+func IsTool(name string) bool {
 	switch name {
 	case "x402_prepare_typed_data", "x402_build_payment":
 		return true

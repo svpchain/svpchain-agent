@@ -1,4 +1,4 @@
-package agent
+package result
 
 import (
 	"encoding/json"
@@ -8,7 +8,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-func toolResultText(res *mcp.CallToolResult) (string, error) {
+func ToolText(res *mcp.CallToolResult) (string, error) {
 	if res == nil {
 		return "", fmt.Errorf("nil tool result")
 	}
@@ -40,9 +40,9 @@ func toolResultText(res *mcp.CallToolResult) (string, error) {
 	return strings.Join(parts, "\n"), nil
 }
 
-func parseToolJSON[T any](res *mcp.CallToolResult) (T, error) {
+func ParseJSON[T any](res *mcp.CallToolResult) (T, error) {
 	var out T
-	text, err := toolResultText(res)
+	text, err := ToolText(res)
 	if err != nil {
 		return out, err
 	}

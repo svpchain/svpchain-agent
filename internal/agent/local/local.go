@@ -1,4 +1,4 @@
-package agent
+package local
 
 import (
 	"context"
@@ -7,18 +7,19 @@ import (
 
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
 
+	"github.com/svpchain/svpchain-agent/internal/agent/llm"
 	signermcp "github.com/svpchain/svpchain-agent/internal/mcp"
 	"github.com/svpchain/svpchain-agent/internal/payload"
 )
 
-// LocalSigner executes in-process sign_* tools.
-type LocalSigner struct {
+// Signer executes in-process sign_* tools.
+type Signer struct {
 	h *signermcp.Handlers
 }
 
-// NewLocalSigner builds handlers for the loaded key.
-func NewLocalSigner(priv *ethsecp256k1.PrivKey, chainID string, evmChainID uint64) *LocalSigner {
-	return &LocalSigner{h: &signermcp.Handlers{
+// NewSigner builds handlers for the loaded key.
+func NewSigner(priv *ethsecp256k1.PrivKey, chainID string, evmChainID uint64) *Signer {
+	return &Signer{h: &signermcp.Handlers{
 		Priv:       priv,
 		ChainID:    chainID,
 		EVMChainID: evmChainID,
@@ -26,7 +27,7 @@ func NewLocalSigner(priv *ethsecp256k1.PrivKey, chainID string, evmChainID uint6
 }
 
 // Owner returns the bech32 address for auth.
-func (l *LocalSigner) Owner() string {
+func (l *Signer) Owner() string {
 	_, out, err := l.h.Whoami(context.Background(), nil, signermcp.WhoamiInput{})
 	if err != nil {
 		return ""
@@ -35,7 +36,7 @@ func (l *LocalSigner) Owner() string {
 }
 
 // SignChallenge signs an auth challenge and returns base64 signature.
-func (l *LocalSigner) SignChallenge(challenge string) (string, error) {
+func (l *Signer) SignChallenge(challenge string) (string, error) {
 	_, out, err := l.h.SignChallenge(context.Background(), nil, signermcp.SignChallengeInput{
 		Challenge: challenge,
 	})
@@ -46,7 +47,7 @@ func (l *LocalSigner) SignChallenge(challenge string) (string, error) {
 }
 
 // CallTool dispatches a local signing tool by name.
-func (l *LocalSigner) CallTool(ctx context.Context, name string, args map[string]any) (string, error) {
+func (l *Signer) CallTool(ctx context.Context, name string, args map[string]any) (string, error) {
 	switch name {
 	case "sign_transaction":
 		return l.signTransaction(ctx, args)
@@ -89,7 +90,7 @@ func (l *LocalSigner) CallTool(ctx context.Context, name string, args map[string
 	}
 }
 
-func (l *LocalSigner) signTransaction(ctx context.Context, args map[string]any) (string, error) {
+func (l *Signer) signTransaction(ctx context.Context, args map[string]any) (string, error) {
 	raw, err := json.Marshal(args["payload"])
 	if err != nil {
 		return "", err
@@ -109,7 +110,7 @@ func (l *LocalSigner) signTransaction(ctx context.Context, args map[string]any) 
 	return string(bz), nil
 }
 
-func (l *LocalSigner) signEvmTransaction(ctx context.Context, args map[string]any) (string, error) {
+func (l *Signer) signEvmTransaction(ctx context.Context, args map[string]any) (string, error) {
 	raw, err := json.Marshal(args["payload"])
 	if err != nil {
 		return "", err
@@ -129,7 +130,7 @@ func (l *LocalSigner) signEvmTransaction(ctx context.Context, args map[string]an
 	return string(bz), nil
 }
 
-func (l *LocalSigner) signTypedData(ctx context.Context, args map[string]any) (string, error) {
+func (l *Signer) signTypedData(ctx context.Context, args map[string]any) (string, error) {
 	raw, err := json.Marshal(args["typed_data"])
 	if err != nil {
 		return "", err
@@ -149,12 +150,12 @@ func (l *LocalSigner) signTypedData(ctx context.Context, args map[string]any) (s
 	return string(bz), nil
 }
 
-// LocalToolDefs returns extra tools exposed only on the local signer.
-func LocalToolDefs() []llmTool {
-	return []llmTool{
+// ToolDefs returns extra tools exposed only on the local signer.
+func ToolDefs() []llm.Tool {
+	return []llm.Tool{
 		{
 			Type: "function",
-			Function: llmFunction{
+			Function: llm.Function{
 				Name:        "sign_transaction",
 				Description: "Sign a TxPayload from remote build_* tools. Returns signed_tx for broadcast_signed_tx.",
 				Parameters: map[string]any{
@@ -168,7 +169,7 @@ func LocalToolDefs() []llmTool {
 		},
 		{
 			Type: "function",
-			Function: llmFunction{
+			Function: llm.Function{
 				Name:        "sign_evm_transaction",
 				Description: "Sign an EvmTxPayload from remote EVM build_* tools. Returns signed_tx for broadcast_evm_tx.",
 				Parameters: map[string]any{
@@ -182,7 +183,7 @@ func LocalToolDefs() []llmTool {
 		},
 		{
 			Type: "function",
-			Function: llmFunction{
+			Function: llm.Function{
 				Name:        "sign_typed_data",
 				Description: "Sign EIP-712 typed data for x402 HTTP payments (TransferWithAuthorization / Permit2).",
 				Parameters: map[string]any{
@@ -196,7 +197,7 @@ func LocalToolDefs() []llmTool {
 		},
 		{
 			Type: "function",
-			Function: llmFunction{
+			Function: llm.Function{
 				Name:        "sign_challenge",
 				Description: "Sign auth challenge text from auth_challenge for auth_verify.",
 				Parameters: map[string]any{
@@ -210,7 +211,7 @@ func LocalToolDefs() []llmTool {
 		},
 		{
 			Type: "function",
-			Function: llmFunction{
+			Function: llm.Function{
 				Name:        "signer_whoami",
 				Description: "Return local signing key addresses (svp1 + 0x) and chain ids.",
 				Parameters:  map[string]any{"type": "object", "properties": map[string]any{}},
@@ -218,7 +219,7 @@ func LocalToolDefs() []llmTool {
 		},
 		{
 			Type: "function",
-			Function: llmFunction{
+			Function: llm.Function{
 				Name:        "evm_to_bech32",
 				Description: "Convert a 0x Ethereum address to the svpchain svp1… bech32 address for the SAME account. REQUIRED before any Cosmos x/bank send (build_bank_send) whose recipient was given as a 0x address — build_bank_send only accepts svp1… recipients. Example: to send SVP to 0xabc…, first call this, then pass the returned owner as build_bank_send.recipient.",
 				Parameters: map[string]any{
@@ -232,7 +233,7 @@ func LocalToolDefs() []llmTool {
 		},
 		{
 			Type: "function",
-			Function: llmFunction{
+			Function: llm.Function{
 				Name:        "http_fetch",
 				Description: "HTTP GET/POST for x402 paid content. On 402, read payment_required from the response, call x402_prepare_typed_data, sign_typed_data, x402_build_payment, then retry with X-PAYMENT or PAYMENT-SIGNATURE header.",
 				Parameters: map[string]any{
@@ -249,7 +250,7 @@ func LocalToolDefs() []llmTool {
 		},
 		{
 			Type: "function",
-			Function: llmFunction{
+			Function: llm.Function{
 				Name:        "x402_prepare_typed_data",
 				Description: "Build EIP-712 TransferWithAuthorization typed_data from a base64 PAYMENT-REQUIRED header. Generates a cryptographically random 32-byte nonce and validBefore window — do NOT invent nonce by hand.",
 				Parameters: map[string]any{
@@ -264,7 +265,7 @@ func LocalToolDefs() []llmTool {
 		},
 		{
 			Type: "function",
-			Function: llmFunction{
+			Function: llm.Function{
 				Name:        "a2a_send_message",
 				Description: "Send a message to another A2A-compatible agent and return its reply. Use for delegating sub-tasks (compliance review, research, etc.) to remote agents. agent_url is the base URL of the remote agent (Agent Card is fetched from /.well-known/agent-card.json).",
 				Parameters: map[string]any{
@@ -279,7 +280,7 @@ func LocalToolDefs() []llmTool {
 		},
 		{
 			Type: "function",
-			Function: llmFunction{
+			Function: llm.Function{
 				Name:        "x402_build_payment",
 				Description: "Assemble x402 v2 payment payload and base64 header value after sign_typed_data. Pass accepted from x402_prepare_typed_data, signature from sign_typed_data, and authorization from typed_data.message.",
 				Parameters: map[string]any{
@@ -297,7 +298,7 @@ func LocalToolDefs() []llmTool {
 	}
 }
 
-func isLocalTool(name string) bool {
+func IsLocalTool(name string) bool {
 	switch name {
 	case "sign_transaction", "sign_evm_transaction", "sign_typed_data", "sign_challenge", "signer_whoami", "evm_to_bech32":
 		return true

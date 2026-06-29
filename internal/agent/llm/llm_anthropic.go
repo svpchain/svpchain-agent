@@ -1,4 +1,4 @@
-package agent
+package llm
 
 import (
 	"bytes"
@@ -36,7 +36,7 @@ type anthropicBlockAcc struct {
 	json strings.Builder
 }
 
-func (c *LLMClient) chatAnthropic(ctx context.Context, messages []llmMessage, tools []llmTool, emit func(string)) (llmMessage, error) {
+func (c *Client) chatAnthropic(ctx context.Context, messages []Message, tools []Tool, emit func(string)) (Message, error) {
 	system, msgs := toAnthropicMessages(messages)
 	reqBody := map[string]any{
 		"model":      c.cfg.Model,
@@ -52,11 +52,11 @@ func (c *LLMClient) chatAnthropic(ctx context.Context, messages []llmMessage, to
 	}
 	body, err := json.Marshal(reqBody)
 	if err != nil {
-		return llmMessage{}, err
+		return Message{}, err
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.cfg.BaseURL+"/v1/messages", bytes.NewReader(body))
 	if err != nil {
-		return llmMessage{}, err
+		return Message{}, err
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "text/event-stream")
@@ -64,14 +64,14 @@ func (c *LLMClient) chatAnthropic(ctx context.Context, messages []llmMessage, to
 	req.Header.Set("anthropic-version", anthropicVersion)
 	resp, err := c.client.Do(req)
 	if err != nil {
-		return llmMessage{}, err
+		return Message{}, err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return llmMessage{}, httpError(resp)
+		return Message{}, httpError(resp)
 	}
 
-	out := llmMessage{Role: "assistant"}
+	out := Message{Role: "assistant"}
 	var contentB strings.Builder
 	// content blocks arrive by index; a tool_use block accumulates partial_json.
 	blocks := map[int]*anthropicBlockAcc{}
@@ -106,7 +106,7 @@ func (c *LLMClient) chatAnthropic(ctx context.Context, messages []llmMessage, to
 		return false, nil
 	})
 	if err != nil {
-		return llmMessage{}, err
+		return Message{}, err
 	}
 
 	out.Content = contentB.String()
@@ -119,10 +119,10 @@ func (c *LLMClient) chatAnthropic(ctx context.Context, messages []llmMessage, to
 		if strings.TrimSpace(args) == "" {
 			args = "{}"
 		}
-		out.ToolCalls = append(out.ToolCalls, llmToolCall{
+		out.ToolCalls = append(out.ToolCalls, ToolCall{
 			ID:   b.id,
 			Type: "function",
-			Function: llmToolCallFunction{
+			Function: ToolCallFunction{
 				Name:      b.name,
 				Arguments: args,
 			},
@@ -134,7 +134,7 @@ func (c *LLMClient) chatAnthropic(ctx context.Context, messages []llmMessage, to
 // toAnthropicMessages converts OpenAI-shaped messages into Anthropic's (system, messages)
 // pair: system text is hoisted out; tool results become a user tool_result block; an
 // assistant message with tool calls becomes tool_use blocks.
-func toAnthropicMessages(messages []llmMessage) (system string, out []map[string]any) {
+func toAnthropicMessages(messages []Message) (system string, out []map[string]any) {
 	var sys []string
 	for _, m := range messages {
 		switch m.Role {
@@ -177,7 +177,7 @@ func toAnthropicMessages(messages []llmMessage) (system string, out []map[string
 	return strings.Join(sys, "\n\n"), out
 }
 
-func toAnthropicTools(tools []llmTool) []map[string]any {
+func toAnthropicTools(tools []Tool) []map[string]any {
 	out := make([]map[string]any, 0, len(tools))
 	for _, t := range tools {
 		schema := t.Function.Parameters

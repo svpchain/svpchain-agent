@@ -1,4 +1,4 @@
-package agent
+package guard
 
 import (
 	"fmt"
@@ -7,14 +7,14 @@ import (
 	"github.com/svpchain/svpchain-agent/internal/whitelist"
 )
 
-// whitelistAliasPrompt builds a system-prompt section mapping whitelist aliases
+// AliasPrompt builds a system-prompt section mapping whitelist aliases
 // to their addresses for chainID, so the assistant can resolve "transfer to
 // <alias>" to a concrete recipient. Entries without an alias, or for other
 // chains, are skipped. Returns "" when there is nothing to inject.
 //
 // This is advisory context only: the recipient the LLM ultimately uses is still
 // validated by the pre-flight whitelist gate (see whitelist_gate.go).
-func whitelistAliasPrompt(chainID string) string {
+func AliasPrompt(chainID string) string {
 	chainID = strings.TrimSpace(chainID)
 	if chainID == "" {
 		return ""

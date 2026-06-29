@@ -1,10 +1,12 @@
-package agent
+package a2acall
 
 import (
 	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/svpchain/svpchain-agent/internal/agent/local"
 )
 
 func TestA2ASendFromArgs(t *testing.T) {
@@ -18,7 +20,7 @@ func TestA2ASendFromArgs(t *testing.T) {
 		return `{"response":"pong"}`, nil
 	}
 
-	out, err := a2aSendFromArgs(context.Background(), map[string]any{
+	out, err := SendFromArgs(context.Background(), map[string]any{
 		"agent_url": "http://localhost:9001",
 		"message":   "ping",
 	})
@@ -28,16 +30,16 @@ func TestA2ASendFromArgs(t *testing.T) {
 
 func TestA2ASendFromArgsValidation(t *testing.T) {
 	t.Parallel()
-	_, err := a2aSendFromArgs(context.Background(), map[string]any{"message": "hi"})
+	_, err := SendFromArgs(context.Background(), map[string]any{"message": "hi"})
 	require.Error(t, err)
-	_, err = a2aSendFromArgs(context.Background(), map[string]any{"agent_url": "http://x"})
+	_, err = SendFromArgs(context.Background(), map[string]any{"agent_url": "http://x"})
 	require.Error(t, err)
 }
 
 func TestLocalToolDefsIncludesA2A(t *testing.T) {
 	t.Parallel()
 	var found bool
-	for _, tool := range LocalToolDefs() {
+	for _, tool := range local.ToolDefs() {
 		if tool.Function.Name == "a2a_send_message" {
 			found = true
 			break

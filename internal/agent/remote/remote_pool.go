@@ -1,12 +1,14 @@
-package agent
+package remote
 
 import (
 	"context"
 	"sync"
+
+	"github.com/svpchain/svpchain-agent/internal/agent/step"
 )
 
-// RemotePool keeps live remote MCP sessions keyed by chain id + remote URL.
-type RemotePool struct {
+// Pool keeps live remote MCP sessions keyed by chain id + remote URL.
+type Pool struct {
 	mu      sync.Mutex
 	entries map[string]*remotePoolEntry
 }
@@ -15,14 +17,14 @@ type remotePoolEntry struct {
 	chainID   string
 	remoteURL string
 	owner     string
-	remote    *RemoteClient
+	remote    *Client
 }
 
-var defaultRemotePool = NewRemotePool()
+var defaultRemotePool = NewPool()
 
-// NewRemotePool returns an empty remote session pool.
-func NewRemotePool() *RemotePool {
-	return &RemotePool{entries: make(map[string]*remotePoolEntry)}
+// NewPool returns an empty remote session pool.
+func NewPool() *Pool {
+	return &Pool{entries: make(map[string]*remotePoolEntry)}
 }
 
 func remotePoolKey(chainID, remoteURL string) string {
@@ -32,7 +34,7 @@ func remotePoolKey(chainID, remoteURL string) string {
 // Acquire returns a connected and authenticated remote client, creating or reusing
 // a pooled session. Progress steps are emitted only when a connection or re-auth
 // actually runs.
-func (p *RemotePool) Acquire(ctx context.Context, chainID, remoteURL, owner string, signChallenge func(challenge string) (string, error), emit func(Step)) (*RemoteClient, error) {
+func (p *Pool) Acquire(ctx context.Context, chainID, remoteURL, owner string, signChallenge func(challenge string) (string, error), emit func(step.Step)) (*Client, error) {
 	key := remotePoolKey(chainID, remoteURL)
 
 	p.mu.Lock()
@@ -47,7 +49,7 @@ func (p *RemotePool) Acquire(ctx context.Context, chainID, remoteURL, owner stri
 			chainID:   chainID,
 			remoteURL: remoteURL,
 			owner:     owner,
-			remote:    NewRemoteClient(remoteURL),
+			remote:    NewClient(remoteURL),
 		}
 		p.entries[key] = ent
 	}
@@ -55,26 +57,26 @@ func (p *RemotePool) Acquire(ctx context.Context, chainID, remoteURL, owner stri
 	p.mu.Unlock()
 
 	if !remote.IsConnected() {
-		emit(Step{Kind: StepThink, Title: "Connecting to remote MCP…", Detail: remoteURL})
+		emit(step.Step{Kind: step.Think, Title: "Connecting to remote MCP…", Detail: remoteURL})
 		if err := remote.Connect(ctx); err != nil {
 			return nil, err
 		}
 	}
 
 	if !remote.BearerValid() {
-		emit(Step{Kind: StepAuth, Title: "Authenticating with remote MCP…"})
+		emit(step.Step{Kind: step.Auth, Title: "Authenticating with remote MCP…"})
 		if err := remote.EnsureAuth(ctx, owner, signChallenge); err != nil {
-			emit(Step{Kind: StepError, Title: "Authentication failed", Detail: err.Error()})
+			emit(step.Step{Kind: step.Error, Title: "Authentication failed", Detail: err.Error()})
 			return nil, err
 		}
-		emit(Step{Kind: StepAuth, Title: "Authenticated", Detail: owner})
+		emit(step.Step{Kind: step.Auth, Title: "Authenticated", Detail: owner})
 	}
 
 	return remote, nil
 }
 
 // Shutdown closes all pooled remote MCP sessions.
-func (p *RemotePool) Shutdown() {
+func (p *Pool) Shutdown() {
 	p.mu.Lock()
 	entries := p.entries
 	p.entries = make(map[string]*remotePoolEntry)
@@ -87,19 +89,19 @@ func (p *RemotePool) Shutdown() {
 	}
 }
 
-// ShutdownRemotePool closes the process-wide default remote MCP pool.
-func ShutdownRemotePool() {
+// Shutdown closes the process-wide default remote MCP pool.
+func Shutdown() {
 	defaultRemotePool.Shutdown()
 }
 
-// SetRemotePoolForTest replaces the process-wide pool (tests only).
-func SetRemotePoolForTest(p *RemotePool) {
+// SetPoolForTest replaces the process-wide pool (tests only).
+func SetPoolForTest(p *Pool) {
 	if p == nil {
-		p = NewRemotePool()
+		p = NewPool()
 	}
 	defaultRemotePool = p
 }
 
-func acquireRemote(ctx context.Context, chainID, remoteURL, owner string, signChallenge func(challenge string) (string, error), emit func(Step)) (*RemoteClient, error) {
+func Acquire(ctx context.Context, chainID, remoteURL, owner string, signChallenge func(challenge string) (string, error), emit func(step.Step)) (*Client, error) {
 	return defaultRemotePool.Acquire(ctx, chainID, remoteURL, owner, signChallenge, emit)
 }

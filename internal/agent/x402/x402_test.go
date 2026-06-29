@@ -1,4 +1,4 @@
-package agent
+package x402
 
 import (
 	"encoding/base64"
@@ -50,7 +50,7 @@ func TestPrepareX402TypedData_RejectsEmptyPaymentRequired(t *testing.T) {
 }
 
 func TestX402BuildPaymentFromArgs(t *testing.T) {
-	raw, err := x402BuildPaymentFromArgs(map[string]any{
+	raw, err := BuildPaymentFromArgs(map[string]any{
 		"accepted": map[string]any{
 			"scheme":  "exact",
 			"network": "eip155:2517",

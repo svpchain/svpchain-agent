@@ -1,4 +1,4 @@
-package agent
+package a2acall
 
 import (
 	"context"
@@ -7,11 +7,11 @@ import (
 	svpa2a "github.com/svpchain/svpchain-agent/internal/a2a"
 )
 
-func isA2ATool(name string) bool {
+func IsTool(name string) bool {
 	return name == "a2a_send_message"
 }
 
-func a2aSendFromArgs(ctx context.Context, args map[string]any) (string, error) {
+func SendFromArgs(ctx context.Context, args map[string]any) (string, error) {
 	agentURL, _ := args["agent_url"].(string)
 	message, _ := args["message"].(string)
 	if agentURL == "" {

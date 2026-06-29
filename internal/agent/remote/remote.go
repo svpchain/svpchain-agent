@@ -1,4 +1,4 @@
-package agent
+package remote
 
 import (
 	"context"
@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+
+	"github.com/svpchain/svpchain-agent/internal/agent/result"
 )
 
 const defaultRemoteURL = "https://indexer.svpchain.com/mcp"
@@ -30,8 +32,8 @@ func (t *bearerRoundTripper) RoundTrip(req *http.Request) (*http.Response, error
 	return base.RoundTrip(req)
 }
 
-// RemoteClient talks to the svpchain remote MCP server over Streamable HTTP.
-type RemoteClient struct {
+// Client talks to the svpchain remote MCP server over Streamable HTTP.
+type Client struct {
 	url     string
 	client  *mcp.Client
 	session *mcp.ClientSession
@@ -43,16 +45,16 @@ type RemoteClient struct {
 	forceConnected bool // tests only: treat client as connected without a live session
 }
 
-// NewRemoteClient creates a client for endpoint (empty → production default).
-func NewRemoteClient(endpoint string) *RemoteClient {
+// NewClient creates a client for endpoint (empty → production default).
+func NewClient(endpoint string) *Client {
 	if endpoint == "" {
 		endpoint = defaultRemoteURL
 	}
-	return &RemoteClient{url: endpoint}
+	return &Client{url: endpoint}
 }
 
 // Connect opens the MCP session.
-func (r *RemoteClient) Connect(ctx context.Context) error {
+func (r *Client) Connect(ctx context.Context) error {
 	r.mu.Lock()
 	if r.session != nil || r.forceConnected {
 		r.mu.Unlock()
@@ -89,21 +91,21 @@ func (r *RemoteClient) Connect(ctx context.Context) error {
 }
 
 // IsConnected reports whether the MCP session is open.
-func (r *RemoteClient) IsConnected() bool {
+func (r *Client) IsConnected() bool {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	return r.session != nil || r.forceConnected
 }
 
 // BearerValid reports whether the cached bearer token is still usable.
-func (r *RemoteClient) BearerValid() bool {
+func (r *Client) BearerValid() bool {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	return r.bearer != "" && time.Now().Before(r.bearerUntil.Add(-time.Minute))
 }
 
 // currentBearer returns the live bearer token if still valid, else "".
-func (r *RemoteClient) currentBearer() string {
+func (r *Client) currentBearer() string {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if r.bearer != "" && time.Now().Before(r.bearerUntil) {
@@ -113,7 +115,7 @@ func (r *RemoteClient) currentBearer() string {
 }
 
 // Close ends the MCP session.
-func (r *RemoteClient) Close() error {
+func (r *Client) Close() error {
 	r.mu.Lock()
 	sess := r.session
 	r.session = nil
@@ -130,7 +132,7 @@ func (r *RemoteClient) Close() error {
 }
 
 // ListTools returns remote tool definitions for the LLM.
-func (r *RemoteClient) ListTools(ctx context.Context) ([]*mcp.Tool, error) {
+func (r *Client) ListTools(ctx context.Context) ([]*mcp.Tool, error) {
 	r.mu.Lock()
 	sess := r.session
 	r.mu.Unlock()
@@ -145,7 +147,7 @@ func (r *RemoteClient) ListTools(ctx context.Context) ([]*mcp.Tool, error) {
 }
 
 // CallTool invokes a remote tool.
-func (r *RemoteClient) CallTool(ctx context.Context, name string, args map[string]any) (string, error) {
+func (r *Client) CallTool(ctx context.Context, name string, args map[string]any) (string, error) {
 	r.mu.Lock()
 	sess := r.session
 	r.mu.Unlock()
@@ -159,7 +161,7 @@ func (r *RemoteClient) CallTool(ctx context.Context, name string, args map[strin
 	if err != nil {
 		return "", err
 	}
-	text, err := toolResultText(res)
+	text, err := result.ToolText(res)
 	if err != nil {
 		return "", err
 	}
@@ -182,7 +184,7 @@ type authVerifyOut struct {
 }
 
 // EnsureAuth runs auth_challenge → signChallenge → auth_verify when needed.
-func (r *RemoteClient) EnsureAuth(ctx context.Context, owner string, signChallenge func(challenge string) (signatureB64 string, err error)) error {
+func (r *Client) EnsureAuth(ctx context.Context, owner string, signChallenge func(challenge string) (signatureB64 string, err error)) error {
 	if r.BearerValid() {
 		return nil
 	}

@@ -1,4 +1,4 @@
-package agent
+package llm
 
 import (
 	"bytes"
@@ -9,10 +9,10 @@ import (
 )
 
 type openAIChatRequest struct {
-	Model    string       `json:"model"`
-	Messages []llmMessage `json:"messages"`
-	Tools    []llmTool    `json:"tools,omitempty"`
-	Stream   bool         `json:"stream"`
+	Model    string    `json:"model"`
+	Messages []Message `json:"messages"`
+	Tools    []Tool    `json:"tools,omitempty"`
+	Stream   bool      `json:"stream"`
 }
 
 // openAIStreamChunk is one SSE `data:` frame from /v1/chat/completions (stream=true).
@@ -47,28 +47,28 @@ type openAIToolCallAcc struct {
 	args strings.Builder
 }
 
-func (c *LLMClient) chatOpenAI(ctx context.Context, messages []llmMessage, tools []llmTool, emit func(string)) (llmMessage, error) {
+func (c *Client) chatOpenAI(ctx context.Context, messages []Message, tools []Tool, emit func(string)) (Message, error) {
 	body, err := json.Marshal(openAIChatRequest{Model: c.cfg.Model, Messages: messages, Tools: tools, Stream: true})
 	if err != nil {
-		return llmMessage{}, err
+		return Message{}, err
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.cfg.BaseURL+"/v1/chat/completions", bytes.NewReader(body))
 	if err != nil {
-		return llmMessage{}, err
+		return Message{}, err
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "text/event-stream")
 	req.Header.Set("Authorization", "Bearer "+c.cfg.APIKey)
 	resp, err := c.client.Do(req)
 	if err != nil {
-		return llmMessage{}, err
+		return Message{}, err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return llmMessage{}, httpError(resp)
+		return Message{}, httpError(resp)
 	}
 
-	out := llmMessage{Role: "assistant"}
+	out := Message{Role: "assistant"}
 	var contentB strings.Builder
 	// tool_calls arrive sharded by index across frames; accumulate per index.
 	calls := map[int]*openAIToolCallAcc{}
@@ -106,16 +106,16 @@ func (c *LLMClient) chatOpenAI(ctx context.Context, messages []llmMessage, tools
 		return false, nil
 	})
 	if err != nil {
-		return llmMessage{}, err
+		return Message{}, err
 	}
 
 	out.Content = contentB.String()
 	for _, idx := range order {
 		acc := calls[idx]
-		out.ToolCalls = append(out.ToolCalls, llmToolCall{
+		out.ToolCalls = append(out.ToolCalls, ToolCall{
 			ID:   acc.id,
 			Type: "function",
-			Function: llmToolCallFunction{
+			Function: ToolCallFunction{
 				Name:      acc.name,
 				Arguments: acc.args.String(),
 			},

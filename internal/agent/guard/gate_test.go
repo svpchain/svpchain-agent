@@ -1,4 +1,4 @@
-package agent
+package guard
 
 import (
 	"os"
@@ -44,42 +44,42 @@ func TestCheckWhitelistGate(t *testing.T) {
 
 	t.Run("empty whitelist rejects transfers", func(t *testing.T) {
 		writePrefs(t, `{}`)
-		err := checkWhitelistGate(gateChainID, "build_erc20_transfer",
+		err := Check(gateChainID, "build_erc20_transfer",
 			map[string]any{"to": blockedEVM})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "no whitelist configured")
-		var rej *WhitelistRejection
+		var rej *Rejection
 		require.ErrorAs(t, err, &rej)
 
-		err = checkWhitelistGate(gateChainID, "build_bank_send",
+		err = Check(gateChainID, "build_bank_send",
 			map[string]any{"recipient": blockedCosmos})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "no whitelist configured")
 
 		// Non-transfer tools stay allowed even with no whitelist configured.
-		require.NoError(t, checkWhitelistGate(gateChainID, "get_balance",
+		require.NoError(t, Check(gateChainID, "get_balance",
 			map[string]any{"owner": blockedCosmos}))
 	})
 
 	t.Run("evm transfer enforced", func(t *testing.T) {
 		writePrefs(t, `{"whitelist":[{"chain_id":"`+gateChainID+`","address_type":"evm","address":"`+allowedEVM+`"}]}`)
-		require.NoError(t, checkWhitelistGate(gateChainID, "build_erc20_transfer",
+		require.NoError(t, Check(gateChainID, "build_erc20_transfer",
 			map[string]any{"to": allowedEVM}))
-		err := checkWhitelistGate(gateChainID, "build_erc20_transfer",
+		err := Check(gateChainID, "build_erc20_transfer",
 			map[string]any{"to": blockedEVM})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "not on the whitelist")
-		// Must be a *WhitelistRejection so the agent loop terminates instead of
+		// Must be a *Rejection so the agent loop terminates instead of
 		// feeding the error back to the LLM.
-		var rej *WhitelistRejection
+		var rej *Rejection
 		require.ErrorAs(t, err, &rej)
 	})
 
 	t.Run("cosmos bank send enforced", func(t *testing.T) {
 		writePrefs(t, `{"whitelist":[{"chain_id":"`+gateChainID+`","address_type":"cosmos","address":"`+allowedCosmos+`"}]}`)
-		require.NoError(t, checkWhitelistGate(gateChainID, "build_bank_send",
+		require.NoError(t, Check(gateChainID, "build_bank_send",
 			map[string]any{"recipient": allowedCosmos}))
-		err := checkWhitelistGate(gateChainID, "build_bank_send",
+		err := Check(gateChainID, "build_bank_send",
 			map[string]any{"recipient": blockedCosmos})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "not on the whitelist")
@@ -87,7 +87,7 @@ func TestCheckWhitelistGate(t *testing.T) {
 
 	t.Run("approval is gated", func(t *testing.T) {
 		writePrefs(t, `{"whitelist":[{"chain_id":"`+gateChainID+`","address_type":"evm","address":"`+allowedEVM+`"}]}`)
-		err := checkWhitelistGate(gateChainID, "build_erc20_approve",
+		err := Check(gateChainID, "build_erc20_approve",
 			map[string]any{"spender": blockedEVM})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "not on the whitelist")
@@ -96,15 +96,15 @@ func TestCheckWhitelistGate(t *testing.T) {
 	t.Run("bridge deposit to self is allowed", func(t *testing.T) {
 		writePrefs(t, `{"whitelist":[{"chain_id":"`+gateChainID+`","address_type":"evm","address":"`+allowedEVM+`"}]}`)
 		// No recipient -> defaults to self -> not checked even with an active whitelist.
-		require.NoError(t, checkWhitelistGate(gateChainID, "build_bridge_deposit",
+		require.NoError(t, Check(gateChainID, "build_bridge_deposit",
 			map[string]any{"dest_chain": "sepolia", "token": "USDC", "amount": "1"}))
 	})
 
 	t.Run("non-transfer tools are not gated", func(t *testing.T) {
 		writePrefs(t, `{"whitelist":[{"chain_id":"`+gateChainID+`","address_type":"evm","address":"`+allowedEVM+`"}]}`)
-		require.NoError(t, checkWhitelistGate(gateChainID, "get_balance",
+		require.NoError(t, Check(gateChainID, "get_balance",
 			map[string]any{"owner": blockedCosmos}))
-		require.NoError(t, checkWhitelistGate(gateChainID, "build_swap",
+		require.NoError(t, Check(gateChainID, "build_swap",
 			map[string]any{"token_in": "svp", "token_out": "usdv", "amount_in": "1"}))
 	})
 }

@@ -1,4 +1,4 @@
-package agent
+package llm
 
 import (
 	"context"
@@ -20,17 +20,17 @@ const (
 	providerAnthropic  = "anthropic"
 )
 
-// LLMConfig holds chat-completion API settings. Provider selects the wire format:
+// Config holds chat-completion API settings. Provider selects the wire format:
 // "openai" covers every OpenAI-compatible service (deepseek, openai, openrouter,
 // kimi, qwen, ollama, …); "anthropic" speaks the native /v1/messages format.
-type LLMConfig struct {
+type Config struct {
 	APIKey   string
 	BaseURL  string
 	Model    string
 	Provider string
 }
 
-func (c LLMConfig) normalized() LLMConfig {
+func (c Config) normalized() Config {
 	out := c
 	out.Provider = strings.ToLower(strings.TrimSpace(out.Provider))
 	if out.Provider == "" {
@@ -55,14 +55,14 @@ func (c LLMConfig) normalized() LLMConfig {
 	return out
 }
 
-// LLMClient calls a chat-completion API (OpenAI-compatible or Anthropic).
-type LLMClient struct {
-	cfg    LLMConfig
+// Client calls a chat-completion API (OpenAI-compatible or Anthropic).
+type Client struct {
+	cfg    Config
 	client *http.Client
 }
 
-func NewLLMClient(cfg LLMConfig) *LLMClient {
-	return &LLMClient{
+func NewClient(cfg Config) *Client {
+	return &Client{
 		cfg:    cfg.normalized(),
 		client: &http.Client{Timeout: 120 * time.Second},
 	}
@@ -73,16 +73,16 @@ func NewLLMClient(cfg LLMConfig) *LLMClient {
 // as they arrive. Transient failures are retried — but only before the first delta is
 // emitted, so a partially streamed answer is never duplicated. The provider-specific
 // wire handling lives in chatOpenAI / chatAnthropic.
-func (c *LLMClient) Chat(ctx context.Context, messages []llmMessage, tools []llmTool, onDelta func(string)) (llmMessage, error) {
+func (c *Client) Chat(ctx context.Context, messages []Message, tools []Tool, onDelta func(string)) (Message, error) {
 	if c.cfg.APIKey == "" {
-		return llmMessage{}, fmt.Errorf("LLM API key is not configured")
+		return Message{}, fmt.Errorf("LLM API key is not configured")
 	}
 	if c.cfg.Provider == providerAnthropic {
-		return c.withRetry(ctx, func(emit func(string)) (llmMessage, error) {
+		return c.withRetry(ctx, func(emit func(string)) (Message, error) {
 			return c.chatAnthropic(ctx, messages, tools, emit)
 		}, onDelta)
 	}
-	return c.withRetry(ctx, func(emit func(string)) (llmMessage, error) {
+	return c.withRetry(ctx, func(emit func(string)) (Message, error) {
 		return c.chatOpenAI(ctx, messages, tools, emit)
 	}, onDelta)
 }

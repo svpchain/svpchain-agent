@@ -1,4 +1,4 @@
-package agent
+package llm
 
 import (
 	"context"
@@ -44,9 +44,9 @@ func TestChatOpenAI_streamsContentAndToolCalls(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	c := NewLLMClient(LLMConfig{APIKey: "k", BaseURL: srv.URL, Model: "m", Provider: "openai"})
+	c := NewClient(Config{APIKey: "k", BaseURL: srv.URL, Model: "m", Provider: "openai"})
 	var deltas strings.Builder
-	msg, err := c.Chat(context.Background(), []llmMessage{{Role: "user", Content: "hi"}}, nil, func(s string) {
+	msg, err := c.Chat(context.Background(), []Message{{Role: "user", Content: "hi"}}, nil, func(s string) {
 		deltas.WriteString(s)
 	})
 	if err != nil {
@@ -92,11 +92,11 @@ func TestChatAnthropic_translatesRequestAndDecodesStream(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	c := NewLLMClient(LLMConfig{APIKey: "k", BaseURL: srv.URL, Model: "claude-x", Provider: "anthropic"})
-	tools := []llmTool{{Type: "function", Function: llmFunction{
+	c := NewClient(Config{APIKey: "k", BaseURL: srv.URL, Model: "claude-x", Provider: "anthropic"})
+	tools := []Tool{{Type: "function", Function: Function{
 		Name: "whoami", Description: "who", Parameters: map[string]any{"type": "object"},
 	}}}
-	msgs := []llmMessage{
+	msgs := []Message{
 		{Role: "system", Content: "sys-prompt"},
 		{Role: "user", Content: "hi"},
 		{Role: "tool", ToolCallID: "tu_0", Content: "result-data"},
@@ -141,7 +141,7 @@ func TestChatAnthropic_translatesRequestAndDecodesStream(t *testing.T) {
 		t.Errorf("tool_result block not found in %v", rmsgs)
 	}
 
-	// Response decode: text + tool_use → llmMessage.
+	// Response decode: text + tool_use → Message.
 	if msg.Content != "Hi there" || deltas.String() != "Hi there" {
 		t.Errorf("content = %q deltas = %q", msg.Content, deltas.String())
 	}
@@ -162,8 +162,8 @@ func TestChat_retriesBeforeFirstDelta(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	c := NewLLMClient(LLMConfig{APIKey: "k", BaseURL: srv.URL, Model: "m", Provider: "openai"})
-	msg, err := c.Chat(context.Background(), []llmMessage{{Role: "user", Content: "hi"}}, nil, nil)
+	c := NewClient(Config{APIKey: "k", BaseURL: srv.URL, Model: "m", Provider: "openai"})
+	msg, err := c.Chat(context.Background(), []Message{{Role: "user", Content: "hi"}}, nil, nil)
 	if err != nil {
 		t.Fatalf("Chat: %v", err)
 	}
@@ -198,9 +198,9 @@ func TestChat_noRetryAfterDeltaEmitted(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	c := NewLLMClient(LLMConfig{APIKey: "k", BaseURL: srv.URL, Model: "m", Provider: "openai"})
+	c := NewClient(Config{APIKey: "k", BaseURL: srv.URL, Model: "m", Provider: "openai"})
 	var deltas strings.Builder
-	_, err := c.Chat(context.Background(), []llmMessage{{Role: "user", Content: "hi"}}, nil, func(s string) {
+	_, err := c.Chat(context.Background(), []Message{{Role: "user", Content: "hi"}}, nil, func(s string) {
 		deltas.WriteString(s)
 	})
 	// The run may or may not error depending on how the drop surfaces, but the key
@@ -216,14 +216,14 @@ func TestChat_noRetryAfterDeltaEmitted(t *testing.T) {
 
 func TestNormalized_inferProviderAndDefaults(t *testing.T) {
 	cases := []struct {
-		in           LLMConfig
+		in           Config
 		wantProvider string
 		wantBase     string
 	}{
-		{LLMConfig{}, providerOpenAI, defaultLLMBaseURL},
-		{LLMConfig{BaseURL: "https://api.anthropic.com"}, providerAnthropic, "https://api.anthropic.com"},
-		{LLMConfig{Provider: "anthropic"}, providerAnthropic, anthropicBaseURL},
-		{LLMConfig{Provider: "OpenAI", BaseURL: "https://x/"}, providerOpenAI, "https://x"},
+		{Config{}, providerOpenAI, defaultLLMBaseURL},
+		{Config{BaseURL: "https://api.anthropic.com"}, providerAnthropic, "https://api.anthropic.com"},
+		{Config{Provider: "anthropic"}, providerAnthropic, anthropicBaseURL},
+		{Config{Provider: "OpenAI", BaseURL: "https://x/"}, providerOpenAI, "https://x"},
 	}
 	for i, tc := range cases {
 		got := tc.in.normalized()

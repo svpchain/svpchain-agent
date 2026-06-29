@@ -27,6 +27,8 @@ const promptChips = computed(() => {
   return Array.isArray(raw) ? (raw as string[]) : []
 })
 
+const isMultilineInput = computed(() => input.value.includes('\n'))
+
 function applyChip(text: string) {
   if (running.value) return
   input.value = text
@@ -273,7 +275,10 @@ onUnmounted(() => {
           {{ chip }}
         </button>
       </div>
-      <div class="composer-box" :class="{ 'composer-box--running': running }">
+      <div
+        class="composer-box"
+        :class="{ 'composer-box--running': running, 'composer-box--multiline': isMultilineInput }"
+      >
         <n-input
           v-model:value="input"
           type="textarea"
@@ -586,9 +591,10 @@ onUnmounted(() => {
   max-width: 768px;
   margin: 0 auto;
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   gap: 4px;
-  padding: 8px 6px 8px 14px;
+  min-height: 44px;
+  padding: 4px 6px 4px 14px;
   background: var(--bg-input);
   border: 1px solid var(--border-default);
   border-radius: var(--radius-xl);
@@ -605,19 +611,40 @@ onUnmounted(() => {
   opacity: 0.85;
 }
 
+.composer-box--multiline {
+  align-items: flex-end;
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+
+.composer-box--multiline .composer-input :deep(.n-input__textarea-el) {
+  line-height: 1.5;
+  min-height: unset !important;
+}
+
+.composer-box--multiline .composer-input :deep(.n-input__placeholder) {
+  line-height: 1.5;
+  min-height: unset;
+  align-items: flex-start;
+}
+
 .composer-input {
   flex: 1;
   min-width: 0;
+  display: flex;
+  align-items: center;
 }
 
 .composer-input :deep(.n-input) {
   background: transparent !important;
+  width: 100%;
 }
 
 .composer-input :deep(.n-input-wrapper) {
   background: transparent !important;
   box-shadow: none !important;
   padding: 0 !important;
+  align-items: center !important;
 }
 
 .composer-input :deep(.n-input__border),
@@ -627,15 +654,26 @@ onUnmounted(() => {
 
 .composer-input :deep(.n-input__textarea-el) {
   font-size: 14px;
-  line-height: 1.5;
+  line-height: 32px;
+  min-height: 32px !important;
   text-align: left;
-  padding: 4px 0 !important;
+  padding: 0 !important;
+  margin: 0;
   background: transparent !important;
   box-shadow: none !important;
+  resize: none;
+  vertical-align: middle;
 }
 
 .composer-input :deep(.n-input__placeholder) {
   text-align: left;
+  line-height: 32px;
+  padding: 0 !important;
+  top: 0 !important;
+  transform: none !important;
+  display: flex;
+  align-items: center;
+  min-height: 32px;
 }
 
 .composer-actions {

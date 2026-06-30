@@ -46,6 +46,7 @@ export default {
     whitelistAddress: 'Address',
     whitelistAlias: 'Alias',
     skillsConfigBase: 'Skills directory root',
+    showToolSteps: 'Show tool invocation steps',
   },
   ph: {
     chainId: 'Pick from list or type your own',
@@ -70,6 +71,7 @@ export default {
     assistantSettings: 'Configure an LLM API key in Settings before using the assistant.',
     whitelist: 'When configured, only whitelisted addresses may receive Cosmos bank sends or native EVM transfers.',
     skills: 'Disabled skills are omitted from the assistant system prompt. Changes apply after Save Settings.',
+    showToolSteps: 'When on, the Assistant tab shows tool calls, thinking steps, and other intermediate progress. Off by default — only final replies are shown.',
     skillsConfigBase:
       "Config root directory. Resolved skills path: {'{path}'}/com.svpchain.agent-gui/skills. Leave empty for the OS default.",
   },

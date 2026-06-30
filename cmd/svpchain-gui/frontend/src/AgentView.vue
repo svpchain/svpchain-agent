@@ -18,6 +18,7 @@ const chainId = ref('')
 const input = ref('')
 const running = ref(false)
 const runStatus = ref('')
+const showToolSteps = ref(false)
 const lines = ref<ChatLine[]>([])
 const scrollRef = ref<InstanceType<typeof NScrollbar> | null>(null)
 const imeComposing = ref(false)
@@ -75,6 +76,9 @@ function pushStep(raw: Record<string, unknown>) {
   // A step interrupts streaming: close the current bubble so the next delta
   // (e.g. the answer after a tool call) opens a fresh one.
   streamingIdx = -1
+  if (!showToolSteps.value && kind !== 'error') {
+    return
+  }
   const text = detail ? `${title}\n${detail}` : title
   lines.value.push({ role: 'step', text, kind })
 }
@@ -100,7 +104,8 @@ function armWatchdog() {
 
 async function loadSettings() {
   try {
-    const s = (await App.AgentGetSettings()) as { chain_id?: string }
+    const s = (await App.AgentGetSettings()) as { chain_id?: string; show_tool_steps?: boolean }
+    showToolSteps.value = !!s.show_tool_steps
     const id = s.chain_id || ''
     if (id) chainId.value = id
     else if (props.entries.length > 0) chainId.value = props.entries[0].ChainID
@@ -120,6 +125,8 @@ async function send() {
     return
   }
   if (running.value) return
+
+  await loadSettings()
 
   lines.value.push({ role: 'user', text: msg })
   input.value = ''

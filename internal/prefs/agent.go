@@ -26,6 +26,7 @@ type AgentSettings struct {
 	RemoteMCPURL     string
 	DisabledSkills   []string
 	SkillsConfigBase string
+	ShowToolSteps    bool
 }
 
 // AgentSettings returns the saved assistant configuration.
@@ -40,6 +41,7 @@ func (s *Store) AgentSettings() AgentSettings {
 		RemoteMCPURL:     f.RemoteMCPURL,
 		DisabledSkills:   append([]string(nil), f.DisabledSkills...),
 		SkillsConfigBase: f.SkillsConfigBase,
+		ShowToolSteps:    f.ShowToolSteps,
 	}
 }
 
@@ -54,5 +56,6 @@ func (s *Store) SetAgentSettings(in AgentSettings) {
 		f.RemoteMCPURL = in.RemoteMCPURL
 		f.DisabledSkills = append([]string(nil), in.DisabledSkills...)
 		f.SkillsConfigBase = strings.TrimSpace(in.SkillsConfigBase)
+		f.ShowToolSteps = in.ShowToolSteps
 	})
 }

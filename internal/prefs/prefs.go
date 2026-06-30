@@ -42,6 +42,7 @@ type File struct {
 	Whitelist        []WhitelistEntry `json:"whitelist,omitempty"`
 	DisabledSkills   []string         `json:"disabled_skills,omitempty"`
 	SkillsConfigBase string           `json:"skills_config_base,omitempty"`
+	ShowToolSteps    bool             `json:"show_tool_steps,omitempty"`
 }
 
 // WhitelistEntry is one persisted whitelist row in prefs.json.

@@ -38,6 +38,7 @@ const skillsConfigBase = ref('')
 const defaultSkillsConfigBase = ref('')
 const skillSettings = ref<SkillSetting[]>([])
 const settingsExpandedSections = ref<string[]>([])
+const showToolSteps = ref(false)
 
 function setStatus(msg: string) {
   emit('status', msg)
@@ -80,6 +81,7 @@ async function loadAgentSettings() {
       llm_model?: string
       remote_mcp_url?: string
       skills_config_base?: string
+      show_tool_steps?: boolean
     }
     llmApiKey.value = s.llm_api_key || ''
     llmProvider.value = s.llm_provider || 'openai'
@@ -87,6 +89,7 @@ async function loadAgentSettings() {
     llmModel.value = s.llm_model || ''
     remoteMCPURL.value = s.remote_mcp_url || ''
     agentChainId.value = s.chain_id || ''
+    showToolSteps.value = !!s.show_tool_steps
     skillsConfigBase.value = s.skills_config_base || ''
     try {
       defaultSkillsConfigBase.value = await App.AgentDefaultSkillsConfigBase()
@@ -117,6 +120,7 @@ async function saveAgentSettings() {
         remote_mcp_url: remoteMCPURL.value,
         disabled_skills: disabledSkills,
         skills_config_base: skillsConfigBase.value.trim(),
+        show_tool_steps: showToolSteps.value,
       } as Record<string, unknown>),
     )
     await loadSkillSettings()
@@ -164,6 +168,10 @@ onMounted(init)
               :placeholder="t('ph.chainConfig')"
               :options="entries.map((e) => ({ label: e.ChainID, value: e.ChainID }))"
             />
+          </n-form-item>
+          <n-form-item :label="t('field.showToolSteps')">
+            <n-switch v-model:value="showToolSteps" />
+            <n-text depth="3" class="hint field-hint">{{ t('hint.showToolSteps') }}</n-text>
           </n-form-item>
           <n-form-item>
             <template #label>
@@ -352,5 +360,10 @@ onMounted(init)
   max-width: 280px;
   white-space: normal;
   line-height: 1.5;
+}
+
+.field-hint {
+  display: block;
+  margin-top: 6px;
 }
 </style>

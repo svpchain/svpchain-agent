@@ -30,6 +30,7 @@ type AgentSettings struct {
 	RemoteMCPURL     string   `json:"remote_mcp_url"`
 	DisabledSkills   []string `json:"disabled_skills"`
 	SkillsConfigBase string   `json:"skills_config_base"`
+	ShowToolSteps    bool     `json:"show_tool_steps"`
 }
 
 // AgentGetSettings returns saved assistant settings (API key included for local use only).
@@ -44,6 +45,7 @@ func (a *App) AgentGetSettings() AgentSettings {
 		RemoteMCPURL:     s.RemoteMCPURL,
 		DisabledSkills:   s.DisabledSkills,
 		SkillsConfigBase: s.SkillsConfigBase,
+		ShowToolSteps:    s.ShowToolSteps,
 	}
 }
 
@@ -68,6 +70,7 @@ func (a *App) AgentSetSettings(s AgentSettings) {
 		RemoteMCPURL:     s.RemoteMCPURL,
 		DisabledSkills:   s.DisabledSkills,
 		SkillsConfigBase: s.SkillsConfigBase,
+		ShowToolSteps:    s.ShowToolSteps,
 	})
 	skills.ApplySkillsConfigBase(s.SkillsConfigBase)
 }

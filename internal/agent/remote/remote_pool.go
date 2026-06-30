@@ -3,9 +3,15 @@ package remote
 import (
 	"context"
 	"sync"
+	"time"
 
 	"github.com/svpchain/svpchain-agent/internal/agent/step"
 )
+
+// Reconnect pooled remote MCP sessions after this idle period. Load balancers and
+// the remote server often drop long-lived Streamable HTTP GETs well before bearer
+// expiry, so a stale session must not be reused blindly.
+const remoteIdleReconnect = 5 * time.Minute
 
 // Pool keeps live remote MCP sessions keyed by chain id + remote URL.
 type Pool struct {
@@ -18,6 +24,7 @@ type remotePoolEntry struct {
 	remoteURL string
 	owner     string
 	remote    *Client
+	lastUsed  time.Time
 }
 
 var defaultRemotePool = NewPool()
@@ -54,7 +61,19 @@ func (p *Pool) Acquire(ctx context.Context, chainID, remoteURL, owner string, si
 		p.entries[key] = ent
 	}
 	remote := ent.remote
+	idle := ok && !ent.lastUsed.IsZero() && time.Since(ent.lastUsed) > remoteIdleReconnect
 	p.mu.Unlock()
+
+	if idle && remote.IsConnected() {
+		emit(step.Step{
+			Kind:   step.Think,
+			Title:  "Reconnecting to remote MCP…",
+			Detail: "Session was idle; opening a fresh connection",
+		})
+		if err := remote.Reconnect(ctx); err != nil {
+			return nil, err
+		}
+	}
 
 	if !remote.IsConnected() {
 		emit(step.Step{Kind: step.Think, Title: "Connecting to remote MCP…", Detail: remoteURL})
@@ -71,6 +90,12 @@ func (p *Pool) Acquire(ctx context.Context, chainID, remoteURL, owner string, si
 		}
 		emit(step.Step{Kind: step.Auth, Title: "Authenticated", Detail: owner})
 	}
+
+	p.mu.Lock()
+	if ent, ok := p.entries[key]; ok {
+		ent.lastUsed = time.Now()
+	}
+	p.mu.Unlock()
 
 	return remote, nil
 }

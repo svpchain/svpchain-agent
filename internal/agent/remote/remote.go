@@ -3,8 +3,10 @@ package remote
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -53,13 +55,24 @@ func NewClient(endpoint string) *Client {
 	return &Client{url: endpoint}
 }
 
-// Connect opens the MCP session.
+// Connect opens the MCP session when none is active.
 func (r *Client) Connect(ctx context.Context) error {
 	r.mu.Lock()
 	if r.session != nil || r.forceConnected {
 		r.mu.Unlock()
 		return nil
 	}
+	r.mu.Unlock()
+	return r.connectNew(ctx)
+}
+
+// Reconnect closes any existing session and opens a fresh one. Bearer tokens are kept.
+func (r *Client) Reconnect(ctx context.Context) error {
+	_ = r.Close()
+	return r.connectNew(ctx)
+}
+
+func (r *Client) connectNew(ctx context.Context) error {
 	rt := &bearerRoundTripper{bearer: r.currentBearer}
 	httpClient := &http.Client{
 		Transport: rt,
@@ -73,6 +86,7 @@ func (r *Client) Connect(ctx context.Context) error {
 		Name:    "svpchain-gui",
 		Version: "v0.1.0",
 	}, nil)
+	r.mu.Lock()
 	r.client = client
 	// Release the lock before the network handshake: r.client.Connect issues an
 	// HTTP request through bearerRoundTripper, which re-acquires r.mu via
@@ -133,6 +147,17 @@ func (r *Client) Close() error {
 
 // ListTools returns remote tool definitions for the LLM.
 func (r *Client) ListTools(ctx context.Context) ([]*mcp.Tool, error) {
+	tools, err := r.listToolsOnce(ctx)
+	if err == nil || !isConnectionError(err) {
+		return tools, err
+	}
+	if reconnErr := r.Reconnect(ctx); reconnErr != nil {
+		return nil, fmt.Errorf("%w (reconnect: %v)", err, reconnErr)
+	}
+	return r.listToolsOnce(ctx)
+}
+
+func (r *Client) listToolsOnce(ctx context.Context) ([]*mcp.Tool, error) {
 	r.mu.Lock()
 	sess := r.session
 	r.mu.Unlock()
@@ -148,6 +173,17 @@ func (r *Client) ListTools(ctx context.Context) ([]*mcp.Tool, error) {
 
 // CallTool invokes a remote tool.
 func (r *Client) CallTool(ctx context.Context, name string, args map[string]any) (string, error) {
+	text, err := r.callToolOnce(ctx, name, args)
+	if err == nil || !isConnectionError(err) {
+		return text, err
+	}
+	if reconnErr := r.Reconnect(ctx); reconnErr != nil {
+		return "", fmt.Errorf("%w (reconnect: %v)", err, reconnErr)
+	}
+	return r.callToolOnce(ctx, name, args)
+}
+
+func (r *Client) callToolOnce(ctx context.Context, name string, args map[string]any) (string, error) {
 	r.mu.Lock()
 	sess := r.session
 	r.mu.Unlock()
@@ -169,6 +205,34 @@ func (r *Client) CallTool(ctx context.Context, name string, args map[string]any)
 		return text, fmt.Errorf("%s", text)
 	}
 	return text, nil
+}
+
+func isConnectionError(err error) bool {
+	if err == nil {
+		return false
+	}
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		return false
+	}
+	msg := strings.ToLower(err.Error())
+	for _, needle := range []string{
+		"connection closed",
+		"client is closing",
+		"failed to reconnect",
+		"bad gateway",
+		"hanging get",
+		"connection reset",
+		"broken pipe",
+		"use of closed network connection",
+		"eof",
+		"gateway timeout",
+		"service unavailable",
+	} {
+		if strings.Contains(msg, needle) {
+			return true
+		}
+	}
+	return false
 }
 
 type authChallengeOut struct {

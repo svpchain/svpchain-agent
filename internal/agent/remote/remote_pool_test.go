@@ -32,6 +32,7 @@ func TestRemotePoolReusesSession(t *testing.T) {
 		remoteURL: "https://example.com/mcp",
 		owner:     "svp1abc",
 		remote:    remote,
+		lastUsed:  time.Now(),
 	}
 	pool.mu.Unlock()
 
@@ -62,6 +63,7 @@ func TestRemotePoolReauthsWhenBearerExpired(t *testing.T) {
 		remoteURL: "https://example.com/mcp",
 		owner:     "svp1abc",
 		remote:    remote,
+		lastUsed:  time.Now(),
 	}
 	pool.mu.Unlock()
 
@@ -114,6 +116,38 @@ func TestRemotePoolShutdown(t *testing.T) {
 	pool.Shutdown()
 	require.Empty(t, pool.entries)
 	require.False(t, r1.IsConnected())
+}
+
+func TestRemotePoolReconnectsWhenIdle(t *testing.T) {
+	t.Cleanup(func() { SetPoolForTest(NewPool()) })
+
+	pool := NewPool()
+	remote := NewClient("https://example.com/mcp")
+	remote.forceConnected = true
+	remote.mu.Lock()
+	remote.bearer = "tok"
+	remote.bearerUntil = time.Now().Add(time.Hour)
+	remote.mu.Unlock()
+
+	pool.mu.Lock()
+	pool.entries[remotePoolKey("svp-2517-1", "https://example.com/mcp")] = &remotePoolEntry{
+		chainID:   "svp-2517-1",
+		remoteURL: "https://example.com/mcp",
+		owner:     "svp1abc",
+		remote:    remote,
+		lastUsed:  time.Now().Add(-remoteIdleReconnect - time.Minute),
+	}
+	pool.mu.Unlock()
+
+	var steps []string
+	emit := func(s step.Step) { steps = append(steps, s.Title) }
+
+	_, err := pool.Acquire(context.Background(), "svp-2517-1", "https://example.com/mcp", "svp1abc", func(string) (string, error) {
+		return "", nil
+	}, emit)
+	require.Error(t, err)
+	require.Contains(t, steps, "Reconnecting to remote MCP…")
+	require.False(t, remote.forceConnected)
 }
 
 func TestBearerValid(t *testing.T) {

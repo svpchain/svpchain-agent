@@ -31,19 +31,20 @@ func Path() string {
 
 // File is the on-disk prefs.json schema.
 type File struct {
-	Language         string           `json:"language,omitempty"`
-	SkipVersion      string           `json:"skip_version,omitempty"`
-	AgentChainID     string           `json:"agent_chain_id,omitempty"`
-	LLMAPIKey        string           `json:"llm_api_key,omitempty"`
-	LLMBaseURL       string           `json:"llm_base_url,omitempty"`
-	LLMModel         string           `json:"llm_model,omitempty"`
-	LLMProvider      string           `json:"llm_provider,omitempty"`
-	RemoteMCPURL     string           `json:"remote_mcp_url,omitempty"`
-	Whitelist        []WhitelistEntry `json:"whitelist,omitempty"`
-	DisabledSkills   []string         `json:"disabled_skills,omitempty"`
-	SkillsConfigBase string           `json:"skills_config_base,omitempty"`
-	ShowToolSteps    bool             `json:"show_tool_steps,omitempty"`
-	OnboardingDone   bool             `json:"onboarding_done,omitempty"`
+	Language            string           `json:"language,omitempty"`
+	SkipVersion         string           `json:"skip_version,omitempty"`
+	AgentChainID        string           `json:"agent_chain_id,omitempty"`
+	LLMAPIKey           string           `json:"llm_api_key,omitempty"`
+	LLMBaseURL          string           `json:"llm_base_url,omitempty"`
+	LLMModel            string           `json:"llm_model,omitempty"`
+	LLMProvider         string           `json:"llm_provider,omitempty"`
+	RemoteMCPURL        string           `json:"remote_mcp_url,omitempty"`
+	Whitelist           []WhitelistEntry `json:"whitelist,omitempty"`
+	DisabledSkills      []string         `json:"disabled_skills,omitempty"`
+	SkillsConfigBase    string           `json:"skills_config_base,omitempty"`
+	ShowToolSteps       bool             `json:"show_tool_steps,omitempty"`
+	OnboardingDone      bool             `json:"onboarding_done,omitempty"`
+	AgentRunLogDisabled bool             `json:"agent_run_log_disabled,omitempty"`
 }
 
 // WhitelistEntry is one persisted whitelist row in prefs.json.

@@ -9,6 +9,7 @@ import (
 	wruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 
 	"github.com/svpchain/svpchain-agent/internal/agent"
+	"github.com/svpchain/svpchain-agent/internal/agent/runlog"
 	"github.com/svpchain/svpchain-agent/internal/agent/skills"
 	"github.com/svpchain/svpchain-agent/internal/i18n"
 	"github.com/svpchain/svpchain-agent/internal/manage"
@@ -20,30 +21,32 @@ type SkillSetting = skills.Setting
 
 // AgentSettings is persisted LLM / MCP configuration for the assistant tab.
 type AgentSettings struct {
-	ChainID          string   `json:"chain_id"`
-	LLMAPIKey        string   `json:"llm_api_key"`
-	LLMBaseURL       string   `json:"llm_base_url"`
-	LLMModel         string   `json:"llm_model"`
-	LLMProvider      string   `json:"llm_provider"`
-	RemoteMCPURL     string   `json:"remote_mcp_url"`
-	DisabledSkills   []string `json:"disabled_skills"`
-	SkillsConfigBase string   `json:"skills_config_base"`
-	ShowToolSteps    bool     `json:"show_tool_steps"`
+	ChainID             string   `json:"chain_id"`
+	LLMAPIKey           string   `json:"llm_api_key"`
+	LLMBaseURL          string   `json:"llm_base_url"`
+	LLMModel            string   `json:"llm_model"`
+	LLMProvider         string   `json:"llm_provider"`
+	RemoteMCPURL        string   `json:"remote_mcp_url"`
+	DisabledSkills      []string `json:"disabled_skills"`
+	SkillsConfigBase    string   `json:"skills_config_base"`
+	ShowToolSteps       bool     `json:"show_tool_steps"`
+	AgentRunLogDisabled bool     `json:"agent_run_log_disabled"`
 }
 
 // AgentGetSettings returns saved assistant settings (API key included for local use only).
 func (a *App) AgentGetSettings() AgentSettings {
 	s := a.store.AgentSettings()
 	return AgentSettings{
-		ChainID:          s.ChainID,
-		LLMAPIKey:        s.LLMAPIKey,
-		LLMBaseURL:       s.LLMBaseURL,
-		LLMModel:         s.LLMModel,
-		LLMProvider:      s.LLMProvider,
-		RemoteMCPURL:     s.RemoteMCPURL,
-		DisabledSkills:   s.DisabledSkills,
-		SkillsConfigBase: s.SkillsConfigBase,
-		ShowToolSteps:    s.ShowToolSteps,
+		ChainID:             s.ChainID,
+		LLMAPIKey:           s.LLMAPIKey,
+		LLMBaseURL:          s.LLMBaseURL,
+		LLMModel:            s.LLMModel,
+		LLMProvider:         s.LLMProvider,
+		RemoteMCPURL:        s.RemoteMCPURL,
+		DisabledSkills:      s.DisabledSkills,
+		SkillsConfigBase:    s.SkillsConfigBase,
+		ShowToolSteps:       s.ShowToolSteps,
+		AgentRunLogDisabled: s.AgentRunLogDisabled,
 	}
 }
 
@@ -60,15 +63,16 @@ func (a *App) AgentListSkills() ([]SkillSetting, error) {
 // AgentSetSettings persists assistant settings.
 func (a *App) AgentSetSettings(s AgentSettings) {
 	a.store.SetAgentSettings(prefs.AgentSettings{
-		ChainID:          s.ChainID,
-		LLMAPIKey:        s.LLMAPIKey,
-		LLMBaseURL:       s.LLMBaseURL,
-		LLMModel:         s.LLMModel,
-		LLMProvider:      s.LLMProvider,
-		RemoteMCPURL:     s.RemoteMCPURL,
-		DisabledSkills:   s.DisabledSkills,
-		SkillsConfigBase: s.SkillsConfigBase,
-		ShowToolSteps:    s.ShowToolSteps,
+		ChainID:             s.ChainID,
+		LLMAPIKey:           s.LLMAPIKey,
+		LLMBaseURL:          s.LLMBaseURL,
+		LLMModel:            s.LLMModel,
+		LLMProvider:         s.LLMProvider,
+		RemoteMCPURL:        s.RemoteMCPURL,
+		DisabledSkills:      s.DisabledSkills,
+		SkillsConfigBase:    s.SkillsConfigBase,
+		ShowToolSteps:       s.ShowToolSteps,
+		AgentRunLogDisabled: s.AgentRunLogDisabled,
 	})
 	skills.ApplySkillsConfigBase(s.SkillsConfigBase)
 }
@@ -152,6 +156,7 @@ func (a *App) AgentSend(chainID, message string) error {
 		answer, err := agent.Run(ctx, agent.Config{
 			ChainID:   chainID,
 			RemoteURL: remoteURL,
+			RunLog:    runlog.New(!settings.AgentRunLogDisabled),
 			LLM: agent.LLMConfig{
 				APIKey:   settings.LLMAPIKey,
 				BaseURL:  settings.LLMBaseURL,

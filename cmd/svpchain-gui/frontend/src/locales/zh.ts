@@ -48,6 +48,7 @@ export default {
     whitelistAlias: '别名',
     skillsConfigBase: 'Skills 目录地址',
     showToolSteps: '显示调用过程',
+    agentRunLog: '记录助手运行日志',
   },
   ph: {
     chainId: '可从列表选择或自行输入',
@@ -73,6 +74,7 @@ export default {
     whitelist: '配置白名单后，仅允许向列表中的地址发起 Cosmos 转账或 EVM 原生转账。',
     skills: '关闭的 Skill 不会注入助手 system prompt。保存设置后生效。',
     showToolSteps: '开启后在助手对话中展示工具调用、思考步骤等中间过程；默认关闭，仅显示最终回复。',
+    agentRunLog: '开启后将每次助手对话的工具调用、结果与 outcome 追加写入本地 agent_runs.jsonl（不含私钥与 API Key），便于排查与评估。',
     skillsConfigBase:
       "填写配置根目录。实际 Skills 目录为：{'{路径}'}/com.svpchain.agent-gui/skills。留空则使用系统默认配置目录。",
   },

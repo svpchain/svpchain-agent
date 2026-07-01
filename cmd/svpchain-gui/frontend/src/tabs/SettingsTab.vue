@@ -45,6 +45,7 @@ const defaultSkillsConfigBase = ref('')
 const skillSettings = ref<SkillSetting[]>([])
 const settingsExpandedSections = ref<string[]>([])
 const showToolSteps = ref(false)
+const agentRunLogDisabled = ref(false)
 
 function setStatus(msg: string) {
   emit('status', msg)
@@ -88,6 +89,7 @@ async function loadAgentSettings() {
       remote_mcp_url?: string
       skills_config_base?: string
       show_tool_steps?: boolean
+      agent_run_log_disabled?: boolean
     }
     llmApiKey.value = s.llm_api_key || ''
     llmProvider.value = s.llm_provider || 'openai'
@@ -96,6 +98,7 @@ async function loadAgentSettings() {
     remoteMCPURL.value = s.remote_mcp_url || ''
     agentChainId.value = s.chain_id || ''
     showToolSteps.value = !!s.show_tool_steps
+    agentRunLogDisabled.value = !!s.agent_run_log_disabled
     skillsConfigBase.value = s.skills_config_base || ''
     try {
       defaultSkillsConfigBase.value = await App.AgentDefaultSkillsConfigBase()
@@ -127,6 +130,7 @@ async function saveAgentSettings() {
         disabled_skills: disabledSkills,
         skills_config_base: skillsConfigBase.value.trim(),
         show_tool_steps: showToolSteps.value,
+        agent_run_log_disabled: agentRunLogDisabled.value,
       } as Record<string, unknown>),
     )
     await loadSkillSettings()
@@ -203,6 +207,25 @@ onMounted(init)
               </span>
             </template>
             <n-switch v-model:value="showToolSteps" />
+          </n-form-item>
+          <n-form-item>
+            <template #label>
+              <span class="label-with-help">
+                <span>{{ t('field.agentRunLog') }}</span>
+                <n-popover trigger="hover" placement="top-start" :show-arrow="true">
+                  <template #trigger>
+                    <span
+                      class="help-icon"
+                      tabindex="0"
+                      role="button"
+                      :title="t('hint.agentRunLog')"
+                    >?</span>
+                  </template>
+                  <div class="help-tooltip-text">{{ t('hint.agentRunLog') }}</div>
+                </n-popover>
+              </span>
+            </template>
+            <n-switch :value="!agentRunLogDisabled" @update:value="agentRunLogDisabled = !$event" />
           </n-form-item>
           <n-form-item>
             <template #label>

@@ -48,6 +48,7 @@ export default {
     whitelistAlias: 'Alias',
     skillsConfigBase: 'Skills directory root',
     showToolSteps: 'Show tool invocation steps',
+    agentRunLog: 'Save assistant run logs',
   },
   ph: {
     chainId: 'Pick from list or type your own',
@@ -73,6 +74,7 @@ export default {
     whitelist: 'When configured, only whitelisted addresses may receive Cosmos bank sends or native EVM transfers.',
     skills: 'Disabled skills are omitted from the assistant system prompt. Changes apply after Save Settings.',
     showToolSteps: 'When on, the Assistant tab shows tool calls, thinking steps, and other intermediate progress. Off by default — only final replies are shown.',
+    agentRunLog: 'When on, each assistant run appends a JSONL trace (tool calls, outcomes; no private keys or API keys) to agent_runs.jsonl for debugging and evaluation.',
     skillsConfigBase:
       "Config root directory. Resolved skills path: {'{path}'}/com.svpchain.agent-gui/skills. Leave empty for the OS default.",
   },

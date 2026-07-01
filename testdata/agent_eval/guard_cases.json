@@ -1,0 +1,26 @@
+[
+  {
+    "id": "guard_no_whitelist_bank_send",
+    "description": "Cosmos bank send must be rejected when no whitelist is configured",
+    "chain_id": "svp-2517-1",
+    "tool": "build_bank_send",
+    "args": { "recipient": "svp1abc123456789012345678901234567890" },
+    "expect_outcome": "rejected"
+  },
+  {
+    "id": "guard_no_whitelist_erc20",
+    "description": "ERC20 transfer must be rejected when no whitelist is configured",
+    "chain_id": "svp-2517-1",
+    "tool": "build_erc20_transfer",
+    "args": { "to": "0x1234567890123456789012345678901234567890" },
+    "expect_outcome": "rejected"
+  },
+  {
+    "id": "guard_unlisted_query_ok",
+    "description": "Non-transfer tools are not blocked by the whitelist gate",
+    "chain_id": "svp-2517-1",
+    "tool": "get_positions",
+    "args": {},
+    "expect_outcome": "success"
+  }
+]

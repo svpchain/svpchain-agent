@@ -16,6 +16,7 @@ import (
 	localsigner "github.com/svpchain/svpchain-agent/internal/agent/local"
 	"github.com/svpchain/svpchain-agent/internal/agent/memory"
 	remotemcp "github.com/svpchain/svpchain-agent/internal/agent/remote"
+	"github.com/svpchain/svpchain-agent/internal/agent/runlog"
 	"github.com/svpchain/svpchain-agent/internal/agent/skills"
 	"github.com/svpchain/svpchain-agent/internal/agent/step"
 	"github.com/svpchain/svpchain-agent/internal/keystore"
@@ -54,13 +55,30 @@ type Config struct {
 	OnStep    func(Step)
 	// OnDelta, if set, receives assistant text increments as they stream in.
 	OnDelta func(string)
+	// RunLog, when enabled, appends a JSONL trace to the local run log file.
+	RunLog *runlog.Recorder
 }
 
 const maxAgentIterations = 25
 
 // Run executes one user message through the agent loop.
-func Run(ctx context.Context, cfg Config, userMessage string) (string, error) {
+func Run(ctx context.Context, cfg Config, userMessage string) (answer string, err error) {
+	var trace *runlog.Session
+	if cfg.RunLog != nil && cfg.RunLog.Enabled() {
+		trace = cfg.RunLog.Begin(runlog.Meta{
+			ChainID:     cfg.ChainID,
+			RemoteURL:   cfg.RemoteURL,
+			Model:       cfg.LLM.Model,
+			Provider:    cfg.LLM.Provider,
+			UserMessage: userMessage,
+		})
+		defer func() { trace.Complete(answer, err) }()
+	}
+
 	emit := func(s Step) {
+		if trace != nil {
+			trace.RecordStep(string(s.Kind), s.Title, s.Detail)
+		}
 		if cfg.OnStep != nil {
 			cfg.OnStep(s)
 		}
@@ -75,7 +93,7 @@ func Run(ctx context.Context, cfg Config, userMessage string) (string, error) {
 	}
 
 	var ring keyring.Keyring
-	if r, err := keystore.Open(); err == nil {
+	if r, openErr := keystore.Open(); openErr == nil {
 		ring = r
 	}
 	hexKey, _, err := manage.SelectKey(ring, chainID, os.Getenv("SIGNER_KEY_HEX"))
@@ -129,6 +147,9 @@ func Run(ctx context.Context, cfg Config, userMessage string) (string, error) {
 		if ctx.Err() != nil {
 			return "", ctx.Err()
 		}
+		if trace != nil {
+			trace.SetRound(i + 1)
+		}
 		emit(Step{Kind: StepThink, Title: fmt.Sprintf("Thinking… (round %d)", i+1)})
 		reply, err := client.Chat(ctx, messages, tools, cfg.OnDelta)
 		if err != nil {
@@ -138,11 +159,10 @@ func Run(ctx context.Context, cfg Config, userMessage string) (string, error) {
 		messages = append(messages, reply)
 
 		if len(reply.ToolCalls) == 0 {
-			answer := strings.TrimSpace(reply.Content)
+			answer = strings.TrimSpace(reply.Content)
 			if answer == "" {
 				answer = "(no response)"
 			}
-			//emit(Step{Kind: StepAnswer, Title: "Done"})
 			return answer, nil
 		}
 
@@ -154,14 +174,17 @@ func Run(ctx context.Context, cfg Config, userMessage string) (string, error) {
 			}
 			emit(Step{Kind: StepTool, Title: "Calling " + name, Detail: truncate(tc.Function.Arguments, 4000)})
 
+			var finish func(bool, string, string)
+			if trace != nil {
+				finish = trace.RecordTool(name, tc.Function.Arguments)
+			} else {
+				finish = func(bool, string, string) {}
+			}
+
 			result, callErr := dispatchTool(ctx, chainID, remote, local, name, args, &sessionMem)
 			if callErr != nil {
-				// Fail fast: any tool error ends the run. There is no value in
-				// feeding a failed call back to the LLM — it tends to loop or
-				// guess. Whitelist rejections get a tailored message; every other
-				// failure reports the tool and error, then stops.
+				finish(false, "", callErr.Error())
 				var rej *guard.Rejection
-				var answer string
 				if errors.As(callErr, &rej) {
 					answer = fmt.Sprintf("Transfer rejected — %s. No transaction was built, signed, or broadcast.", rej.Error())
 				} else {
@@ -171,6 +194,7 @@ func Run(ctx context.Context, cfg Config, userMessage string) (string, error) {
 				emit(Step{Kind: StepAnswer, Title: "Stopped", Detail: answer})
 				return answer, nil
 			}
+			finish(true, result, "")
 			emit(Step{Kind: StepTool, Title: name + " ok", Detail: truncate(result, 4000)})
 			messages = append(messages, llm.Message{
 				Role:       "tool",

@@ -29,6 +29,7 @@ export default {
     copy: '复制到剪贴板',
     copyShort: '复制',
     saveSettings: '保存设置',
+    restartOnboarding: '重新查看引导',
     saveWhitelist: '保存',
   },
   field: {
@@ -129,6 +130,20 @@ export default {
     expandSidebar: '展开侧栏',
     themeDark: '深色模式',
     themeLight: '浅色模式',
+  },
+  onboarding: {
+    stepOf: '第 {current} / {total} 步',
+    next: '下一步',
+    prev: '上一步',
+    skip: '跳过引导',
+    finish: '完成',
+    step1Title: '导入密钥',
+    step1Desc: '点击左侧「密钥」进入此页，选择 Chain ID 并导入私钥到系统凭据库。',
+    step2Title: '配置助手',
+    step2Desc:
+      '点击左侧「设置」进入此页：\n• 在「基础」区块选择 Chain ID\n• 在「大模型」区块填写 API Key、模型等参数\n• 点击「保存设置」',
+    step3Title: '开始使用',
+    step3Desc: '在顶部下拉框选择 Chain ID，输入指令即可开始与链上助手对话。',
   },
   lang: {
     chinese: '中文',

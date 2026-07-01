@@ -12,6 +12,7 @@ import SecurityTab from './tabs/SecurityTab.vue'
 import SettingsTab from './tabs/SettingsTab.vue'
 import AboutTab from './tabs/AboutTab.vue'
 import UpdateModals from './UpdateModals.vue'
+import OnboardingTour from './OnboardingTour.vue'
 import type { Entry } from './types'
 
 const { t } = useI18n()
@@ -36,9 +37,24 @@ const entries = ref<Entry[]>([])
 const defaultChainIds = ref<string[]>([])
 
 const updateModalsRef = ref<InstanceType<typeof UpdateModals> | null>(null)
+const onboardingRef = ref<InstanceType<typeof OnboardingTour> | null>(null)
+const tourSettingsExpand = ref<string[]>([])
 
 function setStatus(msg: string) {
   status.value = msg
+}
+
+function onTourStepChange(payload: { tab: TabId; expandSettings?: string[] }) {
+  activeTab.value = payload.tab
+  tourSettingsExpand.value = payload.expandSettings ?? []
+}
+
+function ensureSidebarExpanded() {
+  if (sidebarCollapsed.value) sidebarCollapsed.value = false
+}
+
+function restartOnboarding() {
+  onboardingRef.value?.restart()
 }
 
 watch(activeTab, () => {
@@ -53,6 +69,12 @@ onMounted(async () => {
   const lang = await App.Language()
   setLocale(lang)
   defaultChainIds.value = (await App.DefaultChainIDs()) || []
+  try {
+    entries.value = ((await App.ListKeys()) as Entry[]) || []
+  } catch {
+    entries.value = []
+  }
+  await onboardingRef.value?.maybeShow()
   await updateModalsRef.value?.maybeCheckUpdate()
 })
 </script>
@@ -79,6 +101,7 @@ onMounted(async () => {
             type="button"
             class="nav-item"
             :class="{ 'nav-item--active': activeTab === item.id }"
+            :data-tour="item.id === 'keys' || item.id === 'settings' || item.id === 'assistant' ? `nav-${item.id}` : undefined"
             :title="sidebarCollapsed ? t(item.labelKey) : undefined"
             @click="activeTab = item.id"
           >
@@ -164,7 +187,12 @@ onMounted(async () => {
           <SecurityTab :default-chain-ids="defaultChainIds" @status="setStatus" />
         </div>
         <div v-show="activeTab === 'settings'" class="tab-panel tab-panel--scroll">
-          <SettingsTab :entries="entries" @status="setStatus" />
+          <SettingsTab
+            :entries="entries"
+            :tour-expanded-sections="tourSettingsExpand"
+            @status="setStatus"
+            @restart-onboarding="restartOnboarding"
+          />
         </div>
         <div v-show="activeTab === 'about'" class="tab-panel tab-panel--scroll">
           <AboutTab />
@@ -178,6 +206,11 @@ onMounted(async () => {
     </div>
 
     <UpdateModals ref="updateModalsRef" />
+    <OnboardingTour
+      ref="onboardingRef"
+      @step-change="onTourStepChange"
+      @ensure-sidebar="ensureSidebarExpanded"
+    />
   </div>
 </template>
 

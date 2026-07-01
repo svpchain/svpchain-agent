@@ -43,6 +43,7 @@ type File struct {
 	DisabledSkills   []string         `json:"disabled_skills,omitempty"`
 	SkillsConfigBase string           `json:"skills_config_base,omitempty"`
 	ShowToolSteps    bool             `json:"show_tool_steps,omitempty"`
+	OnboardingDone   bool             `json:"onboarding_done,omitempty"`
 }
 
 // WhitelistEntry is one persisted whitelist row in prefs.json.
@@ -140,4 +141,11 @@ func cloneFile(f File) File {
 		out.DisabledSkills = append([]string(nil), f.DisabledSkills...)
 	}
 	return out
+}
+
+// SetOnboardingDone persists first-run guide completion.
+func (s *Store) SetOnboardingDone(done bool) {
+	s.Update(func(f *File) {
+		f.OnboardingDone = done
+	})
 }

@@ -226,6 +226,7 @@ onUnmounted(() => {
     <header class="chat-header">
       <n-select
         v-model:value="chainId"
+        data-tour="assistant-chain"
         :placeholder="t('assistant.ph.chainId')"
         :options="entries.map((e) => ({ label: e.ChainID, value: e.ChainID }))"
         size="small"
@@ -347,6 +348,7 @@ onUnmounted(() => {
 
 .chain-select {
   max-width: 200px;
+  flex-shrink: 0;
 }
 
 .running-badge {

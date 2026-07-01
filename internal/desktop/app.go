@@ -68,6 +68,16 @@ func (a *App) SetLanguage(lang string) {
 	}
 }
 
+// OnboardingDone reports whether the first-run guide was dismissed.
+func (a *App) OnboardingDone() bool {
+	return a.store.File().OnboardingDone
+}
+
+// CompleteOnboarding marks the first-run guide as finished.
+func (a *App) CompleteOnboarding() {
+	a.store.SetOnboardingDone(true)
+}
+
 // --- key management (internal/manage, unchanged logic) ---
 
 // DefaultChainIDs returns the default Chain ID suggestions for import.

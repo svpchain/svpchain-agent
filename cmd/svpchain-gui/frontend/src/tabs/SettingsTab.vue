@@ -21,8 +21,14 @@ import * as App from '../../wailsjs/go/desktop/App'
 import { desktop } from '../../wailsjs/go/models'
 import type { Entry, SkillSetting } from '../types'
 
-const props = defineProps<{ entries: Entry[] }>()
-const emit = defineEmits<{ status: [msg: string] }>()
+const props = defineProps<{
+  entries: Entry[]
+  tourExpandedSections?: string[]
+}>()
+const emit = defineEmits<{
+  status: [msg: string]
+  'restart-onboarding': []
+}>()
 
 const { t } = useI18n()
 const message = useMessage()
@@ -145,6 +151,16 @@ watch(
   { immediate: true },
 )
 
+watch(
+  () => props.tourExpandedSections,
+  (sections) => {
+    if (!sections?.length) return
+    const merged = new Set([...settingsExpandedSections.value, ...sections])
+    settingsExpandedSections.value = [...merged]
+  },
+  { immediate: true },
+)
+
 onMounted(init)
 </script>
 
@@ -169,9 +185,24 @@ onMounted(init)
               :options="entries.map((e) => ({ label: e.ChainID, value: e.ChainID }))"
             />
           </n-form-item>
-          <n-form-item :label="t('field.showToolSteps')">
+          <n-form-item>
+            <template #label>
+              <span class="label-with-help">
+                <span>{{ t('field.showToolSteps') }}</span>
+                <n-popover trigger="hover" placement="top-start" :show-arrow="true">
+                  <template #trigger>
+                    <span
+                      class="help-icon"
+                      tabindex="0"
+                      role="button"
+                      :title="t('hint.showToolSteps')"
+                    >?</span>
+                  </template>
+                  <div class="help-tooltip-text">{{ t('hint.showToolSteps') }}</div>
+                </n-popover>
+              </span>
+            </template>
             <n-switch v-model:value="showToolSteps" />
-            <n-text depth="3" class="hint field-hint">{{ t('hint.showToolSteps') }}</n-text>
           </n-form-item>
           <n-form-item>
             <template #label>
@@ -245,7 +276,10 @@ onMounted(init)
       </n-collapse-item>
     </n-collapse>
 
-    <n-button type="primary" class="settings-save" @click="saveAgentSettings">{{ t('btn.saveSettings') }}</n-button>
+    <div class="settings-actions">
+      <n-button quaternary @click="emit('restart-onboarding')">{{ t('btn.restartOnboarding') }}</n-button>
+      <n-button type="primary" class="settings-save" @click="saveAgentSettings">{{ t('btn.saveSettings') }}</n-button>
+    </div>
   </div>
 </template>
 
@@ -292,8 +326,16 @@ onMounted(init)
   padding: 0 14px 14px;
 }
 
-.settings-save {
+.settings-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
   margin-top: 4px;
+}
+
+.settings-save {
+  flex-shrink: 0;
 }
 
 .skill-list {
@@ -360,10 +402,5 @@ onMounted(init)
   max-width: 280px;
   white-space: normal;
   line-height: 1.5;
-}
-
-.field-hint {
-  display: block;
-  margin-top: 6px;
 }
 </style>

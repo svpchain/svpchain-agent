@@ -29,6 +29,7 @@ export default {
     copy: 'Copy to Clipboard',
     copyShort: 'Copy',
     saveSettings: 'Save Settings',
+    restartOnboarding: 'Restart guided tour',
     saveWhitelist: 'Save',
   },
   field: {
@@ -129,6 +130,20 @@ export default {
     expandSidebar: 'Expand sidebar',
     themeDark: 'Dark mode',
     themeLight: 'Light mode',
+  },
+  onboarding: {
+    stepOf: 'Step {current} / {total}',
+    next: 'Next',
+    prev: 'Back',
+    skip: 'Skip tour',
+    finish: 'Done',
+    step1Title: 'Import a key',
+    step1Desc: 'Open the Keys tab on the left, pick a Chain ID, and import your private key into the OS credential store.',
+    step2Title: 'Configure the assistant',
+    step2Desc:
+      'Open Settings on the left:\n• Basic — select Chain ID\n• LLM — enter API key, model, and other parameters\n• Click Save Settings',
+    step3Title: 'Start chatting',
+    step3Desc: 'Choose Chain ID from the dropdown at the top, then send your first command to the on-chain assistant.',
   },
   lang: {
     chinese: 'Chinese',

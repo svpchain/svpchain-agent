@@ -10,6 +10,7 @@ import (
 
 	"github.com/99designs/keyring"
 
+	"github.com/svpchain/svpchain-agent/internal/brand"
 	"github.com/svpchain/svpchain-agent/internal/keystore"
 	"github.com/svpchain/svpchain-agent/internal/signer"
 )
@@ -151,9 +152,10 @@ func SelectKey(ring keyring.Keyring, name, envHex string) (hexKey, source string
 		return envHex, "SIGNER_KEY_HEX env", nil
 	}
 	return "", "", fmt.Errorf(
-		"no signing key for %q: store one with `svpchain-mcp import --chain-id %s` "+
-			"(saved to the OS credential store), or set SIGNER_KEY_HEX for headless use",
-		name, name,
+		"no signing key for %q: open %s, go to the Keys tab, select Chain ID %q, "+
+			"import a private key or use Auto-generate to save it to the OS credential store; "+
+			"for headless use, set SIGNER_KEY_HEX",
+		name, brand.AppDisplayName, name,
 	)
 }
 

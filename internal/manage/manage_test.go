@@ -128,7 +128,9 @@ func TestSelectKey_NoneError(t *testing.T) {
 	_, _, err := SelectKey(newRing(), "localsvp-1", "")
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "no signing key")
+	require.Contains(t, err.Error(), "Keys tab")
 	require.Contains(t, err.Error(), "import")
+	require.Contains(t, err.Error(), "Auto-generate")
 	require.Contains(t, err.Error(), "SIGNER_KEY_HEX")
 }
 

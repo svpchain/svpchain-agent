@@ -127,7 +127,7 @@ func TestSelectKey_NilRingUsesEnv(t *testing.T) {
 func TestSelectKey_NoneError(t *testing.T) {
 	_, _, err := SelectKey(newRing(), "localsvp-1", "")
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "no signing key")
+	require.ErrorIs(t, err, ErrNoSigningKey)
 	require.Contains(t, err.Error(), "Keys tab")
 	require.Contains(t, err.Error(), "import")
 	require.Contains(t, err.Error(), "Auto-generate")
@@ -144,7 +144,7 @@ func TestSelectKey_SurfacesLoadError(t *testing.T) {
 	_, _, err := SelectKey(errRing{newRing()}, "localsvp-1", keyA)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "access denied")
-	require.NotContains(t, err.Error(), "no signing key")
+	require.NotContains(t, err.Error(), "Keys tab")
 }
 
 func TestGuessSignerBinaryPath(t *testing.T) {

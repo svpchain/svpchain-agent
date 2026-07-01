@@ -10,7 +10,6 @@ import (
 
 	"github.com/99designs/keyring"
 
-	"github.com/svpchain/svpchain-agent/internal/brand"
 	"github.com/svpchain/svpchain-agent/internal/keystore"
 	"github.com/svpchain/svpchain-agent/internal/signer"
 )
@@ -151,12 +150,7 @@ func SelectKey(ring keyring.Keyring, name, envHex string) (hexKey, source string
 	if envHex != "" {
 		return envHex, "SIGNER_KEY_HEX env", nil
 	}
-	return "", "", fmt.Errorf(
-		"no signing key for %q: open %s, go to the Keys tab, select Chain ID %q, "+
-			"import a private key or use Auto-generate to save it to the OS credential store; "+
-			"for headless use, set SIGNER_KEY_HEX",
-		name, brand.AppDisplayName, name,
-	)
+	return "", "", &NoSigningKeyError{ChainID: name}
 }
 
 // MCPConfig is the JSON shape users paste into MCP client configuration.

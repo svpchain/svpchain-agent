@@ -52,14 +52,14 @@ func (a *App) AddWhitelist(chainID, addressType, address, alias string) (Whiteli
 		return nil
 	})
 	if err != nil {
-		return WhitelistEntry{}, err
+		return WhitelistEntry{}, localized(err)
 	}
 	return toWhitelistEntry(added), nil
 }
 
 // DeleteWhitelist removes a whitelist entry.
 func (a *App) DeleteWhitelist(chainID, addressType, address string) error {
-	return a.store.UpdateErr(func(f *prefs.File) error {
+	err := a.store.UpdateErr(func(f *prefs.File) error {
 		store := whitelist.NewStore(whitelist.EntriesFromPrefs(f.Whitelist))
 		if err := store.Delete(chainID, addressType, address); err != nil {
 			return err
@@ -67,4 +67,5 @@ func (a *App) DeleteWhitelist(chainID, addressType, address string) error {
 		f.Whitelist = whitelist.EntriesToPrefs(store.List())
 		return nil
 	})
+	return localized(err)
 }

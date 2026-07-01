@@ -2,7 +2,6 @@ package desktop
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 	"sync"
@@ -11,11 +10,10 @@ import (
 
 	"github.com/svpchain/svpchain-agent/internal/agent"
 	"github.com/svpchain/svpchain-agent/internal/agent/skills"
+	"github.com/svpchain/svpchain-agent/internal/i18n"
 	"github.com/svpchain/svpchain-agent/internal/manage"
 	"github.com/svpchain/svpchain-agent/internal/prefs"
 )
-
-var errAgentBusy = errors.New("assistant is already running")
 
 // SkillSetting is one assistant skill row for the Settings UI.
 type SkillSetting = skills.Setting
@@ -84,15 +82,19 @@ var agentMu sync.Mutex
 var agentCancel context.CancelFunc
 
 func emitAgentStep(ctx context.Context, step agent.Step) {
+	detail := step.Detail
+	if detail != "" {
+		detail = i18n.LocalizeDetail(detail)
+	}
 	wruntime.EventsEmit(ctx, "agent:step", map[string]string{
 		"kind":   string(step.Kind),
-		"title":  step.Title,
-		"detail": step.Detail,
+		"title":  i18n.LocalizeStepTitle(step.Title),
+		"detail": detail,
 	})
 }
 
 func emitAgentError(ctx context.Context, err error) {
-	wruntime.EventsEmit(ctx, "agent:error", map[string]string{"error": err.Error()})
+	wruntime.EventsEmit(ctx, "agent:error", map[string]string{"error": i18n.Localize(err)})
 }
 
 func emitAgentDelta(ctx context.Context, text string) {
@@ -105,7 +107,7 @@ func (a *App) AgentSend(chainID, message string) error {
 	agentMu.Lock()
 	if agentCancel != nil {
 		agentMu.Unlock()
-		return errAgentBusy
+		return localized(i18n.ErrAgentBusy)
 	}
 	agentMu.Unlock()
 
@@ -116,13 +118,13 @@ func (a *App) AgentSend(chainID, message string) error {
 	chainID = strings.TrimSpace(chainID)
 	message = strings.TrimSpace(message)
 	if chainID == "" {
-		return fmt.Errorf("chain id is required — select one in Settings or the Assistant tab")
+		return localized(i18n.ErrChainIDRequired)
 	}
 	if message == "" {
-		return fmt.Errorf("message is required")
+		return localized(i18n.ErrMessageRequired)
 	}
 	if strings.TrimSpace(settings.LLMAPIKey) == "" {
-		return fmt.Errorf("LLM API key is not configured — open Settings, enter your key, and click Save")
+		return localized(i18n.ErrLLMKeyRequired)
 	}
 
 	remoteURL := settings.RemoteMCPURL
@@ -168,6 +170,7 @@ func (a *App) AgentSend(chainID, message string) error {
 			emitAgentError(a.ctx, err)
 			return
 		}
+		answer = i18n.LocalizeAgentAnswer(answer)
 		wruntime.EventsEmit(a.ctx, "agent:done", map[string]string{"answer": answer})
 	}()
 	return nil

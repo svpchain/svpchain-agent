@@ -90,22 +90,38 @@ func (a *App) AgentNames() []string { return manage.AgentNames }
 func (a *App) DefaultAgent() string { return manage.AgentNameCursor }
 
 // ListKeys returns all stored keys with derived addresses.
-func (a *App) ListKeys() ([]manage.Entry, error) { return manage.List() }
+func (a *App) ListKeys() ([]manage.Entry, error) {
+	entries, err := manage.List()
+	return entries, localized(err)
+}
 
 // ImportKey stores hexKey under chainID and returns derived addresses + reuse warnings.
 func (a *App) ImportKey(chainID, hexKey string) (manage.ImportResult, error) {
-	return manage.Import(chainID, hexKey)
+	res, err := manage.Import(chainID, hexKey)
+	if err != nil {
+		return manage.ImportResult{}, localized(err)
+	}
+	return res, nil
 }
 
 // GenerateKey returns a fresh random private key as 0x-prefixed hex for the import field.
-func (a *App) GenerateKey() (string, error) { return manage.GenerateKey() }
+func (a *App) GenerateKey() (string, error) {
+	key, err := manage.GenerateKey()
+	return key, localized(err)
+}
 
 // DeleteKey removes the key stored under chainID.
-func (a *App) DeleteKey(chainID string) error { return manage.Delete(chainID) }
+func (a *App) DeleteKey(chainID string) error {
+	return localized(manage.Delete(chainID))
+}
 
 // GenerateConfig returns the MCP client config text for the agent/chain/binary.
 func (a *App) GenerateConfig(agent, chainID, signerPath string) (string, error) {
-	return manage.MCPConfigText(agent, chainID, signerPath)
+	text, err := manage.MCPConfigText(agent, chainID, signerPath)
+	if err != nil {
+		return "", localized(err)
+	}
+	return text, nil
 }
 
 // GuessSignerPath best-effort locates the signer binary next to this executable.
@@ -147,7 +163,11 @@ func (a *App) UpdateEnabled() bool { return update.Enabled() }
 func (a *App) CheckUpdate() (*update.Info, error) {
 	ctx, cancel := context.WithTimeout(a.ctx, 15*time.Second)
 	defer cancel()
-	return update.Check(ctx, Version, a.store.File().SkipVersion, nil)
+	info, err := update.Check(ctx, Version, a.store.File().SkipVersion, nil)
+	if err != nil {
+		return nil, localized(err)
+	}
+	return info, nil
 }
 
 // SkipVersion suppresses future prompts for the given release tag.
@@ -157,14 +177,14 @@ func (a *App) SkipVersion(tag string) { a.store.SetSkipVersion(tag) }
 // "update:progress" events. It returns the staged .app path on success.
 func (a *App) StartUpdate(info *update.Info) (string, error) {
 	if info == nil {
-		return "", fmt.Errorf("update info is nil")
+		return "", localized(fmt.Errorf("update info is nil"))
 	}
 	ctx, cancel := context.WithTimeout(a.ctx, 20*time.Minute)
 	defer cancel()
 
 	cache, err := os.UserCacheDir()
 	if err != nil {
-		return "", err
+		return "", localized(err)
 	}
 	staging := filepath.Join(cache, "com.svpchain.agent-gui", "update", info.Latest)
 
@@ -184,17 +204,18 @@ func (a *App) StartUpdate(info *update.Info) (string, error) {
 			"stage":   stage,
 		})
 	}
-	return update.DownloadAndStage(ctx, info, staging, progress, nil)
+	staged, err := update.DownloadAndStage(ctx, info, staging, progress, nil)
+	return staged, localized(err)
 }
 
 // InstallUpdate launches the replacer helper and quits so the update can apply.
 func (a *App) InstallUpdate(stagedApp string) error {
 	target, err := update.InstallTarget()
 	if err != nil {
-		return err
+		return localized(err)
 	}
 	if err := update.LaunchReplacer(target, stagedApp); err != nil {
-		return err
+		return localized(err)
 	}
 	wruntime.Quit(a.ctx)
 	return nil

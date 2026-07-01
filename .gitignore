@@ -19,3 +19,4 @@
 # `wails build` / `vite build` regenerate the real assets.
 /cmd/svpchain-gui/frontend/dist/*
 !/cmd/svpchain-gui/frontend/dist/.gitkeep
+/svpchain-gui

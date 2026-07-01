@@ -10,6 +10,7 @@ require (
 	github.com/cosmos/evm v0.0.0-00010101000000-000000000000
 	github.com/cosmos/gogoproto v1.7.2
 	github.com/ethereum/go-ethereum v1.15.11
+	github.com/google/uuid v1.6.0
 	github.com/jeandeaual/go-locale v0.0.0-20241217141322-fcc2cadd6f08
 	github.com/modelcontextprotocol/go-sdk v1.0.0
 	github.com/stretchr/testify v1.11.1
@@ -103,7 +104,6 @@ require (
 	github.com/google/flatbuffers v24.3.25+incompatible // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
 	github.com/google/jsonschema-go v0.3.0 // indirect
-	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/handlers v1.5.2 // indirect
 	github.com/gorilla/mux v1.8.1 // indirect
 	github.com/gorilla/websocket v1.5.3 // indirect

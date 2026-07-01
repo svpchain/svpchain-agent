@@ -52,16 +52,16 @@ func TestChatOpenAI_streamsContentAndToolCalls(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Chat: %v", err)
 	}
-	if msg.Content != "Hello" {
-		t.Errorf("content = %q, want Hello", msg.Content)
+	if msg.Message.Content != "Hello" {
+		t.Errorf("content = %q, want Hello", msg.Message.Content)
 	}
 	if deltas.String() != "Hello" {
 		t.Errorf("streamed deltas = %q, want Hello", deltas.String())
 	}
-	if len(msg.ToolCalls) != 1 {
-		t.Fatalf("tool calls = %d, want 1", len(msg.ToolCalls))
+	if len(msg.Message.ToolCalls) != 1 {
+		t.Fatalf("tool calls = %d, want 1", len(msg.Message.ToolCalls))
 	}
-	tc := msg.ToolCalls[0]
+	tc := msg.Message.ToolCalls[0]
 	if tc.ID != "call_1" || tc.Function.Name != "signer_whoami" || tc.Function.Arguments != `{"a":1}` {
 		t.Errorf("tool call = %+v", tc)
 	}
@@ -106,8 +106,6 @@ func TestChatAnthropic_translatesRequestAndDecodesStream(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Chat: %v", err)
 	}
-
-	// Request translation: system hoisted, tools use input_schema, tool result block.
 	if gotBody["system"] != "sys-prompt" {
 		t.Errorf("system = %v", gotBody["system"])
 	}
@@ -142,12 +140,12 @@ func TestChatAnthropic_translatesRequestAndDecodesStream(t *testing.T) {
 	}
 
 	// Response decode: text + tool_use → Message.
-	if msg.Content != "Hi there" || deltas.String() != "Hi there" {
-		t.Errorf("content = %q deltas = %q", msg.Content, deltas.String())
+	if msg.Message.Content != "Hi there" || deltas.String() != "Hi there" {
+		t.Errorf("content = %q deltas = %q", msg.Message.Content, deltas.String())
 	}
-	if len(msg.ToolCalls) != 1 || msg.ToolCalls[0].ID != "tu_1" ||
-		msg.ToolCalls[0].Function.Name != "whoami" || msg.ToolCalls[0].Function.Arguments != `{"x":2}` {
-		t.Errorf("tool calls = %+v", msg.ToolCalls)
+	if len(msg.Message.ToolCalls) != 1 || msg.Message.ToolCalls[0].ID != "tu_1" ||
+		msg.Message.ToolCalls[0].Function.Name != "whoami" || msg.Message.ToolCalls[0].Function.Arguments != `{"x":2}` {
+		t.Errorf("tool calls = %+v", msg.Message.ToolCalls)
 	}
 }
 
@@ -167,8 +165,8 @@ func TestChat_retriesBeforeFirstDelta(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Chat: %v", err)
 	}
-	if msg.Content != "ok" {
-		t.Errorf("content = %q, want ok", msg.Content)
+	if msg.Message.Content != "ok" {
+		t.Errorf("content = %q, want ok", msg.Message.Content)
 	}
 	if got := atomic.LoadInt32(&calls); got != 2 {
 		t.Errorf("server calls = %d, want 2 (one 503 + one success)", got)
@@ -211,6 +209,71 @@ func TestChat_noRetryAfterDeltaEmitted(t *testing.T) {
 	}
 	if got := atomic.LoadInt32(&calls); got != 1 {
 		t.Errorf("server calls = %d, want 1 (no retry after delta)", got)
+	}
+}
+
+func TestChatOpenAI_parsesStreamUsage(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req openAIChatRequest
+		body, _ := io.ReadAll(r.Body)
+		if err := json.Unmarshal(body, &req); err != nil {
+			t.Fatalf("decode request: %v", err)
+		}
+		if req.StreamOptions == nil || !req.StreamOptions.IncludeUsage {
+			t.Errorf("stream_options.include_usage = %v, want true", req.StreamOptions)
+		}
+		sseResponse(w,
+			`{"choices":[{"delta":{"content":"ok"}}]}`,
+			`{"choices":[],"usage":{"prompt_tokens":11,"completion_tokens":5,"total_tokens":16},"model":"m-routed"}`,
+			`[DONE]`,
+		)
+	}))
+	defer srv.Close()
+
+	c := NewClient(Config{APIKey: "k", BaseURL: srv.URL, Model: "m", Provider: "openai"})
+	res, err := c.Chat(context.Background(), []Message{{Role: "user", Content: "hi"}}, nil, nil)
+	if err != nil {
+		t.Fatalf("Chat: %v", err)
+	}
+	if res.Message.Content != "ok" {
+		t.Errorf("content = %q", res.Message.Content)
+	}
+	if res.Usage.PromptTokens != 11 || res.Usage.CompletionTokens != 5 || res.Usage.TotalTokens != 16 {
+		t.Errorf("usage = %+v", res.Usage)
+	}
+	if res.Model != "m-routed" {
+		t.Errorf("model = %q, want m-routed", res.Model)
+	}
+	if res.LatencyMs < 0 {
+		t.Errorf("latency = %d", res.LatencyMs)
+	}
+}
+
+func TestChatAnthropic_parsesStreamUsage(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		sseResponse(w,
+			`{"type":"message_start","message":{"model":"claude-x","usage":{"input_tokens":42}}}`,
+			`{"type":"content_block_start","index":0,"content_block":{"type":"text"}}`,
+			`{"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"ok"}}`,
+			`{"type":"message_delta","usage":{"output_tokens":7}}`,
+			`{"type":"message_stop"}`,
+		)
+	}))
+	defer srv.Close()
+
+	c := NewClient(Config{APIKey: "k", BaseURL: srv.URL, Model: "claude-x", Provider: "anthropic"})
+	res, err := c.Chat(context.Background(), []Message{{Role: "user", Content: "hi"}}, nil, nil)
+	if err != nil {
+		t.Fatalf("Chat: %v", err)
+	}
+	if res.Message.Content != "ok" {
+		t.Errorf("content = %q", res.Message.Content)
+	}
+	if res.Usage.PromptTokens != 42 || res.Usage.CompletionTokens != 7 || res.Usage.TotalTokens != 49 {
+		t.Errorf("usage = %+v", res.Usage)
+	}
+	if res.Model != "claude-x" {
+		t.Errorf("model = %q", res.Model)
 	}
 }
 

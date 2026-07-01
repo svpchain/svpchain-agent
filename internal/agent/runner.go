@@ -151,11 +151,15 @@ func Run(ctx context.Context, cfg Config, userMessage string) (answer string, er
 			trace.SetRound(i + 1)
 		}
 		emit(Step{Kind: StepThink, Title: fmt.Sprintf("Thinking… (round %d)", i+1)})
-		reply, err := client.Chat(ctx, messages, tools, cfg.OnDelta)
+		llmResult, err := client.Chat(ctx, messages, tools, cfg.OnDelta)
 		if err != nil {
 			emit(Step{Kind: StepError, Title: "LLM error", Detail: err.Error()})
 			return "", err
 		}
+		if trace != nil {
+			trace.RecordLLMRound(i+1, llmResult)
+		}
+		reply := llmResult.Message
 		messages = append(messages, reply)
 
 		if len(reply.ToolCalls) == 0 {

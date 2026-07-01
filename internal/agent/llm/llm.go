@@ -68,21 +68,39 @@ func NewClient(cfg Config) *Client {
 	}
 }
 
-// Chat sends one round and returns the assistant message (with any tool calls).
+// Chat sends one round and returns the assistant message (with any tool calls),
+// per-round latency, and token usage when the provider reports it in the stream.
 // It streams under the hood: onDelta (if non-nil) receives assistant text increments
 // as they arrive. Transient failures are retried — but only before the first delta is
 // emitted, so a partially streamed answer is never duplicated. The provider-specific
 // wire handling lives in chatOpenAI / chatAnthropic.
-func (c *Client) Chat(ctx context.Context, messages []Message, tools []Tool, onDelta func(string)) (Message, error) {
+func (c *Client) Chat(ctx context.Context, messages []Message, tools []Tool, onDelta func(string)) (ChatResult, error) {
 	if c.cfg.APIKey == "" {
-		return Message{}, fmt.Errorf("LLM API key is not configured")
+		return ChatResult{}, fmt.Errorf("LLM API key is not configured")
 	}
+	start := time.Now()
+	var round chatRoundResult
+	var err error
 	if c.cfg.Provider == providerAnthropic {
-		return c.withRetry(ctx, func(emit func(string)) (Message, error) {
+		round, err = c.withRetry(ctx, func(emit func(string)) (chatRoundResult, error) {
 			return c.chatAnthropic(ctx, messages, tools, emit)
 		}, onDelta)
+	} else {
+		round, err = c.withRetry(ctx, func(emit func(string)) (chatRoundResult, error) {
+			return c.chatOpenAI(ctx, messages, tools, emit)
+		}, onDelta)
 	}
-	return c.withRetry(ctx, func(emit func(string)) (Message, error) {
-		return c.chatOpenAI(ctx, messages, tools, emit)
-	}, onDelta)
+	if err != nil {
+		return ChatResult{}, err
+	}
+	model := round.model
+	if model == "" {
+		model = c.cfg.Model
+	}
+	return ChatResult{
+		Message:   round.msg,
+		Usage:     round.usage,
+		Model:     model,
+		LatencyMs: time.Since(start).Milliseconds(),
+	}, nil
 }

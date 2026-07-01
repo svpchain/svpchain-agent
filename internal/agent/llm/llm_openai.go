@@ -9,15 +9,28 @@ import (
 )
 
 type openAIChatRequest struct {
-	Model    string    `json:"model"`
-	Messages []Message `json:"messages"`
-	Tools    []Tool    `json:"tools,omitempty"`
-	Stream   bool      `json:"stream"`
+	Model         string               `json:"model"`
+	Messages      []Message            `json:"messages"`
+	Tools         []Tool               `json:"tools,omitempty"`
+	Stream        bool                 `json:"stream"`
+	StreamOptions *openAIStreamOptions `json:"stream_options,omitempty"`
+}
+
+type openAIStreamOptions struct {
+	IncludeUsage bool `json:"include_usage"`
 }
 
 // openAIStreamChunk is one SSE `data:` frame from /v1/chat/completions (stream=true).
 type openAIStreamChunk struct {
 	Choices []openAIStreamChoice `json:"choices"`
+	Usage   *openAIUsage         `json:"usage,omitempty"`
+	Model   string               `json:"model,omitempty"`
+}
+
+type openAIUsage struct {
+	PromptTokens     int `json:"prompt_tokens"`
+	CompletionTokens int `json:"completion_tokens"`
+	TotalTokens      int `json:"total_tokens"`
 }
 
 type openAIStreamChoice struct {
@@ -47,28 +60,36 @@ type openAIToolCallAcc struct {
 	args strings.Builder
 }
 
-func (c *Client) chatOpenAI(ctx context.Context, messages []Message, tools []Tool, emit func(string)) (Message, error) {
-	body, err := json.Marshal(openAIChatRequest{Model: c.cfg.Model, Messages: messages, Tools: tools, Stream: true})
+func (c *Client) chatOpenAI(ctx context.Context, messages []Message, tools []Tool, emit func(string)) (chatRoundResult, error) {
+	body, err := json.Marshal(openAIChatRequest{
+		Model:         c.cfg.Model,
+		Messages:      messages,
+		Tools:         tools,
+		Stream:        true,
+		StreamOptions: &openAIStreamOptions{IncludeUsage: true},
+	})
 	if err != nil {
-		return Message{}, err
+		return chatRoundResult{}, err
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.cfg.BaseURL+"/v1/chat/completions", bytes.NewReader(body))
 	if err != nil {
-		return Message{}, err
+		return chatRoundResult{}, err
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "text/event-stream")
 	req.Header.Set("Authorization", "Bearer "+c.cfg.APIKey)
 	resp, err := c.client.Do(req)
 	if err != nil {
-		return Message{}, err
+		return chatRoundResult{}, err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return Message{}, httpError(resp)
+		return chatRoundResult{}, httpError(resp)
 	}
 
 	out := Message{Role: "assistant"}
+	var usage Usage
+	var respModel string
 	var contentB strings.Builder
 	// tool_calls arrive sharded by index across frames; accumulate per index.
 	calls := map[int]*openAIToolCallAcc{}
@@ -81,6 +102,14 @@ func (c *Client) chatOpenAI(ctx context.Context, messages []Message, tools []Too
 		var chunk openAIStreamChunk
 		if err := json.Unmarshal([]byte(data), &chunk); err != nil {
 			return false, nil // tolerate keep-alive / non-JSON frames
+		}
+		if chunk.Model != "" {
+			respModel = chunk.Model
+		}
+		if chunk.Usage != nil {
+			usage.PromptTokens = chunk.Usage.PromptTokens
+			usage.CompletionTokens = chunk.Usage.CompletionTokens
+			usage.TotalTokens = chunk.Usage.TotalTokens
 		}
 		for _, ch := range chunk.Choices {
 			if ch.Delta.Content != "" {
@@ -106,7 +135,7 @@ func (c *Client) chatOpenAI(ctx context.Context, messages []Message, tools []Too
 		return false, nil
 	})
 	if err != nil {
-		return Message{}, err
+		return chatRoundResult{}, err
 	}
 
 	out.Content = contentB.String()
@@ -121,5 +150,5 @@ func (c *Client) chatOpenAI(ctx context.Context, messages []Message, tools []Too
 			},
 		})
 	}
-	return out, nil
+	return chatRoundResult{msg: out, usage: usage, model: respModel}, nil
 }

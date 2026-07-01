@@ -5,6 +5,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/svpchain/svpchain-agent/internal/agent/llm"
 )
 
 func TestRedact_truncateAndKey(t *testing.T) {
@@ -27,6 +29,30 @@ func TestClassifyOutcome(t *testing.T) {
 	require.Equal(t, OutcomeRejected, classifyOutcome("Transfer rejected — x", nil))
 	require.Equal(t, OutcomeStopped, classifyOutcome("tool failed — err. Stopped without further action.", nil))
 	require.Equal(t, OutcomeSuccess, classifyOutcome("done", nil))
+}
+
+func TestSession_RecordLLMRound(t *testing.T) {
+	dir := t.TempDir()
+	SetPathOverride(dir + "/agent_runs.jsonl")
+	t.Cleanup(func() { SetPathOverride("") })
+
+	rec := New(true)
+	sess := rec.Begin(Meta{ChainID: "svp-2517-1", Model: "m", UserMessage: "hi"})
+	sess.RecordLLMRound(1, llm.ChatResult{
+		Message:   llm.Message{Content: "ok"},
+		Model:     "m",
+		LatencyMs: 120,
+		Usage:     llm.Usage{PromptTokens: 10, CompletionTokens: 3, TotalTokens: 13},
+	})
+	sess.Complete("ok", nil)
+
+	runs, err := ReadAll(dir + "/agent_runs.jsonl")
+	require.NoError(t, err)
+	require.Len(t, runs, 1)
+	require.Len(t, runs[0].LLMRounds, 1)
+	require.Equal(t, int64(120), runs[0].LLMRounds[0].LatencyMs)
+	require.Equal(t, 10, runs[0].Usage.PromptTokens)
+	require.Equal(t, 13, runs[0].Usage.TotalTokens)
 }
 
 func TestRecorder_append(t *testing.T) {

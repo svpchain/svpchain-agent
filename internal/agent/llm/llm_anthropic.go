@@ -12,8 +12,20 @@ import (
 type anthropicStreamEvent struct {
 	Type         string                `json:"type"`
 	Index        int                   `json:"index"`
+	Message      anthropicMessageMeta  `json:"message"`
 	ContentBlock anthropicContentBlock `json:"content_block"`
 	Delta        anthropicStreamDelta  `json:"delta"`
+	Usage        anthropicUsage        `json:"usage"`
+}
+
+type anthropicMessageMeta struct {
+	Model string         `json:"model"`
+	Usage anthropicUsage `json:"usage"`
+}
+
+type anthropicUsage struct {
+	InputTokens  int `json:"input_tokens"`
+	OutputTokens int `json:"output_tokens"`
 }
 
 type anthropicContentBlock struct {
@@ -36,7 +48,7 @@ type anthropicBlockAcc struct {
 	json strings.Builder
 }
 
-func (c *Client) chatAnthropic(ctx context.Context, messages []Message, tools []Tool, emit func(string)) (Message, error) {
+func (c *Client) chatAnthropic(ctx context.Context, messages []Message, tools []Tool, emit func(string)) (chatRoundResult, error) {
 	system, msgs := toAnthropicMessages(messages)
 	reqBody := map[string]any{
 		"model":      c.cfg.Model,
@@ -52,11 +64,11 @@ func (c *Client) chatAnthropic(ctx context.Context, messages []Message, tools []
 	}
 	body, err := json.Marshal(reqBody)
 	if err != nil {
-		return Message{}, err
+		return chatRoundResult{}, err
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.cfg.BaseURL+"/v1/messages", bytes.NewReader(body))
 	if err != nil {
-		return Message{}, err
+		return chatRoundResult{}, err
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "text/event-stream")
@@ -64,14 +76,16 @@ func (c *Client) chatAnthropic(ctx context.Context, messages []Message, tools []
 	req.Header.Set("anthropic-version", anthropicVersion)
 	resp, err := c.client.Do(req)
 	if err != nil {
-		return Message{}, err
+		return chatRoundResult{}, err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return Message{}, httpError(resp)
+		return chatRoundResult{}, httpError(resp)
 	}
 
 	out := Message{Role: "assistant"}
+	var usage Usage
+	var respModel string
 	var contentB strings.Builder
 	// content blocks arrive by index; a tool_use block accumulates partial_json.
 	blocks := map[int]*anthropicBlockAcc{}
@@ -83,6 +97,13 @@ func (c *Client) chatAnthropic(ctx context.Context, messages []Message, tools []
 			return false, nil
 		}
 		switch ev.Type {
+		case "message_start":
+			if ev.Message.Model != "" {
+				respModel = ev.Message.Model
+			}
+			if ev.Message.Usage.InputTokens > 0 {
+				usage.PromptTokens = ev.Message.Usage.InputTokens
+			}
 		case "content_block_start":
 			blocks[ev.Index] = &anthropicBlockAcc{kind: ev.ContentBlock.Type, id: ev.ContentBlock.ID, name: ev.ContentBlock.Name}
 			order = append(order, ev.Index)
@@ -100,13 +121,17 @@ func (c *Client) chatAnthropic(ctx context.Context, messages []Message, tools []
 			case "input_json_delta":
 				b.json.WriteString(ev.Delta.PartialJSON)
 			}
+		case "message_delta":
+			if ev.Usage.OutputTokens > 0 {
+				usage.CompletionTokens = ev.Usage.OutputTokens
+			}
 		case "message_stop":
 			return true, nil
 		}
 		return false, nil
 	})
 	if err != nil {
-		return Message{}, err
+		return chatRoundResult{}, err
 	}
 
 	out.Content = contentB.String()
@@ -128,7 +153,10 @@ func (c *Client) chatAnthropic(ctx context.Context, messages []Message, tools []
 			},
 		})
 	}
-	return out, nil
+	if usage.TotalTokens == 0 && (usage.PromptTokens > 0 || usage.CompletionTokens > 0) {
+		usage.TotalTokens = usage.PromptTokens + usage.CompletionTokens
+	}
+	return chatRoundResult{msg: out, usage: usage, model: respModel}, nil
 }
 
 // toAnthropicMessages converts OpenAI-shaped messages into Anthropic's (system, messages)

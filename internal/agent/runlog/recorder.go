@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/svpchain/svpchain-agent/internal/agent/guard"
+	"github.com/svpchain/svpchain-agent/internal/agent/llm"
 	"github.com/svpchain/svpchain-agent/internal/prefs"
 )
 
@@ -60,22 +61,41 @@ type Step struct {
 	ElapsedMs int64     `json:"elapsed_ms,omitempty"`
 }
 
+// LLMRound is token and latency accounting for one LLM iteration inside a run.
+type LLMRound struct {
+	Round            int    `json:"round"`
+	LatencyMs        int64  `json:"latency_ms"`
+	Model            string `json:"model,omitempty"`
+	PromptTokens     int    `json:"prompt_tokens,omitempty"`
+	CompletionTokens int    `json:"completion_tokens,omitempty"`
+	TotalTokens      int    `json:"total_tokens,omitempty"`
+}
+
+// UsageTotal aggregates token usage across all LLM rounds in a run.
+type UsageTotal struct {
+	PromptTokens     int `json:"prompt_tokens,omitempty"`
+	CompletionTokens int `json:"completion_tokens,omitempty"`
+	TotalTokens      int `json:"total_tokens,omitempty"`
+}
+
 // Run is one assistant execution trace.
 type Run struct {
-	RunID       string    `json:"run_id"`
-	StartedAt   time.Time `json:"started_at"`
-	FinishedAt  time.Time `json:"finished_at,omitempty"`
-	ChainID     string    `json:"chain_id"`
-	RemoteURL   string    `json:"remote_url"`
-	Model       string    `json:"model,omitempty"`
-	Provider    string    `json:"provider,omitempty"`
-	UserMessage string    `json:"user_message"`
-	Outcome     Outcome   `json:"outcome"`
-	Answer      string    `json:"answer,omitempty"`
-	Error       string    `json:"error,omitempty"`
-	TxHashes    []string  `json:"tx_hashes,omitempty"`
-	RoundCount  int       `json:"round_count"`
-	Steps       []Step    `json:"steps"`
+	RunID       string     `json:"run_id"`
+	StartedAt   time.Time  `json:"started_at"`
+	FinishedAt  time.Time  `json:"finished_at,omitempty"`
+	ChainID     string     `json:"chain_id"`
+	RemoteURL   string     `json:"remote_url"`
+	Model       string     `json:"model,omitempty"`
+	Provider    string     `json:"provider,omitempty"`
+	UserMessage string     `json:"user_message"`
+	Outcome     Outcome    `json:"outcome"`
+	Answer      string     `json:"answer,omitempty"`
+	Error       string     `json:"error,omitempty"`
+	TxHashes    []string   `json:"tx_hashes,omitempty"`
+	RoundCount  int        `json:"round_count"`
+	Usage       UsageTotal `json:"usage,omitempty"`
+	LLMRounds   []LLMRound `json:"llm_rounds,omitempty"`
+	Steps       []Step     `json:"steps"`
 }
 
 // Meta describes a run before execution starts.
@@ -135,6 +155,34 @@ func (s *Session) SetRound(n int) {
 		return
 	}
 	s.round = n
+}
+
+// RecordLLMRound logs latency and token usage for one LLM iteration.
+func (s *Session) RecordLLMRound(round int, res llm.ChatResult) {
+	if s == nil {
+		return
+	}
+	model := strings.TrimSpace(res.Model)
+	if model == "" {
+		model = strings.TrimSpace(s.run.Model)
+	}
+	r := LLMRound{
+		Round:            round,
+		LatencyMs:        res.LatencyMs,
+		Model:            model,
+		PromptTokens:     res.Usage.PromptTokens,
+		CompletionTokens: res.Usage.CompletionTokens,
+		TotalTokens:      res.Usage.TotalTokens,
+	}
+	if r.TotalTokens == 0 && (r.PromptTokens > 0 || r.CompletionTokens > 0) {
+		r.TotalTokens = r.PromptTokens + r.CompletionTokens
+	}
+	s.run.LLMRounds = append(s.run.LLMRounds, r)
+	s.run.Usage.PromptTokens += r.PromptTokens
+	s.run.Usage.CompletionTokens += r.CompletionTokens
+	if r.TotalTokens > 0 {
+		s.run.Usage.TotalTokens += r.TotalTokens
+	}
 }
 
 // RecordStep appends a non-tool progress event.

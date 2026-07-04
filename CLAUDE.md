@@ -45,6 +45,8 @@ Auth: a `svpchain-mcp-auth-v1:` challenge is signed locally and exchanged for a 
   - `skills/bundled/*/SKILL.md` — the system prompt is **assembled from modular skills**, not hardcoded. `base` is always on; others gate on available tools and `disabled_skills`.
   - `whitelist_gate.go` — assistant pre-flight transfer gate (see below).
   - `memory.go` — session memory caching `whoami`/`signer_whoami` to `agent_memory.json`.
+ - `history/` — multi-turn conversation persistence (`sessions/*.jsonl` next to `prefs.json`) + context management: tool-result projection to blobs, LLM compaction of old turns, tool-call pairing repair. Wired via `Config.Prior` / `Config.OnTranscript`.
+ - `runlog/` — local JSONL run traces (`agent_runs.jsonl`): tools, outcomes, tx hashes, per-round LLM latency + token usage.
 - `internal/signer/` — `eth_secp256k1` + `SIGN_MODE_DIRECT` signing, EVM tx signing, EIP-712 typed data, signer-layer whitelist checks. `init()` sets svp bech32 prefixes — import this package rather than blank-importing `internal/config`.
 - `internal/mcp/` — stdio MCP tool handlers (the 5 signing tools + `whoami`).
 - `internal/payload/` — wire types (`TxPayload`, `SignedTx`, `EvmTxPayload`). **Intentionally no I/O** so the signer can be imported without chain/HTTP deps.

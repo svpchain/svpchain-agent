@@ -49,6 +49,7 @@ export default {
     skillsConfigBase: 'Skills 目录地址',
     showToolSteps: '显示调用过程',
     agentRunLog: '记录助手运行日志',
+    llmContextWindow: '上下文窗口（tokens）',
   },
   ph: {
     chainId: '可从列表选择或自行输入',
@@ -62,6 +63,7 @@ export default {
     whitelistAddress: 'svp1… 或 0x…',
     whitelistAlias: '可选，例如 团队金库',
     skillsConfigBase: '留空使用系统默认配置目录',
+    llmContextWindow: '默认 64000',
   },
   addressType: {
     cosmos: 'SVP Cosmos',
@@ -75,6 +77,7 @@ export default {
     skills: '关闭的 Skill 不会注入助手 system prompt。保存设置后生效。',
     showToolSteps: '开启后在助手对话中展示工具调用、思考步骤等中间过程；默认关闭，仅显示最终回复。',
     agentRunLog: '开启后将每次助手对话的工具调用、结果与 outcome 追加写入本地 agent_runs.jsonl（不含私钥与 API Key），便于排查与评估。',
+    llmContextWindow: '模型的上下文窗口大小（token 数）。对话历史约占其 70%；超出后自动用 LLM 总结压缩较早的对话。',
     skillsConfigBase:
       "填写配置根目录。实际 Skills 目录为：{'{路径}'}/com.svpchain.agent-gui/skills。留空则使用系统默认配置目录。",
   },
@@ -108,6 +111,12 @@ export default {
     btn: {
       send: '发送',
       cancel: '取消',
+      newChat: '新对话',
+      deleteChat: '删除当前对话',
+    },
+    session: {
+      placeholder: '历史对话',
+      untitled: '新对话',
     },
     status: {
       label: '执行状态',

@@ -149,6 +149,14 @@ type Session struct {
 	round    int
 }
 
+// RunID returns the run's unique id ("" for a nil session).
+func (s *Session) RunID() string {
+	if s == nil {
+		return ""
+	}
+	return s.run.RunID
+}
+
 // SetRound updates the current LLM iteration (1-based).
 func (s *Session) SetRound(n int) {
 	if s == nil {

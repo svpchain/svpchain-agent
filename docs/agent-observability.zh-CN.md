@@ -1,6 +1,6 @@
 # 助手可观测性与评估方案
 
-[English](AGENT-OBSERVABILITY.md) | **简体中文**
+[English](agent-observability.md) | **简体中文** · [← README](../README.zh-CN.md)
 
 本文档说明 SVPChain Agent 内置助手的**效果评估思路**、**可观测性设计**及**已落地实现**。适用于产品、开发与运维在不上云（无 LangSmith 等 SaaS trace）的前提下，本地调试、回归与持续改进。
 

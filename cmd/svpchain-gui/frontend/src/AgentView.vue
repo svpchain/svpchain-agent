@@ -23,6 +23,10 @@ const lines = ref<ChatLine[]>([])
 const scrollRef = ref<InstanceType<typeof NScrollbar> | null>(null)
 const imeComposing = ref(false)
 
+type SessionOption = { id: string; title: string; chain_id: string; messages: number }
+const sessions = ref<SessionOption[]>([])
+const currentSessionId = ref('')
+
 const promptChips = computed(() => {
   const raw = tm('assistant.chips')
   return Array.isArray(raw) ? (raw as string[]) : []
@@ -114,6 +118,64 @@ async function loadSettings() {
   }
 }
 
+async function refreshSessions() {
+  try {
+    const rows = ((await App.AgentSessions()) || []) as SessionOption[]
+    sessions.value = rows
+    currentSessionId.value = (await App.AgentCurrentSessionID()) || ''
+  } catch {
+    sessions.value = []
+  }
+}
+
+async function loadTranscript(id: string) {
+  try {
+    const rows = ((await App.AgentTranscript(id)) || []) as Array<{ role: string; text: string }>
+    lines.value = rows
+      .filter((r) => r.role === 'user' || r.role === 'assistant')
+      .map((r) => ({ role: r.role as 'user' | 'assistant', text: r.text }))
+    streamingIdx = -1
+    scrollToBottom()
+  } catch {
+    /* history bindings unavailable */
+  }
+}
+
+async function switchSession(id: string) {
+  if (running.value || !id || id === currentSessionId.value) return
+  try {
+    await App.AgentSwitchSession(id)
+    currentSessionId.value = id
+    await loadTranscript(id)
+  } catch (err) {
+    report(String(err))
+  }
+}
+
+async function newSession() {
+  if (running.value) return
+  try {
+    await App.AgentNewSession(chainId.value)
+    lines.value = []
+    streamingIdx = -1
+    await refreshSessions()
+  } catch (err) {
+    report(String(err))
+  }
+}
+
+async function deleteSession() {
+  if (running.value || !currentSessionId.value) return
+  try {
+    await App.AgentDeleteSession(currentSessionId.value)
+    lines.value = []
+    streamingIdx = -1
+    await refreshSessions()
+  } catch (err) {
+    report(String(err))
+  }
+}
+
 async function send() {
   const msg = input.value.trim()
   if (!msg) {
@@ -174,6 +236,7 @@ function onDone(e: { answer?: string }) {
     lines.value.push({ role: 'assistant', text: e.answer })
   }
   report(t('assistant.status.done'))
+  refreshSessions()
 }
 
 function onError(e: { error?: string }) {
@@ -183,6 +246,7 @@ function onError(e: { error?: string }) {
   const err = e.error || t('assistant.status.failed')
   lines.value.push({ role: 'step', text: err, kind: 'error' })
   report(err)
+  refreshSessions()
 }
 
 function cancel() {
@@ -206,6 +270,10 @@ function onKeydown(e: KeyboardEvent) {
 
 onMounted(async () => {
   await loadSettings()
+  await refreshSessions()
+  if (currentSessionId.value) {
+    await loadTranscript(currentSessionId.value)
+  }
   unsubs = [
     EventsOn('agent:step', onStep),
     EventsOn('agent:delta', onDelta),
@@ -232,6 +300,34 @@ onUnmounted(() => {
         size="small"
         class="chain-select"
       />
+      <div class="session-controls">
+        <n-select
+          v-if="sessions.length > 0"
+          :value="currentSessionId || null"
+          :placeholder="t('assistant.session.placeholder')"
+          :options="sessions.map((s) => ({ label: s.title || t('assistant.session.untitled'), value: s.id }))"
+          size="small"
+          class="session-select"
+          :disabled="running"
+          @update:value="switchSession"
+        />
+        <n-button size="small" quaternary :disabled="running" @click="newSession">
+          {{ t('assistant.btn.newChat') }}
+        </n-button>
+        <n-button
+          v-if="currentSessionId"
+          size="small"
+          quaternary
+          :disabled="running"
+          :aria-label="t('assistant.btn.deleteChat')"
+          :title="t('assistant.btn.deleteChat')"
+          @click="deleteSession"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="trash-icon">
+            <path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+        </n-button>
+      </div>
       <span v-if="running" class="running-badge">
         <span class="running-pulse" />
         {{ runStatus || t('assistant.status.running') }}
@@ -349,6 +445,25 @@ onUnmounted(() => {
 .chain-select {
   max-width: 200px;
   flex-shrink: 0;
+}
+
+.session-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+  justify-content: flex-end;
+}
+
+.session-select {
+  max-width: 220px;
+  min-width: 120px;
+}
+
+.trash-icon {
+  width: 15px;
+  height: 15px;
 }
 
 .running-badge {

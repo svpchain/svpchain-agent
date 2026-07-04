@@ -1,6 +1,6 @@
 # Assistant Observability & Evaluation
 
-**English** | [简体中文](AGENT-OBSERVABILITY.zh-CN.md)
+**English** | [简体中文](agent-observability.zh-CN.md) · [← README](../README.md)
 
 This document describes how to **measure assistant quality**, the **observability design**, and **what is implemented today** for the SVPChain Agent GUI assistant — without relying on cloud tracing SaaS (e.g. LangSmith) by default.
 

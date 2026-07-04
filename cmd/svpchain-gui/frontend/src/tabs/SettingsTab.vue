@@ -46,6 +46,7 @@ const skillSettings = ref<SkillSetting[]>([])
 const settingsExpandedSections = ref<string[]>([])
 const showToolSteps = ref(false)
 const agentRunLogDisabled = ref(false)
+const llmContextWindow = ref('')
 
 function setStatus(msg: string) {
   emit('status', msg)
@@ -90,11 +91,13 @@ async function loadAgentSettings() {
       skills_config_base?: string
       show_tool_steps?: boolean
       agent_run_log_disabled?: boolean
+      llm_context_window?: number
     }
     llmApiKey.value = s.llm_api_key || ''
     llmProvider.value = s.llm_provider || 'openai'
     llmBaseURL.value = s.llm_base_url || ''
     llmModel.value = s.llm_model || ''
+    llmContextWindow.value = s.llm_context_window ? String(s.llm_context_window) : ''
     remoteMCPURL.value = s.remote_mcp_url || ''
     agentChainId.value = s.chain_id || ''
     showToolSteps.value = !!s.show_tool_steps
@@ -126,6 +129,7 @@ async function saveAgentSettings() {
         llm_provider: llmProvider.value,
         llm_base_url: llmBaseURL.value,
         llm_model: llmModel.value,
+        llm_context_window: Number.parseInt(llmContextWindow.value, 10) || 0,
         remote_mcp_url: remoteMCPURL.value,
         disabled_skills: disabledSkills,
         skills_config_base: skillsConfigBase.value.trim(),
@@ -276,6 +280,25 @@ onMounted(init)
           </n-form-item>
           <n-form-item :label="t('field.llmModel')">
             <n-input v-model:value="llmModel" :placeholder="t('ph.llmModel')" />
+          </n-form-item>
+          <n-form-item>
+            <template #label>
+              <span class="label-with-help">
+                <span>{{ t('field.llmContextWindow') }}</span>
+                <n-popover trigger="hover" placement="top-start" :show-arrow="true">
+                  <template #trigger>
+                    <span
+                      class="help-icon"
+                      tabindex="0"
+                      role="button"
+                      :title="t('hint.llmContextWindow')"
+                    >?</span>
+                  </template>
+                  <div class="help-tooltip-text">{{ t('hint.llmContextWindow') }}</div>
+                </n-popover>
+              </span>
+            </template>
+            <n-input v-model:value="llmContextWindow" :placeholder="t('ph.llmContextWindow')" />
           </n-form-item>
           <n-form-item :label="t('field.remoteMCPURL')">
             <n-input v-model:value="remoteMCPURL" :placeholder="t('ph.remoteMCPURL')" />

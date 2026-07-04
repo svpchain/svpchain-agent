@@ -9,6 +9,8 @@ import (
 	wruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 
 	"github.com/svpchain/svpchain-agent/internal/agent"
+	"github.com/svpchain/svpchain-agent/internal/agent/history"
+	"github.com/svpchain/svpchain-agent/internal/agent/llm"
 	"github.com/svpchain/svpchain-agent/internal/agent/runlog"
 	"github.com/svpchain/svpchain-agent/internal/agent/skills"
 	"github.com/svpchain/svpchain-agent/internal/i18n"
@@ -26,6 +28,7 @@ type AgentSettings struct {
 	LLMBaseURL          string   `json:"llm_base_url"`
 	LLMModel            string   `json:"llm_model"`
 	LLMProvider         string   `json:"llm_provider"`
+	LLMContextWindow    int      `json:"llm_context_window"`
 	RemoteMCPURL        string   `json:"remote_mcp_url"`
 	DisabledSkills      []string `json:"disabled_skills"`
 	SkillsConfigBase    string   `json:"skills_config_base"`
@@ -42,6 +45,7 @@ func (a *App) AgentGetSettings() AgentSettings {
 		LLMBaseURL:          s.LLMBaseURL,
 		LLMModel:            s.LLMModel,
 		LLMProvider:         s.LLMProvider,
+		LLMContextWindow:    s.LLMContextWindow,
 		RemoteMCPURL:        s.RemoteMCPURL,
 		DisabledSkills:      s.DisabledSkills,
 		SkillsConfigBase:    s.SkillsConfigBase,
@@ -68,6 +72,7 @@ func (a *App) AgentSetSettings(s AgentSettings) {
 		LLMBaseURL:          s.LLMBaseURL,
 		LLMModel:            s.LLMModel,
 		LLMProvider:         s.LLMProvider,
+		LLMContextWindow:    s.LLMContextWindow,
 		RemoteMCPURL:        s.RemoteMCPURL,
 		DisabledSkills:      s.DisabledSkills,
 		SkillsConfigBase:    s.SkillsConfigBase,
@@ -153,15 +158,28 @@ func (a *App) AgentSend(chainID, message string) error {
 			}
 		}()
 
+		llmCfg := agent.LLMConfig{
+			APIKey:   settings.LLMAPIKey,
+			BaseURL:  settings.LLMBaseURL,
+			Model:    settings.LLMModel,
+			Provider: settings.LLMProvider,
+		}
+
+		hist := history.Shared()
+		sess, prior := prepareHistory(ctx, hist, chainID, settings.LLMContextWindow, llmCfg, func(step agent.Step) {
+			emitAgentStep(a.ctx, step)
+		})
+
 		answer, err := agent.Run(ctx, agent.Config{
 			ChainID:   chainID,
 			RemoteURL: remoteURL,
 			RunLog:    runlog.New(!settings.AgentRunLogDisabled),
-			LLM: agent.LLMConfig{
-				APIKey:   settings.LLMAPIKey,
-				BaseURL:  settings.LLMBaseURL,
-				Model:    settings.LLMModel,
-				Provider: settings.LLMProvider,
+			LLM:       llmCfg,
+			Prior:     prior,
+			OnTranscript: func(runID string, msgs []llm.Message) {
+				if sess.ID != "" {
+					_ = hist.Append(sess.ID, runID, msgs)
+				}
 			},
 			OnStep: func(step agent.Step) {
 				emitAgentStep(a.ctx, step)
@@ -179,6 +197,45 @@ func (a *App) AgentSend(chainID, message string) error {
 		wruntime.EventsEmit(a.ctx, "agent:done", map[string]string{"answer": answer})
 	}()
 	return nil
+}
+
+// prepareHistory resolves the active session (creating one on first use or
+// chain switch), compacts it when over the context budget, and loads prior
+// turns for the next run. Failures degrade to a stateless single-turn run.
+func prepareHistory(ctx context.Context, hist *history.Store, chainID string, contextWindow int, llmCfg agent.LLMConfig, emit func(agent.Step)) (history.SessionInfo, []llm.Message) {
+	if !hist.Enabled() {
+		return history.SessionInfo{}, nil
+	}
+	sess, ok := hist.Current()
+	if !ok || sess.ChainID != chainID {
+		created, err := hist.Create(chainID)
+		if err != nil {
+			return history.SessionInfo{}, nil
+		}
+		return created, nil
+	}
+
+	budget := history.ContextBudgetTokens(contextWindow)
+	summarize := func(sctx context.Context, text string) (string, error) {
+		client := llm.NewClient(llmCfg)
+		res, err := client.Chat(sctx, []llm.Message{
+			{Role: "system", Content: history.SummarySystemPrompt},
+			{Role: "user", Content: text},
+		}, nil, nil)
+		if err != nil {
+			return "", err
+		}
+		return res.Message.Content, nil
+	}
+	if compacted, err := hist.CompactIfNeeded(ctx, sess.ID, budget, summarize); err == nil && compacted {
+		emit(agent.Step{Kind: agent.StepThink, Title: "Compacted conversation history"})
+	}
+
+	prior, err := hist.Context(sess.ID)
+	if err != nil {
+		return sess, nil
+	}
+	return sess, history.RepairPairing(prior)
 }
 
 // AgentCancel stops the in-flight assistant run, if any.

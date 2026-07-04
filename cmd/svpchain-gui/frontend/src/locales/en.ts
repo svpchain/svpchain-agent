@@ -49,6 +49,7 @@ export default {
     skillsConfigBase: 'Skills directory root',
     showToolSteps: 'Show tool invocation steps',
     agentRunLog: 'Save assistant run logs',
+    llmContextWindow: 'Context window (tokens)',
   },
   ph: {
     chainId: 'Pick from list or type your own',
@@ -62,6 +63,7 @@ export default {
     whitelistAddress: 'svp1… or 0x…',
     whitelistAlias: 'Optional, e.g. Team Treasury',
     skillsConfigBase: 'Leave empty for the OS default config directory',
+    llmContextWindow: 'Default 64000',
   },
   addressType: {
     cosmos: 'SVP Cosmos',
@@ -75,6 +77,7 @@ export default {
     skills: 'Disabled skills are omitted from the assistant system prompt. Changes apply after Save Settings.',
     showToolSteps: 'When on, the Assistant tab shows tool calls, thinking steps, and other intermediate progress. Off by default — only final replies are shown.',
     agentRunLog: 'When on, each assistant run appends a JSONL trace (tool calls, outcomes; no private keys or API keys) to agent_runs.jsonl for debugging and evaluation.',
+    llmContextWindow: "Your model's context window in tokens. Conversation history is kept within ~70% of this; older turns are auto-summarized when it overflows.",
     skillsConfigBase:
       "Config root directory. Resolved skills path: {'{path}'}/com.svpchain.agent-gui/skills. Leave empty for the OS default.",
   },
@@ -108,6 +111,12 @@ export default {
     btn: {
       send: 'Send',
       cancel: 'Cancel',
+      newChat: 'New chat',
+      deleteChat: 'Delete this conversation',
+    },
+    session: {
+      placeholder: 'Conversations',
+      untitled: 'New conversation',
     },
     status: {
       label: 'Status',

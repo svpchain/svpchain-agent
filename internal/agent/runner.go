@@ -12,6 +12,7 @@ import (
 
 	"github.com/svpchain/svpchain-agent/internal/agent/chainid"
 	"github.com/svpchain/svpchain-agent/internal/agent/guard"
+	"github.com/svpchain/svpchain-agent/internal/agent/history"
 	"github.com/svpchain/svpchain-agent/internal/agent/llm"
 	localsigner "github.com/svpchain/svpchain-agent/internal/agent/local"
 	"github.com/svpchain/svpchain-agent/internal/agent/memory"
@@ -57,6 +58,13 @@ type Config struct {
 	OnDelta func(string)
 	// RunLog, when enabled, appends a JSONL trace to the local run log file.
 	RunLog *runlog.Recorder
+	// Prior is earlier conversation turns (no system message) prepended before
+	// the current user message, enabling multi-turn context.
+	Prior []llm.Message
+	// OnTranscript, if set, receives the messages this run added (the user
+	// message, assistant replies, and tool round-trips) with tool-call pairing
+	// already repaired, so the caller can persist them as history.
+	OnTranscript func(runID string, msgs []llm.Message)
 }
 
 const maxAgentIterations = 25
@@ -138,9 +146,33 @@ func Run(ctx context.Context, cfg Config, userMessage string) (answer string, er
 	}
 
 	client := llm.NewClient(cfg.LLM)
-	messages := []llm.Message{
-		{Role: "system", Content: systemPrompt},
-		{Role: "user", Content: userMessage},
+	messages := make([]llm.Message, 0, len(cfg.Prior)+2)
+	messages = append(messages, llm.Message{Role: "system", Content: systemPrompt})
+	messages = append(messages, cfg.Prior...)
+	messages = append(messages, llm.Message{Role: "user", Content: userMessage})
+
+	// Persist this run's new messages (everything after system + prior) so the
+	// caller can carry the conversation into the next turn. Runs on every exit
+	// path once the transcript exists, including errors and cancellation.
+	transcriptBase := 1 + len(cfg.Prior)
+	if cfg.OnTranscript != nil {
+		defer func() {
+			newMsgs := append([]llm.Message(nil), messages[transcriptBase:]...)
+			if err != nil {
+				// Keep roles alternating so the persisted transcript stays valid.
+				newMsgs = append(newMsgs, llm.Message{Role: "assistant", Content: "(run failed: " + err.Error() + ")"})
+			} else if answer != "" {
+				last := &newMsgs[len(newMsgs)-1]
+				if last.Role == "assistant" && len(last.ToolCalls) == 0 {
+					// The final streamed reply is this answer (possibly untrimmed);
+					// normalize instead of appending a duplicate assistant message.
+					last.Content = answer
+				} else {
+					newMsgs = append(newMsgs, llm.Message{Role: "assistant", Content: answer})
+				}
+			}
+			cfg.OnTranscript(trace.RunID(), history.RepairPairing(newMsgs))
+		}()
 	}
 
 	for i := 0; i < maxAgentIterations; i++ {

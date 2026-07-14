@@ -25,6 +25,6 @@ GUI 涵盖密钥管理、MCP 导出、安全策略与内置助手。
 
 助手 system prompt 由模块化 **skills**（`internal/agent/skills/bundled/*/SKILL.md`）组装，而非单一硬编码字符串。每个 skill 覆盖一种工作流（链上 build/sign/broadcast、x402 支付、向 `0x` 银行转账、ERC-20/721、A2A 委托等）。
 
-- **内置 skills** 嵌入二进制。
+- **内置 skills** 嵌入二进制。skill 可将大体积细节（输出模板、错误话术目录）放在 `SKILL.md` 旁的 `references/*.md` 中；助手通过本地工具 `read_skill_reference` 按需加载，而不是把它们塞进每次的 system prompt。
 - **用户 skills** — 可选覆盖：`<config-dir>/com.svpchain.agent-gui/skills/<name>/SKILL.md`（与 `prefs.json` 同目录；macOS 如 `~/Library/Application Support/...`，Windows 为 `%AppData%`）。
 - **设置 → 助手 Skills** — 开关各 skill（保存为 `prefs.json` 中的 `disabled_skills`）。`base` skill 锁定开启。禁用的 skill 不会写入 system prompt；可用 MCP 工具仍决定哪些绑定工具的 skill 在运行时注入。

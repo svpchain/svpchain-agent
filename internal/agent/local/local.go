@@ -281,6 +281,21 @@ func ToolDefs() []llm.Tool {
 		{
 			Type: "function",
 			Function: llm.Function{
+				Name:        "read_skill_reference",
+				Description: "Read a reference file that a skill's instructions point to (progressive disclosure: SKILL.md stays lean, details live in reference files). Call ONLY when the current skill tells you to, e.g. read_skill_reference(skill=\"lendora-lending\", file=\"output-templates.md\").",
+				Parameters: map[string]any{
+					"type": "object",
+					"properties": map[string]any{
+						"skill": map[string]any{"type": "string", "description": "Skill name (kebab-case directory name, e.g. lendora-lending)"},
+						"file":  map[string]any{"type": "string", "description": "Reference file name, e.g. output-templates.md"},
+					},
+					"required": []string{"skill", "file"},
+				},
+			},
+		},
+		{
+			Type: "function",
+			Function: llm.Function{
 				Name:        "x402_build_payment",
 				Description: "Assemble x402 v2 payment payload and base64 header value after sign_typed_data. Pass accepted from x402_prepare_typed_data, signature from sign_typed_data, and authorization from typed_data.message.",
 				Parameters: map[string]any{

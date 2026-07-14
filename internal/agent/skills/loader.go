@@ -12,7 +12,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-//go:embed bundled/*/SKILL.md
+//go:embed bundled/*/SKILL.md bundled/*/references/*.md
 var bundled embed.FS
 
 const configDirName = "com.svpchain.agent-gui"

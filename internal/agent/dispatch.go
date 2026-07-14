@@ -12,6 +12,7 @@ import (
 	localsigner "github.com/svpchain/svpchain-agent/internal/agent/local"
 	"github.com/svpchain/svpchain-agent/internal/agent/memory"
 	remotemcp "github.com/svpchain/svpchain-agent/internal/agent/remote"
+	"github.com/svpchain/svpchain-agent/internal/agent/skills"
 	"github.com/svpchain/svpchain-agent/internal/agent/x402"
 )
 
@@ -69,6 +70,9 @@ func dispatchTool(ctx context.Context, chainID string, remote *remotemcp.Client,
 	}
 	if a2acall.IsTool(name) {
 		return a2acall.SendFromArgs(ctx, args)
+	}
+	if name == skills.ReferenceToolName {
+		return skills.ReadReferenceFromArgs(args)
 	}
 	if localsigner.IsLocalTool(name) {
 		result, err := local.CallTool(ctx, name, args)

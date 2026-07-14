@@ -25,6 +25,6 @@ The app supports **English and Chinese** (Settings → Basic; persisted). Overri
 
 The assistant system prompt is assembled from modular **skills** (`internal/agent/skills/bundled/*/SKILL.md`), not a single hard-coded string. Each skill covers one workflow (on-chain build/sign/broadcast, x402 payments, bank send to `0x`, ERC-20/721, A2A delegation, etc.).
 
-- **Bundled skills** are embedded in the binary.
+- **Bundled skills** are embedded in the binary. A skill may keep bulky detail (output templates, error catalogs) in `references/*.md` next to its `SKILL.md`; the assistant loads those on demand with the local `read_skill_reference` tool instead of carrying them in every system prompt.
 - **User skills** — optional overrides in `<config-dir>/com.svpchain.agent-gui/skills/<name>/SKILL.md` (alongside `prefs.json`; e.g. `~/Library/Application Support/...` on macOS, `%AppData%` on Windows).
 - **Settings → Assistant Skills** — toggle skills on/off (saved as `disabled_skills` in `prefs.json`). The `base` skill is locked on. Disabled skills are omitted from the system prompt; available MCP tools still control which tool-bound skills are injected at runtime.

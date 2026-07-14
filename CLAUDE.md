@@ -42,7 +42,7 @@ Auth: a `svpchain-mcp-auth-v1:` challenge is signed locally and exchanged for a 
 - `cmd/svpchain-mcp/` — CLI: `serve` (default), `import`/`list`/`delete` (key mgmt), `a2a serve`.
 - `cmd/svpchain-gui/` — Go entry + `frontend/` (Vue 3 + naive-ui, vue-i18n en/zh). `wailsjs/` is generated bindings.
 - `internal/agent/` — the LLM tool-calling loop (`runner.go` `Run`, `dispatchTool`). Holds a remote MCP client + in-process `LocalSigner` (`local.go`). Local-only tools (`signer_whoami`, `evm_to_bech32`, `http_fetch`, `x402_*`, `a2a_send_message`) live here and are **not** exposed by the stdio server.
-  - `skills/bundled/*/SKILL.md` — the system prompt is **assembled from modular skills**, not hardcoded. `base` is always on; others gate on available tools and `disabled_skills`.
+  - `skills/bundled/*/SKILL.md` — the system prompt is **assembled from modular skills**, not hardcoded. `base` is always on; others gate on available tools and `disabled_skills`. Bulky detail lives in `bundled/<name>/references/*.md`, loaded on demand by the LLM via the local `read_skill_reference` tool (`skills/references.go`).
   - `whitelist_gate.go` — assistant pre-flight transfer gate (see below).
   - `memory.go` — session memory caching `whoami`/`signer_whoami` to `agent_memory.json`.
  - `history/` — multi-turn conversation persistence (`sessions/*.jsonl` next to `prefs.json`) + context management: tool-result projection to blobs, LLM compaction of old turns, tool-call pairing repair. Wired via `Config.Prior` / `Config.OnTranscript`.

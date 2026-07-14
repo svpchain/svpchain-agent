@@ -53,6 +53,18 @@ locked: <optional bool; true only for base>
    restate red lines loosely in a way that could contradict `base`.
 4. `make test` — skill assembly is covered by the agent package tests.
 
+## Progressive disclosure (reference files)
+
+Keep SKILL.md lean — it is injected into every matching system prompt. Bulky material
+(output templates, error-response catalogs, long examples) goes into
+`bundled/<name>/references/*.md` (lowercase-kebab names). The runtime LLM loads them on
+demand via the local tool `read_skill_reference(skill, file)`; tell it when to read which
+file in a short "References" table inside SKILL.md (see `lendora-lending` for the
+pattern). User skills can override a reference at
+`<config-dir>/skills/<name>/references/<file>`. Loading lives in
+`internal/agent/skills/references.go` (embedded via `go:embed`, names strictly
+validated — no path traversal).
+
 ## Don'ts
 
 - Don't hardcode prompt text in Go when a skill file will do.

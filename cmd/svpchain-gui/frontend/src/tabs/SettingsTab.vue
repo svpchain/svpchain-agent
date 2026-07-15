@@ -152,7 +152,10 @@ async function init() {
 watch(
   () => props.entries,
   (list) => {
-    if (!agentChainId.value && list.length > 0) {
+    const ids = new Set(list.map((e) => e.ChainID))
+    if (agentChainId.value && !ids.has(agentChainId.value)) {
+      agentChainId.value = list[0]?.ChainID || ''
+    } else if (!agentChainId.value && list.length > 0) {
       agentChainId.value = list[0].ChainID
     }
   },

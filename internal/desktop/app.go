@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	wruntime "github.com/wailsapp/wails/v2/pkg/runtime"
@@ -111,8 +112,18 @@ func (a *App) GenerateKey() (string, error) {
 }
 
 // DeleteKey removes the key stored under chainID.
+// If prefs still point the assistant default chain at the deleted key, clear it
+// so the assistant cannot silently keep signing against a missing key.
 func (a *App) DeleteKey(chainID string) error {
-	return localized(manage.Delete(chainID))
+	if err := manage.Delete(chainID); err != nil {
+		return localized(err)
+	}
+	s := a.store.AgentSettings()
+	if strings.TrimSpace(s.ChainID) == strings.TrimSpace(chainID) {
+		s.ChainID = ""
+		a.store.SetAgentSettings(s)
+	}
+	return nil
 }
 
 // GenerateConfig returns the MCP client config text for the agent/chain/binary.

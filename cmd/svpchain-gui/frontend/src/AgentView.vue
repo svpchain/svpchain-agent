@@ -106,17 +106,49 @@ function armWatchdog() {
   }, 180_000)
 }
 
+function availableChainIDs(): Set<string> {
+  return new Set(props.entries.map((e) => e.ChainID).filter(Boolean))
+}
+
+/** Pick a chain the imported keys still support; never stick to a deleted key. */
+function resolveChainID(preferred: string): string {
+  const available = availableChainIDs()
+  const pick = preferred.trim()
+  if (pick && available.has(pick)) return pick
+  return props.entries[0]?.ChainID || ''
+}
+
 async function loadSettings() {
   try {
     const s = (await App.AgentGetSettings()) as { chain_id?: string; show_tool_steps?: boolean }
     showToolSteps.value = !!s.show_tool_steps
-    const id = s.chain_id || ''
-    if (id) chainId.value = id
-    else if (props.entries.length > 0) chainId.value = props.entries[0].ChainID
+    // Keep the user's current selection when it still has a key. Only fall back
+    // to prefs (or the first imported key) when the UI has no valid chain yet —
+    // calling this from send() must NOT reset a deliberate chain switch.
+    chainId.value = resolveChainID(chainId.value || s.chain_id || '')
   } catch {
-    if (props.entries.length > 0) chainId.value = props.entries[0].ChainID
+    chainId.value = resolveChainID(chainId.value)
   }
 }
+
+async function persistChainID(id: string) {
+  const next = resolveChainID(id)
+  chainId.value = next
+  if (!next) return
+  try {
+    const s = (await App.AgentGetSettings()) as Record<string, unknown>
+    await App.AgentSetSettings({ ...s, chain_id: next })
+  } catch {
+    /* best-effort sync with Settings → Basic default chain */
+  }
+}
+
+watch(
+  () => props.entries.map((e) => e.ChainID).join('\0'),
+  () => {
+    chainId.value = resolveChainID(chainId.value)
+  },
+)
 
 async function refreshSessions() {
   try {
@@ -146,6 +178,10 @@ async function switchSession(id: string) {
   try {
     await App.AgentSwitchSession(id)
     currentSessionId.value = id
+    const sess = sessions.value.find((s) => s.id === id)
+    if (sess?.chain_id) {
+      await persistChainID(sess.chain_id)
+    }
     await loadTranscript(id)
   } catch (err) {
     report(String(err))
@@ -293,12 +329,14 @@ onUnmounted(() => {
   <div class="assistant-pane">
     <header class="chat-header">
       <n-select
-        v-model:value="chainId"
+        :value="chainId || null"
         data-tour="assistant-chain"
         :placeholder="t('assistant.ph.chainId')"
         :options="entries.map((e) => ({ label: e.ChainID, value: e.ChainID }))"
         size="small"
         class="chain-select"
+        :disabled="running"
+        @update:value="persistChainID"
       />
       <div class="session-controls">
         <n-select

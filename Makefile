@@ -2,7 +2,7 @@ BUILDDIR ?= build
 BINARY   := svpchain-mcp
 GUIBIN   := svpchain-gui
 
-.PHONY: build build-gui build-all package-macos-app package-windows-app build-macos-icon install test tidy clean
+.PHONY: build build-gui build-all package-macos-app package-windows-app build-macos-icon install test tidy clean clean-build
 
 # Prebuilt binaries for end-user distribution. Each platform builds natively on its runner.
 build:
@@ -39,5 +39,9 @@ test:
 tidy:
 	go mod tidy
 
-clean:
-	rm -rf $(BUILDDIR)
+# Remove artifacts under build/ (svpchain-mcp, .app, DMG, release zips, etc.).
+# Alias: clean-build
+clean clean-build:
+	rm -rf "$(BUILDDIR)"
+	@mkdir -p "$(BUILDDIR)"
+	@echo "cleared $(BUILDDIR)/"

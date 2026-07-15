@@ -6,7 +6,7 @@
 
 ```
             ┌──────────────────────────────┐
-            │  LLM (DeepSeek / OpenAI API) │   工具调用循环
+            │  LLM (OpenAI 兼容 / Anthropic) │   流式工具调用循环
             └───────────────┬──────────────┘
                             │
               ┌─────────────┴──────────────┐
@@ -34,7 +34,7 @@ cmd/
   svpchain-gui/   # Wails GUI：Go 入口 + 内嵌 Vue 前端
 internal/
   agent/          # LLM 工具调用循环：远程 MCP 客户端 + 进程内本地签名器；转账预检白名单；会话记忆
-    skills/       # 内置 SKILL.md 模块；组装助手 system prompt
+    skills/       # 内置 SKILL.md（及 references/*.md）；system prompt + 按需 read_skill_reference
     history/      # 对话持久化 + 上下文管理（JSONL 会话、投影、LLM 压缩）
     runlog/       # 本地 JSONL 运行日志（工具、outcome、tx hash、token 用量），用于排查与评估
     eval/         # 白名单门控的离线回归打分

@@ -5,7 +5,7 @@
 A local-key **on-chain agent** for svpchain (Cosmos/EVM), built around a strict separation of trust:
 
 - **Local signing MCP service** (`svpchain-mcp`) — keeps the user's signing key on the local machine, never exposes it, and only signs payloads/challenges that pass strict cross-checks.
-- **Remote build + broadcast MCP service** — constructs unsigned transactions, serves market data, and broadcasts signed transactions. Runs off-machine (`https://indexer.svpchain.com/mcp`).
+- **Remote build + broadcast MCP service** — constructs unsigned transactions, serves market data, and broadcasts signed transactions. Runs off-machine (`https://mcp-testnet.svpchain.org/`).
 - **Built-in LLM assistant** (`svpchain-gui`) — a streaming tool-calling loop (OpenAI-compatible APIs or native Anthropic) that orchestrates the two: the remote side *builds* and *broadcasts*, the local side *signs*. Keys never leave the machine. Optional **transfer whitelist**, modular **assistant skills** (bulky detail in `references/*.md`, loaded on demand via `read_skill_reference`), multi-turn **conversation history**, and local **run logs** tighten transfers, prompts, and observability.
 - **Google A2A (Agent-to-Agent)** — expose this agent as an A2A-compliant HTTP service, or delegate sub-tasks to other A2A agents via `a2a_send_message`.
 

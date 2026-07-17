@@ -12,7 +12,7 @@ const (
 	AgentNameCursor        = "Cursor"
 	AgentNameWindsurf      = "Windsurf"
 
-	RemoteMCPURL = "https://indexer.svpchain.com/mcp"
+	RemoteMCPURL = "https://mcp-testnet.svpchain.org/"
 )
 
 // AgentNames is the display order for AI Agent radio buttons in the GUI.

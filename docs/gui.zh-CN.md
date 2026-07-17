@@ -17,7 +17,7 @@ GUI 涵盖密钥管理、MCP 导出、安全策略与内置助手。
 
 ## 助手与 LLM 设置
 
-助手支持 **OpenAI 兼容** API（默认 base `https://api.deepseek.com`，模型 `deepseek-v4-flash`），以及原生 **Anthropic**（当提供商 / Base URL 解析为 Anthropic 时走 `/v1/messages`）。回复以流式写入聊天界面。在 **设置 → LLM** 中配置 API Key、Base URL、模型与远程 MCP 端点并保存。远程 MCP 默认 `https://indexer.svpchain.com/mcp`。
+助手支持 **OpenAI 兼容** API（默认 base `https://api.deepseek.com`，模型 `deepseek-v4-flash`），以及原生 **Anthropic**（当提供商 / Base URL 解析为 Anthropic 时走 `/v1/messages`）。回复以流式写入聊天界面。在 **设置 → LLM** 中配置 API Key、Base URL、模型与远程 MCP 端点并保存。远程 MCP 默认 `https://mcp-testnet.svpchain.org/`。
 
 应用支持 **中英文**（设置 → 基本；持久化）。可用 `SVPCHAIN_AGENT_LANG=zh|en` 覆盖首次启动语言检测。
 

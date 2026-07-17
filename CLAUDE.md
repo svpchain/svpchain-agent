@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 A local-key on-chain agent for svpchain (Cosmos SDK + EVM). The defining constraint is a **three-party trust separation**: the signing key never leaves the local machine, the remote service builds and broadcasts but never holds a key, and an LLM assistant orchestrates the two.
 
 - **`svpchain-mcp`** — stdio MCP signing service. Holds the key (OS credential store), signs only payloads/challenges that pass strict cross-checks. Also hosts `a2a serve`.
-- **Remote MCP** (`https://indexer.svpchain.com/mcp`, HTTP) — builds unsigned txs, serves market data, broadcasts signed txs. Not in this repo.
+- **Remote MCP** (`https://mcp-testnet.svpchain.org/`, HTTP) — builds unsigned txs, serves market data, broadcasts signed txs. Not in this repo.
 - **`svpchain-gui`** — Wails app (Go + embedded Vue) with a built-in LLM tool-calling assistant that runs the signer in-process.
 
 ## Commands

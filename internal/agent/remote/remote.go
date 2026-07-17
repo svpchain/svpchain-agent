@@ -15,7 +15,7 @@ import (
 	"github.com/svpchain/svpchain-agent/internal/agent/result"
 )
 
-const defaultRemoteURL = "https://indexer.svpchain.com/mcp"
+const defaultRemoteURL = "https://mcp-testnet.svpchain.org/"
 
 type bearerRoundTripper struct {
 	base   http.RoundTripper

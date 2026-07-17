@@ -59,7 +59,7 @@ export default {
     llmApiKey: 'DeepSeek / OpenAI-compatible API key',
     llmBaseURL: 'Default https://api.deepseek.com',
     llmModel: 'Default deepseek-v4-flash',
-    remoteMCPURL: 'Default https://indexer.svpchain.com/mcp',
+    remoteMCPURL: 'Default https://mcp-testnet.svpchain.org/',
     whitelistAddress: 'svp1… or 0x…',
     whitelistAlias: 'Optional, e.g. Team Treasury',
     skillsConfigBase: 'Leave empty for the OS default config directory',

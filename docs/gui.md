@@ -17,7 +17,7 @@ The GUI covers key management, MCP export, security policy, and the built-in ass
 
 ## Assistant & LLM settings
 
-The assistant speaks **OpenAI-compatible** APIs (default base `https://api.deepseek.com`, model `deepseek-v4-flash`) or native **Anthropic** (`/v1/messages` when the provider/base URL resolves to Anthropic). Responses stream into the chat UI. Configure API key, base URL, model, and remote MCP endpoint under **Settings → LLM**, then save. The remote MCP endpoint defaults to `https://indexer.svpchain.com/mcp`.
+The assistant speaks **OpenAI-compatible** APIs (default base `https://api.deepseek.com`, model `deepseek-v4-flash`) or native **Anthropic** (`/v1/messages` when the provider/base URL resolves to Anthropic). Responses stream into the chat UI. Configure API key, base URL, model, and remote MCP endpoint under **Settings → LLM**, then save. The remote MCP endpoint defaults to `https://mcp-testnet.svpchain.org/`.
 
 The app supports **English and Chinese** (Settings → Basic; persisted). Override first-launch detection with `SVPCHAIN_AGENT_LANG=zh|en`.
 

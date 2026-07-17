@@ -99,7 +99,7 @@
   "started_at": "2026-06-25T12:00:00Z",
   "finished_at": "2026-06-25T12:00:15Z",
   "chain_id": "svp-2517-1",
-  "remote_url": "https://indexer.svpchain.com/mcp",
+  "remote_url": "https://mcp-testnet.svpchain.org/",
   "model": "deepseek-v4-flash",
   "provider": "openai",
   "user_message": "查一下 BTC 永续仓位",

@@ -7,7 +7,7 @@ tools:
 
 # Lendora Lending
 
-Risk-first analysis and operations for Lendora Protocol on SVP Chain. Query tools are read-only; operation tools return a simulation + unsigned tx(s) to be signed locally (`sign_transaction`) and broadcast (`broadcast_signed_tx`).
+Risk-first analysis and operations for Lendora Protocol on SVP Chain. Query tools are read-only; operation tools return a simulation + an unsigned EVM tx (`EVMTxPayload`) to be signed locally (`sign_evm_transaction`) and broadcast (`broadcast_evm_tx`). Lendora is an EVM contract deployment, so it uses the EVM signer/broadcast tools — NOT the Cosmos `sign_transaction` / `broadcast_signed_tx` path.
 
 ## References (load on demand)
 
@@ -38,7 +38,7 @@ Parameter notes: `asset` is a symbol (e.g. "USDC") or contract address; `amount`
 | What-if simulation | "如果我借 1000 会怎样" | `lendora_build_*_tx` (dry-run via simulate) | — |
 | Balance check | "余额" / "Gas 够吗" | `lendora_get_balances` | — |
 | Protocol overview | "TVL" / "协议数据" | `lendora_get_protocol_dashboard` | per-market breakdown → + `lendora_get_all_markets` |
-| Execution | "帮我存/取/借/还 X" | `lendora_build_*_tx` → `sign_transaction` → `broadcast_signed_tx` | — |
+| Execution | "帮我存/取/借/还 X" | `lendora_build_*_tx` → `sign_evm_transaction` → `broadcast_evm_tx` | — |
 
 ### 2) Ask-or-answer
 
@@ -54,12 +54,22 @@ Response intensity by riskLevel: 🟢 Low → one line "仓位健康 ✅"; 🟡 
 
 ### 4) Execute
 
+Operation tools return an `EVMTxPayload` (EVM path). The write flow:
+
 ```
 lendora_build_*_tx → present simulation, ask confirmation
-  → user confirms → sign_transaction → broadcast_signed_tx → report tx hash
+  → user confirms → sign_evm_transaction (local signer) → broadcast_evm_tx → report tx hash
 ```
 
-Multi-transaction operations (e.g. Approve + Supply): present all steps upfront before the first signature; sign and broadcast sequentially; if any step fails, stop and report — never auto-retry write operations.
+Approval (supply / repay of an ERC-20 underlying): when the market's allowance is short the build tool does NOT error — it returns an `approval_required` object (and NO payload) naming `build_erc20_approve` with `token` = the underlying and `spender` = the cToken. Handle it as a two-step operation:
+
+```
+1. build_erc20_approve (token, spender) → sign_evm_transaction → broadcast_evm_tx
+2. RE-CALL the original lendora_build_*_tx  → now returns the payload
+   → sign_evm_transaction → broadcast_evm_tx
+```
+
+Present both steps (Approve, then Supply/Repay) upfront before the first signature; sign and broadcast sequentially; if any step fails, stop and report — never auto-retry write operations.
 
 ## Output formatting
 
@@ -71,13 +81,14 @@ All numbers 2 decimal places with thousands separators (`$1,200.00`); ≥ 3 item
 2. **Never auto-retry writes** — reads may retry once; writes wait for user instruction after failure.
 3. **Always give specific numbers** — shortfalls, gas needed, max borrowable.
 4. **Always suggest a next step.**
+5. **`auth_required` is NOT a failure** — a `lendora_*` tool may return a successful `auth_required` result (not an error) when the session is unauthenticated. Run the handshake it describes (`auth_challenge` → `sign_challenge` on svpchain-signer → `auth_verify`), then RETRY the original tool; do not report it as an error.
 
 Category-specific wording (connection/auth, data query, build_tx, signing, broadcast): read `error-responses.md`.
 
 ## Guardrails
 
 - Never skip simulate — always show impact before execution.
-- Never call `sign_transaction` without explicit user confirmation.
+- Never call `sign_evm_transaction` without explicit user confirmation.
 - Never promise safety or returns — this is a tool, not investment advice.
 - Never suggest all-in operations — always recommend a safety buffer.
 - HF < 1.0 → block the operation; HF 1.0–1.2 → warn and require explicit confirmation; proactively warn when HF approaches the danger zone.

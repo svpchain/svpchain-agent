@@ -9,6 +9,7 @@ Reference file for the `lendora-lending` skill, loaded on demand via `read_skill
 | Error | Agent Response |
 |-------|---------------|
 | svpchain-remote unreachable | "Lendora 服务暂时无法连接，请稍后重试。" |
+| Not authenticated (`auth_required` result) | NOT an error — the tool returned a successful `auth_required` result with handshake steps. Run `auth_challenge` → `sign_challenge` (svpchain-signer) → `auth_verify`, then RETRY the original tool. Do not show an error to the user unless the handshake itself fails. |
 | Authentication failed / session expired | "会话已过期，请重新启动 svpchain-signer 认证。" |
 | svpchain-signer not running | "本地签名服务未启动。请确认 svpchain-signer 已配置并运行。" |
 | Signer has no key | "未找到钱包密钥。请运行 svpchain-signer 初始化流程导入或创建密钥。" |
@@ -42,7 +43,7 @@ Reference file for the `lendora-lending` skill, loaded on demand via `read_skill
 | Rate limit (same address same op < 10s) | "操作过于频繁，请等待 10 秒后重试。" |
 | Insufficient pool liquidity | "当前 [asset] 池可用流动性为 X，不足以满足 Y 的借款请求。最大可借: X。" |
 | Market paused | "[asset] 市场当前已暂停 [supply/borrow] 操作。请关注官方公告。" |
-| Allowance insufficient (auto-handled) | Agent does NOT surface this as error. build_tx auto-includes Approve TX in response. |
+| Allowance insufficient (auto-handled) | NOT an error. The build tool returns an `approval_required` object (no payload) with `tool=build_erc20_approve`, `token`=underlying, `spender`=cToken. Flow: `build_erc20_approve` → `sign_evm_transaction` → `broadcast_evm_tx`, then RE-CALL the original `lendora_build_*_tx` to get the payload. Present Approve + the action as two steps; never surface as an error. |
 
 ---
 

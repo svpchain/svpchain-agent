@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
 	appconfig "github.com/svpchain/svpchain-agent/internal/config"
@@ -51,6 +52,44 @@ func TestCheckCosmosRecipient_emptyWhitelistAllows(t *testing.T) {
 	prefs.SetPathOverride(path)
 
 	require.NoError(t, whitelist.CheckCosmosRecipient("svp-2517-1", "svp1anything"))
+}
+
+// TestCheckRecipient_crossEncoding verifies that whitelisting an account in one
+// encoding authorizes it in the other: a bech32 (svp1…) address and its 0x EVM
+// form are the same on-chain account, so enforcement must match across the two.
+func TestCheckRecipient_crossEncoding(t *testing.T) {
+	appconfig.SetAddressPrefixes()
+	raw := []byte{
+		0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48,
+		0x49, 0x4a, 0x4b, 0x4c, 0x4d, 0x4e, 0x4f, 0x50,
+		0x51, 0x52, 0x53, 0x54,
+	}
+	cosmosAddr := sdk.AccAddress(raw).String()
+	evmAddr := common.BytesToAddress(raw).Hex()
+
+	dir := t.TempDir()
+	path := filepath.Join(dir, "prefs.json")
+	// Whitelist ONLY the EVM form of the account.
+	writePrefs(t, path, []whitelist.Entry{{
+		ChainID:     "svp-2517-1",
+		AddressType: whitelist.AddressTypeEVM,
+		Address:     evmAddr,
+	}})
+	t.Cleanup(func() { prefs.SetPathOverride("") })
+	prefs.SetPathOverride(path)
+
+	// A bank send naming the same account in bech32 form must be allowed.
+	require.NoError(t, whitelist.CheckCosmosRecipient("svp-2517-1", cosmosAddr))
+	// The EVM form is still allowed directly.
+	require.NoError(t, whitelist.CheckEVMRecipient("svp-2517-1", evmAddr))
+
+	// A different account remains blocked in either encoding.
+	other := sdk.AccAddress([]byte{
+		0x61, 0x62, 0x63, 0x64, 0x65, 0x66, 0x67, 0x68,
+		0x69, 0x6a, 0x6b, 0x6c, 0x6d, 0x6e, 0x6f, 0x70,
+		0x71, 0x72, 0x73, 0x74,
+	}).String()
+	require.Error(t, whitelist.CheckCosmosRecipient("svp-2517-1", other))
 }
 
 func writePrefs(t *testing.T, path string, entries []whitelist.Entry) {

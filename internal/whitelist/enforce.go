@@ -8,26 +8,25 @@ func (s *Store) Enforced() bool {
 	return s != nil && len(s.entries) > 0
 }
 
-// Allows reports whether address is whitelisted for chainID and addressType.
+// Allows reports whether address is whitelisted for chainID. Matching is by
+// account, not by encoding: an entry authorizes address when both name the same
+// on-chain account, so a recipient given in bech32 (svp1…) form is allowed by an
+// EVM (0x…) whitelist entry for the same account and vice versa. addressType
+// declares how address itself is encoded so it can be parsed to its raw bytes.
 func (s *Store) Allows(chainID, addressType, address string) bool {
 	if s == nil {
 		return false
 	}
-	normalized, err := ValidateAddress(addressType, address)
+	chainID, err := ValidateChainID(chainID)
 	if err != nil {
 		return false
 	}
-	chainID, err = ValidateChainID(chainID)
-	if err != nil {
+	want, ok := accountKey(chainID, addressType, address)
+	if !ok {
 		return false
 	}
-	want := EntryKey(Entry{
-		ChainID:     chainID,
-		AddressType: addressType,
-		Address:     normalized,
-	})
 	for _, e := range s.entries {
-		if EntryKey(e) == want {
+		if got, ok := accountKey(e.ChainID, e.AddressType, e.Address); ok && got == want {
 			return true
 		}
 	}

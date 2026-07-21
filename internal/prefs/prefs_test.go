@@ -53,3 +53,25 @@ func TestReadMissingFile(t *testing.T) {
 	_, err := os.Stat(path)
 	require.True(t, os.IsNotExist(err))
 }
+
+func TestLoadSeedsDefaultWhitelistOnFirstRun(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "prefs.json")
+	t.Cleanup(func() { prefs.SetPathOverride("") })
+	prefs.SetPathOverride(path)
+
+	// First run: no file yet -> defaults are seeded and persisted to disk.
+	store := prefs.Load()
+	seeded := store.File().Whitelist
+	require.NotEmpty(t, seeded, "fresh install should seed predefined whitelist")
+
+	onDisk := prefs.Read()
+	require.Equal(t, seeded, onDisk.Whitelist, "seed must be written to prefs.json")
+
+	// Second load: file exists -> seed is not re-applied (same entries, no dupes).
+	require.Equal(t, seeded, prefs.Load().File().Whitelist)
+
+	// A user deletion must persist and not be re-seeded on the next launch.
+	store.Update(func(f *prefs.File) { f.Whitelist = []prefs.WhitelistEntry{} })
+	require.Empty(t, prefs.Load().File().Whitelist, "deletions must not be re-seeded")
+}

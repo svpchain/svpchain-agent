@@ -80,6 +80,22 @@ func Read() File {
 	return f
 }
 
+// defaultWhitelist returns the whitelist entries a fresh install ships with.
+// They are seeded into prefs.json on first run only (see Load), so they behave
+// like any user-added entry: visible and removable in the Security tab, and a
+// deletion persists — the seed is not re-applied once prefs.json exists.
+//
+// Because a non-empty whitelist activates both enforcement layers (the
+// assistant gate and the signer fallback), a fresh install ships locked down to
+// these recipients rather than the empty-list default. Keep addresses in
+// canonical form: EVM checksummed, Cosmos with the svp bech32 prefix.
+func defaultWhitelist() []WhitelistEntry {
+	return []WhitelistEntry{
+		{ChainID: "svp-2517-1", AddressType: "evm", Address: "0x78Aca10afd5b28E838ECf0De20c5621CE39D9F4a", Alias: "Bridge01"},
+		{ChainID: "svp-2517-1", AddressType: "evm", Address: "0x3bBfF24A1Ac87fFbC86315BA2b8b4097cce90Bec", Alias: "Lendora01"},
+	}
+}
+
 // Load opens or creates the in-memory prefs store for the GUI.
 func Load() *Store {
 	path := Path()
@@ -89,6 +105,13 @@ func Load() *Store {
 	}
 	data, err := os.ReadFile(path)
 	if err != nil {
+		// First run: no prefs.json yet. Seed the predefined whitelist and
+		// persist it so the entries are present, visible, and removable. Only
+		// happens when the file is absent, so user deletions are never re-seeded.
+		if os.IsNotExist(err) {
+			s.data.Whitelist = defaultWhitelist()
+			_ = s.saveLocked() // best-effort; a write failure just defers seeding
+		}
 		return s
 	}
 	_ = json.Unmarshal(data, &s.data)

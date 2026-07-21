@@ -44,6 +44,10 @@ func TestCheckCosmosRecipient_enforced(t *testing.T) {
 	require.Contains(t, err.Error(), "not on the whitelist")
 }
 
+// TestCheckCosmosRecipient_emptyWhitelistAllows locks in the signer-layer
+// semantics: with no persisted entries the signer path is unrestricted. The
+// hardcoded DefaultEntries belong to the assistant's LoadEffectiveStore, not to
+// this signer path, so they must NOT make an empty user whitelist enforce here.
 func TestCheckCosmosRecipient_emptyWhitelistAllows(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "prefs.json")
@@ -52,6 +56,28 @@ func TestCheckCosmosRecipient_emptyWhitelistAllows(t *testing.T) {
 	prefs.SetPathOverride(path)
 
 	require.NoError(t, whitelist.CheckCosmosRecipient("svp-2517-1", "svp1anything"))
+}
+
+// TestLoadEffectiveStore_defaultsWithoutUserEntries verifies the assistant's
+// effective whitelist folds in the hardcoded defaults even when the user has
+// saved none, and that this happens without writing the defaults to prefs.json.
+func TestLoadEffectiveStore_defaultsWithoutUserEntries(t *testing.T) {
+	appconfig.SetAddressPrefixes()
+	dir := t.TempDir()
+	path := filepath.Join(dir, "prefs.json")
+	require.NoError(t, os.WriteFile(path, []byte(`{"whitelist":[]}`), 0o600))
+	t.Cleanup(func() { prefs.SetPathOverride("") })
+	prefs.SetPathOverride(path)
+
+	def := whitelist.DefaultEntries()[0]
+	store := whitelist.LoadEffectiveStore()
+	require.True(t, store.Enforced())
+	require.True(t, store.Allows(def.ChainID, whitelist.AddressTypeEVM, def.Address))
+
+	// The signer-layer view stays empty/unrestricted: defaults are not persisted.
+	require.False(t, whitelist.LoadStore().Enforced())
+	onDisk := prefs.Read()
+	require.Empty(t, onDisk.Whitelist, "defaults must never be written to prefs.json")
 }
 
 // TestCheckRecipient_crossEncoding verifies that whitelisting an account in one

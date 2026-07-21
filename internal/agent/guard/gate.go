@@ -55,8 +55,13 @@ func Check(chainID, name string, args map[string]any) error {
 	if !ok {
 		return nil
 	}
-	// Mandatory whitelist: refuse all transfers until the user configures one.
-	if !whitelist.LoadStore().Enforced() {
+	// The assistant checks against the effective whitelist: the hardcoded
+	// DefaultEntries merged with the user's saved entries. The defaults keep this
+	// non-empty on a fresh install, so the mandatory-whitelist guard below is
+	// effectively always satisfied, but it is kept fail-closed in case the
+	// defaults are ever removed.
+	store := whitelist.LoadEffectiveStore()
+	if !store.Enforced() {
 		return &Rejection{Err: fmt.Errorf(
 			"no whitelist configured for chain %q — add a recipient in the Security tab before transferring",
 			chainID)}
@@ -72,15 +77,13 @@ func Check(chainID, name string, args map[string]any) error {
 	if addr == "" {
 		return nil
 	}
-	var err error
-	switch g.addressType {
-	case whitelist.AddressTypeCosmos:
-		err = whitelist.CheckCosmosRecipient(chainID, addr)
-	default:
-		err = whitelist.CheckEVMRecipient(chainID, addr)
-	}
-	if err != nil {
-		return &Rejection{Err: err}
+	if !store.Allows(chainID, g.addressType, addr) {
+		label := "EVM"
+		if g.addressType == whitelist.AddressTypeCosmos {
+			label = "SVP Cosmos"
+		}
+		return &Rejection{Err: fmt.Errorf(
+			"recipient %q is not on the whitelist for chain %q (%s)", addr, chainID, label)}
 	}
 	return nil
 }

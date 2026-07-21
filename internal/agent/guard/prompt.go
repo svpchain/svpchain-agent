@@ -20,7 +20,7 @@ func AliasPrompt(chainID string) string {
 		return ""
 	}
 	var lines []string
-	for _, e := range whitelist.LoadStore().List() {
+	for _, e := range whitelist.LoadEffectiveStore().List() {
 		if e.ChainID != chainID || strings.TrimSpace(e.Alias) == "" {
 			continue
 		}

@@ -11,6 +11,7 @@ import (
 
 	appconfig "github.com/svpchain/svpchain-agent/internal/config"
 	"github.com/svpchain/svpchain-agent/internal/prefs"
+	"github.com/svpchain/svpchain-agent/internal/whitelist"
 )
 
 const gateChainID = "localsvp-1"
@@ -42,21 +43,28 @@ func TestCheckWhitelistGate(t *testing.T) {
 	allowedCosmos := cosmosAddr(0x11)
 	blockedCosmos := cosmosAddr(0x22)
 
-	t.Run("empty whitelist rejects transfers", func(t *testing.T) {
+	t.Run("defaults enforce with empty user whitelist", func(t *testing.T) {
 		writePrefs(t, `{}`)
-		err := Check(gateChainID, "build_erc20_transfer",
+		// The hardcoded defaults are never persisted but always active, so the
+		// whitelist is never "unconfigured": a default recipient is allowed and
+		// any other recipient is rejected as not-on-whitelist.
+		def := whitelist.DefaultEntries()[0]
+		require.NoError(t, Check(def.ChainID, "build_erc20_transfer",
+			map[string]any{"to": def.Address}))
+
+		err := Check(def.ChainID, "build_erc20_transfer",
 			map[string]any{"to": blockedEVM})
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "no whitelist configured")
+		require.Contains(t, err.Error(), "not on the whitelist")
 		var rej *Rejection
 		require.ErrorAs(t, err, &rej)
 
 		err = Check(gateChainID, "build_bank_send",
 			map[string]any{"recipient": blockedCosmos})
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "no whitelist configured")
+		require.Contains(t, err.Error(), "not on the whitelist")
 
-		// Non-transfer tools stay allowed even with no whitelist configured.
+		// Non-transfer tools stay allowed.
 		require.NoError(t, Check(gateChainID, "get_balance",
 			map[string]any{"owner": blockedCosmos}))
 	})

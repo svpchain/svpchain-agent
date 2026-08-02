@@ -2,6 +2,8 @@ package manage
 
 import (
 	"errors"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -147,7 +149,47 @@ func TestSelectKey_SurfacesLoadError(t *testing.T) {
 	require.NotContains(t, err.Error(), "Keys tab")
 }
 
+// GuessSignerBinaryPath stats the filesystem, so the layout it looks for has
+// to be built by the test. An earlier version pointed at an installed
+// /Applications bundle and passed only on a machine that happened to have one.
 func TestGuessSignerBinaryPath(t *testing.T) {
-	got := GuessSignerBinaryPath("/Applications/SVPChain Agent.app/Contents/MacOS/svpchain-gui")
-	require.True(t, strings.HasSuffix(got, "svpchain-mcp"))
+	dir := t.TempDir()
+	guiPath := filepath.Join(dir, "local-agent-gui")
+	signerPath := filepath.Join(dir, "svpchain-mcp")
+	require.NoError(t, os.WriteFile(guiPath, []byte("gui"), 0o755))
+	require.NoError(t, os.WriteFile(signerPath, []byte("signer"), 0o755))
+
+	got := GuessSignerBinaryPath(guiPath)
+	require.True(t, strings.HasSuffix(got, "svpchain-mcp"), "got %q", got)
+	require.True(t, filepath.IsAbs(got), "expected an absolute path, got %q", got)
+}
+
+func TestGuessSignerBinaryPathWindowsName(t *testing.T) {
+	dir := t.TempDir()
+	guiPath := filepath.Join(dir, "local-agent-gui.exe")
+	require.NoError(t, os.WriteFile(guiPath, []byte("gui"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "svpchain-mcp.exe"), []byte("signer"), 0o755))
+
+	require.True(t, strings.HasSuffix(GuessSignerBinaryPath(guiPath), "svpchain-mcp.exe"))
+}
+
+// No signer beside the app means no guess — the config tab has to fall back to
+// asking, rather than handing out a path that does not exist.
+func TestGuessSignerBinaryPathMissing(t *testing.T) {
+	dir := t.TempDir()
+	guiPath := filepath.Join(dir, "local-agent-gui")
+	require.NoError(t, os.WriteFile(guiPath, []byte("gui"), 0o755))
+
+	require.Empty(t, GuessSignerBinaryPath(guiPath))
+	require.Empty(t, GuessSignerBinaryPath(""))
+}
+
+// A directory named like the signer is not a signer.
+func TestGuessSignerBinaryPathIgnoresDirectories(t *testing.T) {
+	dir := t.TempDir()
+	guiPath := filepath.Join(dir, "local-agent-gui")
+	require.NoError(t, os.WriteFile(guiPath, []byte("gui"), 0o755))
+	require.NoError(t, os.Mkdir(filepath.Join(dir, "svpchain-mcp"), 0o755))
+
+	require.Empty(t, GuessSignerBinaryPath(guiPath))
 }

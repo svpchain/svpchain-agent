@@ -1,0 +1,80 @@
+[
+  {
+    "id": "guard_no_whitelist_bank_send",
+    "description": "Cosmos bank send must be rejected when no whitelist is configured",
+    "chain_id": "svp-2517-1",
+    "tool": "build_bank_send",
+    "args": { "recipient": "svp1abc123456789012345678901234567890" },
+    "expect_outcome": "rejected"
+  },
+  {
+    "id": "guard_no_whitelist_erc20",
+    "description": "ERC20 transfer must be rejected when no whitelist is configured",
+    "chain_id": "svp-2517-1",
+    "tool": "build_erc20_transfer",
+    "args": { "to": "0x1234567890123456789012345678901234567890" },
+    "expect_outcome": "rejected"
+  },
+  {
+    "id": "guard_sign_evm_erc20_transfer",
+    "description": "A direct sign_evm_transaction carrying ERC20 transfer(attacker, amount) call data must be rejected: the tx addresses the token contract with value 0, so the recipient exists only in the call data",
+    "chain_id": "svp-2517-1",
+    "tool": "sign_evm_transaction",
+    "args": {
+      "payload": {
+        "version": 1,
+        "evm_chain_id": "2517",
+        "nonce": "1",
+        "gas": "100000",
+        "to": "0x3333333333333333333333333333333333333333",
+        "value": "0",
+        "data": "0xa9059cbb00000000000000000000000012345678901234567890123456789012345678900000000000000000000000000000000000000000000000000000000000000005"
+      }
+    },
+    "expect_outcome": "rejected"
+  },
+  {
+    "id": "guard_sign_evm_infinite_approval",
+    "description": "A direct sign_evm_transaction granting an unlimited ERC20 allowance to a non-whitelisted spender must be rejected",
+    "chain_id": "svp-2517-1",
+    "tool": "sign_evm_transaction",
+    "args": {
+      "payload": {
+        "version": 1,
+        "evm_chain_id": "2517",
+        "nonce": "1",
+        "gas": "100000",
+        "to": "0x3333333333333333333333333333333333333333",
+        "value": "0",
+        "data": "0x095ea7b30000000000000000000000001234567890123456789012345678901234567890ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+      }
+    },
+    "expect_outcome": "rejected"
+  },
+  {
+    "id": "guard_sign_evm_unmodelled_call_ok",
+    "description": "A zero-value contract call whose selector is not a token transfer/approval stays allowed, so swap, order and lending flows keep working",
+    "chain_id": "svp-2517-1",
+    "tool": "sign_evm_transaction",
+    "args": {
+      "payload": {
+        "version": 1,
+        "evm_chain_id": "2517",
+        "nonce": "1",
+        "gas": "100000",
+        "to": "0x3333333333333333333333333333333333333333",
+        "value": "0",
+        "data": "0xa0712d680000000000000000000000000000000000000000000000000000000000000001"
+      }
+    },
+    "expect_outcome": "success"
+  },
+  {
+    "id": "guard_unlisted_query_ok",
+    "description": "Non-transfer tools are not blocked by the whitelist gate",
+    "chain_id": "svp-2517-1",
+    "tool": "get_positions",
+    "args": {},
+    "expect_outcome": "success"
+  }
+]

@@ -82,6 +82,11 @@ Write-Host "Build started, please wait..."
 & $Wails build -clean -trimpath -ldflags $GuiLdflags
 Pop-Location
 
+# Vite empties frontend/dist, taking the tracked placeholder that lets
+# `go build` work without the frontend toolchain with it. Put it back so
+# packaging does not leave the working tree dirty.
+New-Item -ItemType File -Force -Path (Join-Path $Root "cmd\svpchain-gui\frontend\dist\.gitkeep") | Out-Null
+
 Write-Host "==> Assembling release folder"
 New-Item -ItemType Directory -Force -Path $AppDir | Out-Null
 Copy-Item (Join-Path $Root "cmd\svpchain-gui\build\bin\local-agent-gui.exe") $AppDir

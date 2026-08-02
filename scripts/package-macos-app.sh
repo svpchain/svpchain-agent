@@ -75,6 +75,10 @@ GUI_LDFLAGS="-X github.com/svpchain/svpchain-local-agent/internal/desktop.Versio
 	echo "Build started, please wait..."
 	"$WAILS" build -clean -trimpath -ldflags "$GUI_LDFLAGS"
 )
+# Vite empties frontend/dist, taking the tracked placeholder that lets
+# `go build` work without the frontend toolchain with it. Put it back so
+# packaging does not leave the working tree dirty.
+touch "$ROOT/cmd/svpchain-gui/frontend/dist/.gitkeep"
 cp "$ROOT/cmd/svpchain-gui/build/bin/local-agent-gui.app/Contents/MacOS/local-agent-gui" "$BUILDDIR/local-agent-gui"
 
 echo "==> Assembling .app bundle"

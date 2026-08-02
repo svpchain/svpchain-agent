@@ -14,6 +14,16 @@ build:
 #   go install github.com/wailsapp/wails/v2/cmd/wails@latest
 build-gui:
 	cd cmd/svpchain-gui && wails build -clean -trimpath
+	$(MAKE) restore-dist-placeholder
+
+# Vite empties frontend/dist on every build, which deletes the tracked
+# placeholder that lets `go build` work without the frontend toolchain — so a
+# GUI build would otherwise leave the working tree dirty. Restoring it is
+# cheaper than dropping emptyOutDir, which would let stale hashed assets pile
+# up in the embedded bundle.
+.PHONY: restore-dist-placeholder
+restore-dist-placeholder:
+	@touch cmd/svpchain-gui/frontend/dist/.gitkeep
 
 build-all: build build-gui
 

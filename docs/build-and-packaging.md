@@ -2,11 +2,23 @@
 
 **English** | [简体中文](build-and-packaging.zh-CN.md) · [← README](../README.md)
 
-## Build
+## Build in CI (no local toolchain needed)
+
+`.github/workflows/ci.yml` builds the app for macOS, Linux, and Windows on every
+push to `main`, every pull request, and on demand via **Actions → CI → Run
+workflow**. Download the result from the run's **Artifacts** section
+(`local-agent-<target>`); each contains the app binary and the `svpchain-mcp`
+signer. These are unsigned development builds stamped with the commit they came
+from, so on macOS the first launch needs right-click → Open.
+
+For a released, packaged build (`.app` + DMG, Windows zip), push a `vX.Y.Z` tag
+and `.github/workflows/release.yml` publishes them to a GitHub Release.
+
+## Build locally
 
 ```sh
 make build          # → build/svpchain-mcp  (stdio signer)
-make build-gui      # → cmd/svpchain-gui/build/bin/svpchain-gui(.app)
+make build-gui      # → cmd/svpchain-gui/build/bin/local-agent-gui(.app)
 make build-all      # both
 ```
 
@@ -30,10 +42,10 @@ Before packaging, sync the Wails app icon from the repo logo:
 
 ```sh
 make package-macos-app
-open "build/SVPChain Agent.app"
+open "build/SVPChain Local Agent.app"
 ```
 
-This produces `build/SVPChain Agent.app` and `build/svpchain-agent-<version>-macos.dmg`. The DMG contains **SVPChain Agent.app**, README files, and an **Applications** shortcut — drag the app to install. The bundle includes both `svpchain-gui` and `svpchain-mcp`; the config tab can auto-detect the signer path. When forwarding to other Mac users, send the DMG as-is and ask them to **read 运行前先阅读.txt first**.
+This produces `build/SVPChain Local Agent.app` and `build/svpchain-local-agent-<version>-macos.dmg`. The DMG contains **SVPChain Local Agent.app**, README files, and an **Applications** shortcut — drag the app to install. The bundle includes both `local-agent-gui` and `svpchain-mcp`; the config tab can auto-detect the signer path. When forwarding to other Mac users, send the DMG as-is and ask them to **read 运行前先阅读.txt first**.
 
 Optional Developer ID signing for fewer Gatekeeper prompts:
 
@@ -65,7 +77,7 @@ Or with Make (requires PowerShell 7+):
 make package-windows-app
 ```
 
-This produces `build\SVPChain Agent\` (contains `svpchain-gui.exe` + `svpchain-mcp.exe`) and `build\svpchain-agent-<version>-windows-amd64.zip`. Extract the zip and run `svpchain-gui.exe`. Both executables must stay in the same folder. Read **运行前先阅读.txt** before forwarding to other users.
+This produces `build\SVPChain Local Agent\` (contains `local-agent-gui.exe` + `svpchain-mcp.exe`) and `build\svpchain-local-agent-<version>-windows-amd64.zip`. Extract the zip and run `local-agent-gui.exe`. Both executables must stay in the same folder. Read **运行前先阅读.txt** before forwarding to other users.
 
 The Windows GUI supports in-app updates from GitHub Releases (stable tags only): download the release zip, verify `SHA256SUMS`, replace the install folder, and restart. Dev builds (`*-dev`) skip this check.
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# package-macos-app.sh — Build the double-clickable macOS app "SVPChain Agent.app"
+# package-macos-app.sh — Build the double-clickable macOS app "SVPChain Local Agent.app"
 #
 # Bundles local-agent-gui and svpchain-mcp into Contents/MacOS/
 # so the GUI can auto-detect the MCP signer binary path.
@@ -10,7 +10,7 @@
 #   SIGN_IDENTITY="Developer ID Application: …" ./scripts/package-macos-app.sh
 #
 # Output:
-#   build/SVPChain Agent.app
+#   build/SVPChain Local Agent.app
 #   build/svpchain-local-agent-<version>-macos.dmg (drag .app to Applications)
 
 set -euo pipefail
@@ -18,8 +18,8 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
-APP_NAME="SVPChain Agent"
-BUNDLE_ID="${BUNDLE_ID:-com.svpchain.agent-gui}"
+APP_NAME="SVPChain Local Agent"
+BUNDLE_ID="${BUNDLE_ID:-com.svpchain.local-agent-gui}"
 BUILDDIR="${BUILDDIR:-$ROOT/build}"
 APP_PATH="${APP_PATH:-$BUILDDIR/$APP_NAME.app}"
 RELEASE_STEM="svpchain-local-agent"
@@ -75,7 +75,7 @@ GUI_LDFLAGS="-X github.com/svpchain/svpchain-local-agent/internal/desktop.Versio
 	echo "Build started, please wait..."
 	"$WAILS" build -clean -trimpath -ldflags "$GUI_LDFLAGS"
 )
-cp "$ROOT/cmd/svpchain-gui/build/bin/svpchain-gui.app/Contents/MacOS/svpchain-gui" "$BUILDDIR/local-agent-gui"
+cp "$ROOT/cmd/svpchain-gui/build/bin/local-agent-gui.app/Contents/MacOS/local-agent-gui" "$BUILDDIR/local-agent-gui"
 
 echo "==> Assembling .app bundle"
 rm -rf "$APP_PATH"

@@ -1,5 +1,5 @@
 name: Release
-# Build svpchain agent prebuilt binaries and publish them to this repo's GitHub Release
+# Build svpchain-local-agent prebuilt binaries and publish them to this repo's GitHub Release
 # for end users who prefer not to compile locally.
 #
 # eth_secp256k1 signing requires CGO/libsecp256k1; each target is built natively on its
@@ -89,12 +89,12 @@ jobs:
           CGO_ENABLED: "1"
         run: |
           name="svpchain-mcp-${VERSION}-${{ matrix.target }}"
-          gui="svpchain-gui-${VERSION}-${{ matrix.target }}"
+          gui="local-agent-gui-${VERSION}-${{ matrix.target }}"
           go build -mod=readonly -trimpath -o "${name}" ./cmd/svpchain-mcp
           ./scripts/sync-wails-icon.sh
           ( cd cmd/svpchain-gui && wails build -clean -trimpath -tags webkit2_41 \
-              -ldflags "-X github.com/svpchain/svpchain-agent/internal/desktop.Version=${VERSION#v}" )
-          cp cmd/svpchain-gui/build/bin/svpchain-gui "${gui}"
+              -ldflags "-X github.com/svpchain/svpchain-local-agent/internal/desktop.Version=${VERSION#v}" )
+          cp cmd/svpchain-gui/build/bin/local-agent-gui "${gui}"
           mkdir -p dist
           tar -czf "dist/${name}.tar.gz" "${name}"
           tar -czf "dist/${gui}.tar.gz" "${gui}"
@@ -111,9 +111,9 @@ jobs:
           cp "$APP_DMG" dist/
 
           name="svpchain-mcp-${VERSION}-${{ matrix.target }}"
-          gui="svpchain-gui-${VERSION}-${{ matrix.target }}"
+          gui="local-agent-gui-${VERSION}-${{ matrix.target }}"
           cp "$APP_MACOS_BIN/svpchain-mcp" "$name"
-          cp "$APP_MACOS_BIN/svpchain-gui" "$gui"
+          cp "$APP_MACOS_BIN/local-agent-gui" "$gui"
           tar -czf "dist/${name}.tar.gz" "$name"
           tar -czf "dist/${gui}.tar.gz" "$gui"
           rm -f "$name" "$gui"
@@ -133,9 +133,9 @@ jobs:
           Copy-Item $appZip dist/
 
           $name = "svpchain-mcp-$env:VERSION-${{ matrix.target }}"
-          $gui = "svpchain-gui-$env:VERSION-${{ matrix.target }}"
+          $gui = "local-agent-gui-$env:VERSION-${{ matrix.target }}"
           Copy-Item (Join-Path $appDir "svpchain-mcp.exe") "$name.exe"
-          Copy-Item (Join-Path $appDir "svpchain-gui.exe") "$gui.exe"
+          Copy-Item (Join-Path $appDir "local-agent-gui.exe") "$gui.exe"
           Compress-Archive -Path "$name.exe" -DestinationPath "dist/$name.zip" -Force
           Compress-Archive -Path "$gui.exe" -DestinationPath "dist/$gui.zip" -Force
           Remove-Item "$name.exe", "$gui.exe"
@@ -172,14 +172,14 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.VERSION }}
-          name: SVPChain Agent ${{ env.VERSION }}
+          name: SVPChain Local Agent ${{ env.VERSION }}
           body: |
-            Prebuilt `svpchain-mcp` and `svpchain-gui` binaries for macOS, Windows, and Linux.
+            Prebuilt `svpchain-mcp` and `local-agent-gui` binaries for macOS, Windows, and Linux.
 
             - **svpchain-mcp** — stdio MCP signing service (for Cursor and other MCP clients)
-            - **svpchain-gui** — graphical setup tool (import keys, generate MCP JSON)
-            - **svpchain-agent-*-macos.dmg** — macOS app disk image (open the DMG, drag `SVPChain Agent.app` to Applications)
-            - **svpchain-agent-*-windows-amd64.zip** — Windows app folder (extract and run `svpchain-gui.exe`; includes `svpchain-mcp.exe`)
+            - **local-agent-gui** — the desktop app: assistant, agent discovery, delegations, keys
+            - **svpchain-local-agent-*-macos.dmg** — macOS app disk image (open the DMG, drag `SVPChain Local Agent.app` to Applications)
+            - **svpchain-local-agent-*-windows-amd64.zip** — Windows app folder (extract and run `local-agent-gui.exe`; includes `svpchain-mcp.exe`)
 
             Verify downloads against `SHA256SUMS` before use, for example:
 

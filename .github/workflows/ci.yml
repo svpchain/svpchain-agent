@@ -1,0 +1,152 @@
+name: CI
+# Build the desktop app and run the test suite on every push and pull request,
+# so a working app is downloadable without a local Wails + Node + CGO toolchain.
+#
+# Release builds live in release.yml and run only on version tags; this workflow
+# produces unsigned development artifacts that expire with the default
+# retention. Both build natively per platform — eth_secp256k1 needs CGO and
+# libsecp256k1, so nothing here cross-compiles.
+on:  # yamllint disable-line rule:truthy
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+# A new push to the same branch makes an in-flight run obsolete; the app build
+# takes minutes, so let the newer one win rather than queueing behind it.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Install go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          check-latest: true
+      - name: Check formatting
+        run: |
+          # internal/payload/eip712.go is unformatted upstream; keep it out of
+          # the gate rather than reformatting a file this project did not write.
+          unformatted="$(gofmt -l . | grep -v '^internal/payload/eip712.go$' || true)"
+          if [ -n "$unformatted" ]; then
+            echo "gofmt needed on:"; echo "$unformatted"; exit 1
+          fi
+      - name: Vet
+        run: go vet ./...
+      - name: Test
+        # CGO is required even for tests: the signing path links libsecp256k1.
+        env:
+          CGO_ENABLED: "1"
+        run: go test ./...
+
+  build-app:
+    name: Build app (${{ matrix.target }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: darwin-arm64
+            runner: macos-14
+          - target: linux-amd64
+            runner: ubuntu-latest
+          - target: windows-amd64
+            runner: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Install go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          check-latest: true
+      - name: Install Node (Wails frontend build)
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install Wails CLI
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.12.0
+      - name: Install MSYS2 toolchain (Windows CGO)
+        if: matrix.target == 'windows-amd64'
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-pkg-config
+      - name: Install Linux GUI build deps
+        if: startsWith(matrix.target, 'linux-')
+        # Wails (WebView) needs GTK3 + WebKit2GTK; Ubuntu ships webkit2gtk-4.1.
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            pkg-config \
+            libgtk-3-dev \
+            libwebkit2gtk-4.1-dev
+      - name: Resolve dev version
+        shell: bash
+        # Development builds are identified by the commit they came from, so a
+        # downloaded artifact can be traced back without a tag.
+        run: echo "VERSION=0.0.0-dev+${GITHUB_SHA::7}" >> "$GITHUB_ENV"
+
+      - name: Build signer and app (macOS/Linux)
+        if: matrix.target != 'windows-amd64'
+        shell: bash
+        env:
+          CGO_ENABLED: "1"
+        run: |
+          go build -mod=readonly -trimpath -o dist/svpchain-mcp ./cmd/svpchain-mcp
+          ./scripts/sync-wails-icon.sh
+          tags=""
+          if [ "${{ matrix.target }}" != "darwin-arm64" ]; then tags="-tags webkit2_41"; fi
+          ( cd cmd/svpchain-gui && wails build -clean -trimpath $tags \
+              -ldflags "-X github.com/svpchain/svpchain-local-agent/internal/desktop.Version=${VERSION}" )
+          if [ "${{ matrix.target }}" = "darwin-arm64" ]; then
+            cp cmd/svpchain-gui/build/bin/local-agent-gui.app/Contents/MacOS/local-agent-gui dist/
+          else
+            cp cmd/svpchain-gui/build/bin/local-agent-gui dist/
+          fi
+
+      - name: Build signer and app (Windows)
+        if: matrix.target == 'windows-amd64'
+        shell: pwsh
+        env:
+          CGO_ENABLED: "1"
+        run: |
+          $env:Path = "C:\msys64\mingw64\bin;" + $env:Path
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          go build -mod=readonly -trimpath -o dist/svpchain-mcp.exe ./cmd/svpchain-mcp
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Push-Location cmd/svpchain-gui
+          wails build -clean -trimpath -ldflags "-X github.com/svpchain/svpchain-local-agent/internal/desktop.Version=$env:VERSION"
+          if ($LASTEXITCODE -ne 0) { Pop-Location; exit $LASTEXITCODE }
+          Pop-Location
+          Copy-Item cmd/svpchain-gui/build/bin/local-agent-gui.exe dist/
+
+      - name: Verify the app binary was produced
+        shell: bash
+        # `wails build` can report success while emitting nothing usable, and an
+        # empty artifact upload would still be a green check.
+        run: |
+          ls -l dist/
+          test -s dist/local-agent-gui || test -s dist/local-agent-gui.exe
+
+      - name: Upload app artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: local-agent-${{ matrix.target }}
+          path: dist/*
+          if-no-files-found: error

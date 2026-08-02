@@ -78,7 +78,7 @@ The standalone `svpchain-mcp` signer reads the same `prefs.json` but does **not*
 ## Keys & config
 
 - Keys: OS credential store (Keychain / Cred Manager / Secret Service), service `svpchain-agent`, account = chain id. **One key per chain.** No `--key-hex` flag by design (would leak into process args). Headless fallback: `SIGNER_KEY_HEX`.
-- Config: `prefs.json` in the app config dir (`~/Library/Application Support/com.svpchain.agent-gui/` on macOS, `%AppData%` on Windows). Holds LLM settings, remote MCP URL, whitelist, `disabled_skills`. `agent_memory.json` sits alongside it.
+- Config: `prefs.json` in the app config dir (`~/Library/Application Support/com.svpchain.local-agent-gui/` on macOS, `%AppData%` on Windows). Holds LLM settings, remote MCP URL, whitelist, `disabled_skills`. `agent_memory.json` sits alongside it.
 - EVM chain id: parsed from `--chain-id` (`svp_2517-1` → `2517`) unless `--evm-chain-id` overrides. No chain number + no flag = EVM signing disabled, Cosmos unaffected.
 
 ## Conventions for code changes

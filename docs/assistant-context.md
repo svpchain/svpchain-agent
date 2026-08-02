@@ -21,9 +21,9 @@ Every assistant run used to start with the LLM calling `signer_whoami` (local ke
 
 **File location** (alongside `prefs.json`):
 
-- macOS: `~/Library/Application Support/com.svpchain.agent-gui/agent_memory.json`
-- Windows: `%AppData%\com.svpchain.agent-gui\agent_memory.json`
-- Linux: `~/.config/com.svpchain.agent-gui/agent_memory.json`
+- macOS: `~/Library/Application Support/com.svpchain.local-agent-gui/agent_memory.json`
+- Windows: `%AppData%\com.svpchain.local-agent-gui\agent_memory.json`
+- Linux: `~/.config/com.svpchain.local-agent-gui/agent_memory.json`
 
 The same mechanism applies to `svpchain-mcp a2a serve` runs.
 

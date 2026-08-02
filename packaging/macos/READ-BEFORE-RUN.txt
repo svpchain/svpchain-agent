@@ -1,9 +1,9 @@
-SVPChain Agent — macOS: Read Before Running
+SVPChain Local Agent — macOS: Read Before Running
 ==================================================
 
 This disk image contains:
 
-  • SVPChain Agent.app   Graphical setup app (import keys, generate MCP config)
+  • SVPChain Local Agent.app   The desktop agent: assistant, agent discovery, delegations, keys
   • This guide (READ-BEFORE-RUN.txt)
   • 运行前先阅读.txt          Chinese version of this guide
 
@@ -14,9 +14,9 @@ The .app bundle already includes svpchain-mcp; no separate download needed.
 ---------------
 
 1. Double-click the DMG to open it (e.g. from Downloads).
-2. Drag SVPChain Agent.app into Applications (or use the Applications shortcut in the DMG window).
+2. Drag SVPChain Local Agent.app into Applications (or use the Applications shortcut in the DMG window).
 3. Launch the app once using the “First launch” steps below.
-4. In the app: import your key → generate MCP config → paste into Cursor (or your MCP client).
+4. In the app: import your key → set the LLM key and chain REST URL in Settings → use Assistant.
 
 
 2. First launch (important)
@@ -28,7 +28,7 @@ the app is malware.
 
 [Common dialog — macOS Ventura and later]
 
-  Title: “SVPChain Agent.app” Not Opened
+  Title: “SVPChain Local Agent.app” Not Opened
   Text: Apple could not verify … is free of malware …
   Buttons: “Move to Trash” and “Done” only — no “Open” button.
 
@@ -36,7 +36,7 @@ the app is malware.
 
 [Method A — recommended] Right-click → Open
 
-  1. In Finder, locate SVPChain Agent.app
+  1. In Finder, locate SVPChain Local Agent.app
   2. Control-click (or two-finger click on a trackpad)
   3. Choose “Open”
   4. In the second dialog, click “Open” again
@@ -46,7 +46,7 @@ the app is malware.
 
   1. Double-click once (when the “Not Opened” dialog appears, click Done)
   2. Open System Settings → Privacy & Security
-  3. Scroll to the Security section; find the SVPChain Agent message
+  3. Scroll to the Security section; find the SVPChain Local Agent message
   4. Click “Open Anyway”
   5. Confirm in the follow-up dialog
 
@@ -54,7 +54,7 @@ the app is malware.
 
   In Terminal (adjust the path):
 
-  xattr -cr "/path/to/SVPChain Agent.app"
+  xattr -cr "/path/to/SVPChain Local Agent.app"
 
   Then still use Right-click → Open for the first launch.
 
@@ -72,11 +72,14 @@ Keys live in the system keychain — they are not saved in plain config files.
 4. After setup
 --------------
 
-The GUI is for one-time setup. Day to day, Cursor and other MCP clients start
-svpchain-mcp over stdio automatically — you do not need to keep the GUI running.
+The app is the product: use Assistant for on-chain actions, Agents to discover
+agents registered on chain, and Delegations to manage what they may spend.
+
+It also bundles svpchain-mcp, so you can point Cursor or another MCP client at
+the signer separately — generate that config from the Config tab.
 
 Full documentation:
-https://github.com/svpchain/svpchain-agent
+https://github.com/svpchain/local-agent
 
 
 5. Still can’t open?

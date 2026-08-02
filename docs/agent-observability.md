@@ -71,9 +71,9 @@ Report **security metrics** (whitelist rejections, signer cross-checks) separate
 
 **`agent_runs.jsonl`** next to `prefs.json`:
 
-- macOS: `~/Library/Application Support/com.svpchain.agent-gui/agent_runs.jsonl`  
-- Linux: `$XDG_CONFIG_HOME/com.svpchain.agent-gui/agent_runs.jsonl`  
-- Windows: `%AppData%\com.svpchain.agent-gui\agent_runs.jsonl`  
+- macOS: `~/Library/Application Support/com.svpchain.local-agent-gui/agent_runs.jsonl`  
+- Linux: `$XDG_CONFIG_HOME/com.svpchain.local-agent-gui/agent_runs.jsonl`  
+- Windows: `%AppData%\com.svpchain.local-agent-gui\agent_runs.jsonl`  
 
 ### Record shape (one JSON object per line)
 
@@ -98,8 +98,8 @@ Disable: Settings UI or `"agent_run_log_disabled": true` in `prefs.json`.
 ### Inspect
 
 ```bash
-tail -1 ~/Library/Application\ Support/com.svpchain.agent-gui/agent_runs.jsonl | jq .
-jq -r .outcome ~/Library/Application\ Support/com.svpchain.agent-gui/agent_runs.jsonl | sort | uniq -c
+tail -1 ~/Library/Application\ Support/com.svpchain.local-agent-gui/agent_runs.jsonl | jq .
+jq -r .outcome ~/Library/Application\ Support/com.svpchain.local-agent-gui/agent_runs.jsonl | sort | uniq -c
 ```
 
 ---

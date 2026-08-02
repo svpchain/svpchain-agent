@@ -1,10 +1,10 @@
-SVPChain Agent — Windows: Read Before Running
+SVPChain Local Agent — Windows: Read Before Running
 ==================================================
 
 This zip archive contains a folder:
 
-  SVPChain Agent\
-    svpchain-gui.exe     Graphical setup app (import keys, generate MCP config)
+  SVPChain Local Agent\
+    local-agent-gui.exe     The desktop agent: assistant, agent discovery, delegations, keys
     svpchain-mcp.exe     Local MCP signing service (used by Cursor and other clients)
     READ-BEFORE-RUN.txt
     运行前先阅读.txt     Chinese version of this guide
@@ -14,11 +14,11 @@ This zip archive contains a folder:
 ---------------
 
 1. Extract the zip to any folder (e.g. Downloads or C:\Program Files).
-2. Open the extracted "SVPChain Agent" folder.
-3. Launch svpchain-gui.exe using the first-launch steps below.
-4. In the app: import your key → generate MCP config → paste into Cursor (or your MCP client).
+2. Open the extracted "SVPChain Local Agent" folder.
+3. Launch local-agent-gui.exe using the first-launch steps below.
+4. In the app: import your key → set the LLM key and chain REST URL in Settings → use Assistant.
 
-Keep svpchain-gui.exe and svpchain-mcp.exe in the same folder — the GUI finds the signer automatically.
+Keep local-agent-gui.exe and svpchain-mcp.exe in the same folder — the GUI finds the signer automatically.
 
 
 2. First launch (important)
@@ -28,7 +28,7 @@ Windows SmartScreen may warn that this app is from an unknown publisher. That is
 expected for open-source builds without a commercial code-signing certificate.
 
   1. If SmartScreen blocks the app, click "More info" → "Run anyway"
-  2. Or right-click svpchain-gui.exe → Properties → check "Unblock" → OK, then run
+  2. Or right-click local-agent-gui.exe → Properties → check "Unblock" → OK, then run
 
 Keys are stored in Windows Credential Manager — not in plain config files.
 
@@ -43,13 +43,16 @@ After moving the folder, regenerate the config so paths stay correct.
 4. After setup
 --------------
 
-The GUI is for one-time setup. Day to day, Cursor and other MCP clients start
-svpchain-mcp.exe over stdio automatically — you do not need to keep the GUI running.
+The app is the product: use Assistant for on-chain actions, Agents to discover
+agents registered on chain, and Delegations to manage what they may spend.
 
-In-app updates replace the folder you extracted (same directory as svpchain-gui.exe),
+It also bundles svpchain-mcp.exe, so you can point Cursor or another MCP client at
+the signer separately — generate that config from the Config tab.
+
+In-app updates replace the folder you extracted (same directory as local-agent-gui.exe),
 wherever you put it (C:, D:, etc.). If an upgrade seems to fail, check:
 
-  %LOCALAPPDATA%\com.svpchain.agent-gui\update\apply-update.log
+  %LOCALAPPDATA%\com.svpchain.local-agent-gui\update\apply-update.log
 
 
 5. Requirements

@@ -40,6 +40,7 @@ const llmBaseURL = ref('')
 const llmModel = ref('')
 const remoteMCPURL = ref('')
 const chainRestURL = ref('')
+const remoteMCPDisabled = ref(false)
 const agentChainId = ref('')
 const skillsConfigBase = ref('')
 const defaultSkillsConfigBase = ref('')
@@ -90,6 +91,7 @@ async function loadAgentSettings() {
       llm_model?: string
       remote_mcp_url?: string
       chain_rest_url?: string
+      remote_mcp_disabled?: boolean
       skills_config_base?: string
       show_tool_steps?: boolean
       agent_run_log_disabled?: boolean
@@ -102,6 +104,7 @@ async function loadAgentSettings() {
     llmContextWindow.value = s.llm_context_window ? String(s.llm_context_window) : ''
     remoteMCPURL.value = s.remote_mcp_url || ''
     chainRestURL.value = s.chain_rest_url || ''
+    remoteMCPDisabled.value = !!s.remote_mcp_disabled
     agentChainId.value = s.chain_id || ''
     showToolSteps.value = !!s.show_tool_steps
     agentRunLogDisabled.value = !!s.agent_run_log_disabled
@@ -135,6 +138,7 @@ async function saveAgentSettings() {
         llm_context_window: Number.parseInt(llmContextWindow.value, 10) || 0,
         remote_mcp_url: remoteMCPURL.value,
         chain_rest_url: chainRestURL.value.trim(),
+        remote_mcp_disabled: remoteMCPDisabled.value,
         disabled_skills: disabledSkills,
         skills_config_base: skillsConfigBase.value.trim(),
         show_tool_steps: showToolSteps.value,
@@ -308,7 +312,30 @@ onMounted(init)
             <n-input v-model:value="llmContextWindow" :placeholder="t('ph.llmContextWindow')" />
           </n-form-item>
           <n-form-item :label="t('field.remoteMCPURL')">
-            <n-input v-model:value="remoteMCPURL" :placeholder="t('ph.remoteMCPURL')" />
+            <n-input
+              v-model:value="remoteMCPURL"
+              :placeholder="t('ph.remoteMCPURL')"
+              :disabled="remoteMCPDisabled"
+            />
+          </n-form-item>
+          <n-form-item>
+            <template #label>
+              <span class="label-with-help">
+                <span>{{ t('field.remoteMCPDisabled') }}</span>
+                <n-popover trigger="hover" placement="top-start" :show-arrow="true">
+                  <template #trigger>
+                    <span
+                      class="help-icon"
+                      tabindex="0"
+                      role="button"
+                      :title="t('hint.remoteMCPDisabled')"
+                    >?</span>
+                  </template>
+                  <div class="help-tooltip-text">{{ t('hint.remoteMCPDisabled') }}</div>
+                </n-popover>
+              </span>
+            </template>
+            <n-switch v-model:value="remoteMCPDisabled" />
           </n-form-item>
           <n-form-item :label="t('field.chainRestURL')">
             <n-input v-model:value="chainRestURL" :placeholder="t('ph.chainRestURL')" />

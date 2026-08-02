@@ -126,9 +126,18 @@ func Run(ctx context.Context, cfg Config, userMessage string) (answer string, er
 	local := localsigner.NewSigner(priv, chainID, evmID)
 	owner := local.Owner()
 
-	remote, err := remotemcp.Acquire(ctx, chainID, cfg.RemoteURL, owner, local.SignChallenge, emit)
-	if err != nil {
-		return "", fmt.Errorf("remote mcp: %w", err)
+	// An empty RemoteURL switches the remote MCP off entirely — no connection,
+	// no authentication, no remote tools offered to the model. Useful for
+	// working against the chain alone, and the only way to be certain nothing
+	// leaves the machine except what the delegation tools send.
+	var remote *remotemcp.Client
+	if strings.TrimSpace(cfg.RemoteURL) != "" {
+		remote, err = remotemcp.Acquire(ctx, chainID, cfg.RemoteURL, owner, local.SignChallenge, emit)
+		if err != nil {
+			return "", fmt.Errorf("remote mcp: %w", err)
+		}
+	} else {
+		emit(Step{Kind: StepThink, Title: "Remote MCP is disabled — running with local tools only"})
 	}
 
 	sessionMem, err := memory.Resolve(ctx, chainID, cfg.RemoteURL, owner, local, remote, emit)

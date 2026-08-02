@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strings"
 
+	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
+
 	"github.com/svpchain/svpchain-local-agent/internal/agent/a2acall"
 	"github.com/svpchain/svpchain-local-agent/internal/agent/delegatecall"
 	"github.com/svpchain/svpchain-local-agent/internal/agent/guard"
@@ -18,10 +20,17 @@ import (
 )
 
 // buildToolList merges remote MCP tool schemas with the local-only tool defs.
+// A nil remote means the remote MCP is switched off: the assistant then has
+// only the local tools, and the skills that gate on remote tool names drop out
+// of the system prompt on their own.
 func buildToolList(ctx context.Context, remote *remotemcp.Client, deleg *delegatecall.Service) ([]llm.Tool, error) {
-	remoteTools, err := remote.ListTools(ctx)
-	if err != nil {
-		return nil, err
+	var remoteTools []*mcpsdk.Tool // schemas the remote advertises; nil when off
+	if remote != nil {
+		var err error
+		remoteTools, err = remote.ListTools(ctx)
+		if err != nil {
+			return nil, err
+		}
 	}
 	out := make([]llm.Tool, 0, len(remoteTools)+len(localsigner.ToolDefs()))
 	for _, t := range remoteTools {
@@ -86,6 +95,15 @@ func dispatchTool(ctx context.Context, chainID string, remote *remotemcp.Client,
 			_ = memory.Save(*mem)
 		}
 		return result, err
+	}
+	if remote == nil {
+		// Everything not handled above is a remote tool, and with the remote
+		// switched off it does not exist. Say so plainly: the model should
+		// pick a different approach, not retry.
+		return "", fmt.Errorf(
+			"%q is a remote MCP tool and the remote MCP is disabled in Settings — "+
+				"it is unavailable for this conversation", name,
+		)
 	}
 	result, err := remote.CallTool(ctx, name, args)
 	if err == nil && mem != nil && name == "whoami" {

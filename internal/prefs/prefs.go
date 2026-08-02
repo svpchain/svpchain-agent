@@ -41,6 +41,7 @@ type File struct {
 	LLMContextWindow    int              `json:"llm_context_window,omitempty"`
 	RemoteMCPURL        string           `json:"remote_mcp_url,omitempty"`
 	ChainRestURL        string           `json:"chain_rest_url,omitempty"`
+	RemoteMCPDisabled   bool             `json:"remote_mcp_disabled,omitempty"`
 	Whitelist           []WhitelistEntry `json:"whitelist,omitempty"`
 	DisabledSkills      []string         `json:"disabled_skills,omitempty"`
 	SkillsConfigBase    string           `json:"skills_config_base,omitempty"`

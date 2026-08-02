@@ -45,6 +45,7 @@ export default {
     llmBaseURL: 'LLM API base URL',
     llmModel: 'Model',
     remoteMCPURL: 'Remote MCP URL',
+    remoteMCPDisabled: 'Disable remote MCP',
     chainRestURL: 'Chain REST URL',
     addressType: 'Address Type',
     whitelistAddress: 'Address',
@@ -80,6 +81,7 @@ export default {
     whitelist: 'When configured, only whitelisted addresses may receive Cosmos bank sends or native EVM transfers.',
     skills: 'Disabled skills are omitted from the assistant system prompt. Changes apply after Save Settings.',
     showToolSteps: 'When on, the Assistant tab shows tool calls, thinking steps, and other intermediate progress. Off by default — only final replies are shown.',
+    remoteMCPDisabled: 'When on, the assistant does not connect to the remote MCP service at all: no transaction building, broadcasting, or market data. It keeps local signing plus on-chain agent discovery and delegation. Useful for working against the chain alone.',
     agentRunLog: 'When on, each assistant run appends a JSONL trace (tool calls, outcomes; no private keys or API keys) to agent_runs.jsonl for debugging and evaluation.',
     llmContextWindow: "Your model's context window in tokens. Conversation history is kept within ~70% of this; older turns are auto-summarized when it overflows.",
     skillsConfigBase:

@@ -144,9 +144,14 @@ func refreshSessionMemory(ctx context.Context, chainID, remoteURL, localOwner st
 	if err != nil {
 		return Session{}, fmt.Errorf("signer_whoami: %w", err)
 	}
-	remoteJSON, err := remote.CallTool(ctx, "whoami", nil)
-	if err != nil {
-		return Session{}, fmt.Errorf("whoami: %w", err)
+	// The remote is optional: with it switched off there is no tenant to
+	// describe, and the local signer's identity is the whole session context.
+	var remoteJSON string
+	if remote != nil {
+		remoteJSON, err = remote.CallTool(ctx, "whoami", nil)
+		if err != nil {
+			return Session{}, fmt.Errorf("whoami: %w", err)
+		}
 	}
 	mem := Session{
 		ChainID:      chainID,

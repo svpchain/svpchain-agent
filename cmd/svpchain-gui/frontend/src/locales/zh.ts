@@ -45,6 +45,7 @@ export default {
     llmBaseURL: 'LLM API 地址',
     llmModel: '模型',
     remoteMCPURL: 'Remote MCP 地址',
+    remoteMCPDisabled: '停用 Remote MCP',
     chainRestURL: '链上 REST 地址',
     addressType: '地址类型',
     whitelistAddress: '地址',
@@ -80,6 +81,7 @@ export default {
     whitelist: '配置白名单后，仅允许向列表中的地址发起 Cosmos 转账或 EVM 原生转账。',
     skills: '关闭的 Skill 不会注入助手 system prompt。保存设置后生效。',
     showToolSteps: '开启后在助手对话中展示工具调用、思考步骤等中间过程；默认关闭，仅显示最终回复。',
+    remoteMCPDisabled: '开启后，助手完全不连接 Remote MCP 服务：不构建交易、不广播、不获取行情，仅保留本地签名与链上代理发现、委托功能。适合只针对链本身进行调试。',
     agentRunLog: '开启后将每次助手对话的工具调用、结果与 outcome 追加写入本地 agent_runs.jsonl（不含私钥与 API Key），便于排查与评估。',
     llmContextWindow: '模型的上下文窗口大小（token 数）。对话历史约占其 70%；超出后自动用 LLM 总结压缩较早的对话。',
     skillsConfigBase:

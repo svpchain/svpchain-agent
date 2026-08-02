@@ -112,6 +112,9 @@ type agentSummary struct {
 
 func (s *Service) discoverAgents(ctx context.Context, args map[string]any) (string, error) {
 	capability, _ := args["capability"].(string)
+	if refresh, _ := args["refresh"].(bool); refresh {
+		s.Registry.InvalidateCache()
+	}
 	agents, err := s.Registry.Agents(ctx, capability)
 	if err != nil {
 		return "", err
@@ -130,6 +133,9 @@ func (s *Service) discoverAgents(ctx context.Context, args map[string]any) (stri
 	out, err := json.Marshal(map[string]any{
 		"agents": rows,
 		"count":  len(rows),
+		// Stated so the assistant can answer "which chain is this reading?"
+		// from a tool result instead of guessing at server-side config.
+		"chain_rest_url": s.Registry.BaseURL(),
 	})
 	if err != nil {
 		return "", err
@@ -193,14 +199,23 @@ func (s *Service) ToolDefs() []llm.Tool {
 			Function: llm.Function{
 				Name: "discover_agents",
 				Description: "List ACTIVE agents registered on the svpchain x/agent registry. " +
+					"Runs LOCALLY on the user's machine and reads the chain directly over the " +
+					"REST endpoint configured in Settings (reported as chain_rest_url in the " +
+					"result) — it does not go through the remote MCP server. " +
 					"Optionally filter by one exact capability tag (e.g. \"trading\"). " +
-					"Returns agent DIDs, A2A endpoints, capability tags, pricing and bond.",
+					"Returns agent DIDs, A2A endpoints, capability tags, pricing and bond. " +
+					"Results are cached briefly; pass refresh=true after a chain restart or " +
+					"a registration change to bypass the cache.",
 				Parameters: map[string]any{
 					"type": "object",
 					"properties": map[string]any{
 						"capability": map[string]any{
 							"type":        "string",
 							"description": "Exact capability tag to filter by; omit for all agents",
+						},
+						"refresh": map[string]any{
+							"type":        "boolean",
+							"description": "Bypass the local cache and re-read the chain",
 						},
 					},
 				},
@@ -210,9 +225,11 @@ func (s *Service) ToolDefs() []llm.Tool {
 			Type: "function",
 			Function: llm.Function{
 				Name: "get_agent_card",
-				Description: "Fetch an agent's A2A card from its registered endpoint. " +
-					"The card lists the agent's skills and tools. \"verified\" reports whether " +
-					"the card matches the hash registered on chain.",
+				Description: "Fetch an agent's A2A card from the endpoint the agent registered " +
+					"ON CHAIN (not from any local setting). Runs locally. The card lists the " +
+					"agent's skills and tools. \"verified\" reports whether the card matches the " +
+					"hash registered on chain; an unreachable card usually means the agent's " +
+					"registered endpoint is stale or its service is down.",
 				Parameters: map[string]any{
 					"type": "object",
 					"properties": map[string]any{

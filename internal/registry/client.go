@@ -53,6 +53,17 @@ func New(baseURL string) *Client {
 // BaseURL reports the endpoint this client is bound to.
 func (c *Client) BaseURL() string { return c.base }
 
+// InvalidateCache drops every cached response.
+//
+// The TTL assumes registry records change rarely, which stops being true when
+// the chain is restarted from genesis or a registration is added or removed —
+// exactly the moments when a stale answer is most misleading.
+func (c *Client) InvalidateCache() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	clear(c.cache)
+}
+
 func (c *Client) getJSON(ctx context.Context, path string, cached bool, out any) error {
 	if c.base == "" {
 		return fmt.Errorf("chain REST endpoint is not configured")

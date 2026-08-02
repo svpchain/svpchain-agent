@@ -156,3 +156,37 @@ func TestBroadcastTx(t *testing.T) {
 	require.Equal(t, "ABC123", res.TxHash)
 	require.Equal(t, uint32(0), res.Code)
 }
+
+// After a chain reset the cached answer is worse than no answer, so the
+// refresh path must actually re-read rather than serve the old body.
+func TestInvalidateCacheForcesAReRead(t *testing.T) {
+	var calls int
+	mux := http.NewServeMux()
+	mux.HandleFunc("/dydxprotocol/agent/agents", func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		if calls == 1 {
+			fmt.Fprint(w, `{"agents":[{"agent_id":"did:svp:svp1old","status":"AGENT_STATUS_ACTIVE"}]}`)
+			return
+		}
+		fmt.Fprint(w, `{"agents":[]}`)
+	})
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+
+	c := New(srv.URL)
+	first, err := c.Agents(context.Background(), "")
+	require.NoError(t, err)
+	require.Len(t, first, 1)
+
+	// Still cached: the emptied registry is not visible yet.
+	again, err := c.Agents(context.Background(), "")
+	require.NoError(t, err)
+	require.Len(t, again, 1)
+	require.Equal(t, 1, calls)
+
+	c.InvalidateCache()
+	after, err := c.Agents(context.Background(), "")
+	require.NoError(t, err)
+	require.Empty(t, after, "a reset registry must show as empty after refresh")
+	require.Equal(t, 2, calls)
+}

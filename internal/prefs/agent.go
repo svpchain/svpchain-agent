@@ -25,7 +25,7 @@ type AgentSettings struct {
 	LLMProvider         string
 	LLMContextWindow    int
 	RemoteMCPURL        string
-	ChainRestURL        string
+	AgentHubURL         string
 	RemoteMCPDisabled   bool
 	DisabledSkills      []string
 	SkillsConfigBase    string
@@ -44,7 +44,7 @@ func (s *Store) AgentSettings() AgentSettings {
 		LLMProvider:         f.LLMProvider,
 		LLMContextWindow:    f.LLMContextWindow,
 		RemoteMCPURL:        f.RemoteMCPURL,
-		ChainRestURL:        f.ChainRestURL,
+		AgentHubURL:         f.AgentHubURL,
 		RemoteMCPDisabled:   f.RemoteMCPDisabled,
 		DisabledSkills:      append([]string(nil), f.DisabledSkills...),
 		SkillsConfigBase:    f.SkillsConfigBase,
@@ -63,7 +63,7 @@ func (s *Store) SetAgentSettings(in AgentSettings) {
 		f.LLMProvider = in.LLMProvider
 		f.LLMContextWindow = in.LLMContextWindow
 		f.RemoteMCPURL = in.RemoteMCPURL
-		f.ChainRestURL = strings.TrimSpace(in.ChainRestURL)
+		f.AgentHubURL = strings.TrimSpace(in.AgentHubURL)
 		f.RemoteMCPDisabled = in.RemoteMCPDisabled
 		f.DisabledSkills = append([]string(nil), in.DisabledSkills...)
 		f.SkillsConfigBase = strings.TrimSpace(in.SkillsConfigBase)

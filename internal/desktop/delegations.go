@@ -36,7 +36,7 @@ type DelegationRow struct {
 // explains what is missing.
 func (a *App) lifecycle() (*delegation.Lifecycle, error) {
 	settings := a.store.AgentSettings()
-	restURL := strings.TrimSpace(settings.ChainRestURL)
+	restURL := strings.TrimSpace(settings.AgentHubURL)
 	if restURL == "" {
 		return nil, errors.New("chain REST endpoint is not configured; set it in Settings")
 	}

@@ -25,7 +25,7 @@ type DiscoveredAgent struct {
 // capability tag, with each agent's A2A card checked against its on-chain
 // capability hash.
 func (a *App) AgentsDiscover(capability string) ([]DiscoveredAgent, error) {
-	restURL := strings.TrimSpace(a.store.AgentSettings().ChainRestURL)
+	restURL := strings.TrimSpace(a.store.AgentSettings().AgentHubURL)
 	if restURL == "" {
 		return nil, errors.New("chain REST endpoint is not configured; set it in Settings")
 	}

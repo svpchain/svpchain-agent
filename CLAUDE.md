@@ -18,7 +18,7 @@ The assistant can find agents registered in the chain's `x/agent` registry and h
 
 Flow: user creates one on-chain root delegation to their own DID (`create_root_delegation`) → per task, a **single-use, short-lived** credential is minted narrowing that grant (`delegate_task`) → the credential rides as `args.proof` in the A2A envelope `{skill, tool, args}` → the remote agent verifies it, wraps the action in `MsgAgentExecDelegated`, and broadcasts.
 
-**Every grant is gated on an explicit user confirmation** (`Config.Confirm` → Wails `agent:confirm` event → `ResolveConfirm`). A nil hook, a decline, or a timeout all deny. `internal/a2aserver` deliberately leaves both `ChainRestURL` and `Confirm` unset, so a remote A2A caller can never make this agent mint a credential.
+**Every grant is gated on an explicit user confirmation** (`Config.Confirm` → Wails `agent:confirm` event → `ResolveConfirm`). A nil hook, a decline, or a timeout all deny. `internal/a2aserver` deliberately leaves both `AgentHubURL` and `Confirm` unset, so a remote A2A caller can never make this agent mint a credential.
 
 Key packages: `internal/registry` (chain REST reads + broadcast, no SDK client), `internal/delegation` (lifecycle txs + minting), `internal/chainmsgs` (vendored `x/agentwallet` pb.go, wire-locked by golden-byte tests), `internal/agent/delegatecall` (the LLM tool surface).
 

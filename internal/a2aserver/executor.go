@@ -74,7 +74,7 @@ func (e *Executor) Execute(ctx context.Context, execCtx *a2asrv.ExecutorContext)
 			yield(event, nil)
 		}
 
-		// ChainRestURL and Confirm are deliberately unset: agent discovery and
+		// AgentHubURL and Confirm are deliberately unset: agent discovery and
 		// delegation are desktop features, gated on a confirmation dialog this
 		// headless server has no way to show. A remote caller must never be
 		// able to make this agent mint a credential on the user's behalf.

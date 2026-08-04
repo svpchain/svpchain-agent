@@ -30,7 +30,7 @@ type AgentSettings struct {
 	LLMProvider         string   `json:"llm_provider"`
 	LLMContextWindow    int      `json:"llm_context_window"`
 	RemoteMCPURL        string   `json:"remote_mcp_url"`
-	ChainRestURL        string   `json:"chain_rest_url"`
+	AgentHubURL         string   `json:"agent_hub_url"`
 	RemoteMCPDisabled   bool     `json:"remote_mcp_disabled"`
 	DisabledSkills      []string `json:"disabled_skills"`
 	SkillsConfigBase    string   `json:"skills_config_base"`
@@ -49,7 +49,7 @@ func (a *App) AgentGetSettings() AgentSettings {
 		LLMProvider:         s.LLMProvider,
 		LLMContextWindow:    s.LLMContextWindow,
 		RemoteMCPURL:        s.RemoteMCPURL,
-		ChainRestURL:        s.ChainRestURL,
+		AgentHubURL:         s.AgentHubURL,
 		RemoteMCPDisabled:   s.RemoteMCPDisabled,
 		DisabledSkills:      s.DisabledSkills,
 		SkillsConfigBase:    s.SkillsConfigBase,
@@ -78,7 +78,7 @@ func (a *App) AgentSetSettings(s AgentSettings) {
 		LLMProvider:         s.LLMProvider,
 		LLMContextWindow:    s.LLMContextWindow,
 		RemoteMCPURL:        s.RemoteMCPURL,
-		ChainRestURL:        s.ChainRestURL,
+		AgentHubURL:         s.AgentHubURL,
 		RemoteMCPDisabled:   s.RemoteMCPDisabled,
 		DisabledSkills:      s.DisabledSkills,
 		SkillsConfigBase:    s.SkillsConfigBase,
@@ -189,13 +189,13 @@ func (a *App) AgentSend(chainID, message string) error {
 		})
 
 		answer, err := agent.Run(ctx, agent.Config{
-			ChainID:      chainID,
-			RemoteURL:    remoteURL,
-			ChainRestURL: settings.ChainRestURL,
-			Confirm:      a.confirmHook,
-			RunLog:       runlog.New(!settings.AgentRunLogDisabled),
-			LLM:          llmCfg,
-			Prior:        prior,
+			ChainID:     chainID,
+			RemoteURL:   remoteURL,
+			AgentHubURL: settings.AgentHubURL,
+			Confirm:     a.confirmHook,
+			RunLog:      runlog.New(!settings.AgentRunLogDisabled),
+			LLM:         llmCfg,
+			Prior:       prior,
 			OnTranscript: func(runID string, msgs []llm.Message) {
 				if sess.ID != "" {
 					_ = hist.Append(sess.ID, runID, msgs)

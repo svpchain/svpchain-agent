@@ -39,7 +39,7 @@ const llmProvider = ref('openai')
 const llmBaseURL = ref('')
 const llmModel = ref('')
 const remoteMCPURL = ref('')
-const chainRestURL = ref('')
+const agentHubURL = ref('')
 const remoteMCPDisabled = ref(false)
 const agentChainId = ref('')
 const skillsConfigBase = ref('')
@@ -90,7 +90,7 @@ async function loadAgentSettings() {
       llm_base_url?: string
       llm_model?: string
       remote_mcp_url?: string
-      chain_rest_url?: string
+      agent_hub_url?: string
       remote_mcp_disabled?: boolean
       skills_config_base?: string
       show_tool_steps?: boolean
@@ -103,7 +103,7 @@ async function loadAgentSettings() {
     llmModel.value = s.llm_model || ''
     llmContextWindow.value = s.llm_context_window ? String(s.llm_context_window) : ''
     remoteMCPURL.value = s.remote_mcp_url || ''
-    chainRestURL.value = s.chain_rest_url || ''
+    agentHubURL.value = s.agent_hub_url || ''
     remoteMCPDisabled.value = !!s.remote_mcp_disabled
     agentChainId.value = s.chain_id || ''
     showToolSteps.value = !!s.show_tool_steps
@@ -137,7 +137,7 @@ async function saveAgentSettings() {
         llm_model: llmModel.value,
         llm_context_window: Number.parseInt(llmContextWindow.value, 10) || 0,
         remote_mcp_url: remoteMCPURL.value,
-        chain_rest_url: chainRestURL.value.trim(),
+        agent_hub_url: agentHubURL.value.trim(),
         remote_mcp_disabled: remoteMCPDisabled.value,
         disabled_skills: disabledSkills,
         skills_config_base: skillsConfigBase.value.trim(),
@@ -337,8 +337,8 @@ onMounted(init)
             </template>
             <n-switch v-model:value="remoteMCPDisabled" />
           </n-form-item>
-          <n-form-item :label="t('field.chainRestURL')">
-            <n-input v-model:value="chainRestURL" :placeholder="t('ph.chainRestURL')" />
+          <n-form-item :label="t('field.agentHubURL')">
+            <n-input v-model:value="agentHubURL" :placeholder="t('ph.agentHubURL')" />
           </n-form-item>
         </n-form>
         <n-text depth="3" class="hint">{{ t('hint.assistantSettings') }}</n-text>

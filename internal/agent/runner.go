@@ -55,9 +55,9 @@ const (
 type Config struct {
 	ChainID   string
 	RemoteURL string
-	// ChainRestURL is the chain's REST (grpc-gateway) endpoint, enabling the
+	// AgentHubURL is the chain's REST (grpc-gateway) endpoint, enabling the
 	// agent-discovery and delegation tools. Empty disables them.
-	ChainRestURL string
+	AgentHubURL string
 	// Confirm gates every delegation grant behind an explicit user approval.
 	// Nil denies all grants, so a headless caller that wants them must
 	// provide one.
@@ -147,7 +147,7 @@ func Run(ctx context.Context, cfg Config, userMessage string) (answer string, er
 	}
 
 	deleg := &delegatecall.Service{Confirm: cfg.Confirm}
-	if restURL := strings.TrimSpace(cfg.ChainRestURL); restURL != "" {
+	if restURL := strings.TrimSpace(cfg.AgentHubURL); restURL != "" {
 		reg := registry.New(restURL)
 		deleg.Registry = reg
 		deleg.Lifecycle = &delegation.Lifecycle{Registry: reg, Priv: priv, ChainID: chainID}

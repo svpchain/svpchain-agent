@@ -23,8 +23,8 @@ A delegated task executes **on the user's account, spending the user's funds**
 ## Where these tools run (state this correctly if asked)
 
 All the tools in this skill run **locally, in this app**. They read the chain
-directly over the REST endpoint configured in Settings → Chain REST URL, which
-every `discover_agents` result reports back as `chain_rest_url`. They do **not**
+directly over the REST endpoint configured in Settings → Agent Hub URL, which
+every `discover_agents` result reports back as `agent_hub_url`. They do **not**
 go through the remote MCP server, and their chain endpoint is **not** part of
 any MCP client configuration. If the user asks which chain endpoint is in use,
 read it from a tool result or tell them to check Settings — never speculate
@@ -32,7 +32,8 @@ about server-side configuration.
 
 Two different endpoints are involved, and confusing them causes real trouble:
 
-- **Chain REST URL** — a local setting; which node to read the registry from.
+- **Agent Hub URL** — a local setting; the REST API of the chain that hosts
+  the agent registry, i.e. which node to read the registry from.
 - **An agent's `endpoint`** — stored **on chain** by that agent; where its A2A
   service lives. Changing a local setting cannot fix a stale one. A card that
   will not load usually means the agent registered an endpoint that is now

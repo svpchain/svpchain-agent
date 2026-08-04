@@ -53,6 +53,7 @@ export default {
     skillsConfigBase: 'Skills directory root',
     showToolSteps: 'Show tool invocation steps',
     agentRunLog: 'Save assistant run logs',
+    autoUpdate: 'Auto-download updates',
     llmContextWindow: 'Context window (tokens)',
   },
   ph: {
@@ -83,6 +84,7 @@ export default {
     showToolSteps: 'When on, the Assistant tab shows tool calls, thinking steps, and other intermediate progress. Off by default — only final replies are shown.',
     remoteMCPDisabled: 'When on, the assistant does not connect to the remote MCP service at all: no transaction building, broadcasting, or market data. It keeps local signing plus on-chain agent discovery and delegation. Useful for working against the chain alone.',
     agentRunLog: 'When on, each assistant run appends a JSONL trace (tool calls, outcomes; no private keys or API keys) to agent_runs.jsonl for debugging and evaluation.',
+    autoUpdate: 'When on, new releases are downloaded and verified in the background at startup, and you are prompted to restart once the update is ready to install.',
     llmContextWindow: "Your model's context window in tokens. Conversation history is kept within ~70% of this; older turns are auto-summarized when it overflows.",
     skillsConfigBase:
       "Config root directory. Resolved skills path: {'{path}'}/com.svpchain.agent-gui/skills. Leave empty for the OS default.",

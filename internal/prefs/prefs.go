@@ -33,6 +33,7 @@ func Path() string {
 type File struct {
 	Language            string           `json:"language,omitempty"`
 	SkipVersion         string           `json:"skip_version,omitempty"`
+	AutoUpdate          bool             `json:"auto_update,omitempty"`
 	AgentChainID        string           `json:"agent_chain_id,omitempty"`
 	LLMAPIKey           string           `json:"llm_api_key,omitempty"`
 	LLMBaseURL          string           `json:"llm_base_url,omitempty"`

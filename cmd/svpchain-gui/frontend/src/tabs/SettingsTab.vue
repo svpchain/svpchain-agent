@@ -48,6 +48,8 @@ const skillSettings = ref<SkillSetting[]>([])
 const settingsExpandedSections = ref<string[]>([])
 const showToolSteps = ref(false)
 const agentRunLogDisabled = ref(false)
+const updateSupported = ref(false)
+const autoUpdate = ref(false)
 const llmContextWindow = ref('')
 
 function setStatus(msg: string) {
@@ -152,8 +154,23 @@ async function saveAgentSettings() {
   }
 }
 
+async function onAutoUpdateChange(on: boolean) {
+  autoUpdate.value = on
+  try {
+    await App.SetUpdateAutoDownload(on)
+  } catch (err) {
+    message.error(String(err))
+  }
+}
+
 async function init() {
   language.value = await App.Language()
+  try {
+    updateSupported.value = await App.UpdateEnabled()
+    if (updateSupported.value) autoUpdate.value = await App.UpdateAutoDownload()
+  } catch {
+    updateSupported.value = false
+  }
   await loadAgentSettings()
 }
 
@@ -241,6 +258,25 @@ onMounted(init)
               </span>
             </template>
             <n-switch :value="!agentRunLogDisabled" @update:value="agentRunLogDisabled = !$event" />
+          </n-form-item>
+          <n-form-item v-if="updateSupported">
+            <template #label>
+              <span class="label-with-help">
+                <span>{{ t('field.autoUpdate') }}</span>
+                <n-popover trigger="hover" placement="top-start" :show-arrow="true">
+                  <template #trigger>
+                    <span
+                      class="help-icon"
+                      tabindex="0"
+                      role="button"
+                      :title="t('hint.autoUpdate')"
+                    >?</span>
+                  </template>
+                  <div class="help-tooltip-text">{{ t('hint.autoUpdate') }}</div>
+                </n-popover>
+              </span>
+            </template>
+            <n-switch :value="autoUpdate" @update:value="onAutoUpdateChange" />
           </n-form-item>
           <n-form-item>
             <template #label>

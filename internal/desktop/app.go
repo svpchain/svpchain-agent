@@ -184,6 +184,12 @@ func (a *App) CheckUpdate() (*update.Info, error) {
 // SkipVersion suppresses future prompts for the given release tag.
 func (a *App) SkipVersion(tag string) { a.store.SetSkipVersion(tag) }
 
+// UpdateAutoDownload reports whether updates download automatically on startup.
+func (a *App) UpdateAutoDownload() bool { return a.store.AutoUpdate() }
+
+// SetUpdateAutoDownload persists the automatic update download preference.
+func (a *App) SetUpdateAutoDownload(on bool) { a.store.SetAutoUpdate(on) }
+
 // StartUpdate downloads, verifies, and extracts the release, emitting
 // "update:progress" events. It returns the staged .app path on success.
 func (a *App) StartUpdate(info *update.Info) (string, error) {

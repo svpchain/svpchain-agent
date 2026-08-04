@@ -16,6 +16,18 @@ func (s *Store) SetSkipVersion(tag string) {
 	})
 }
 
+// AutoUpdate reports whether updates download automatically on startup.
+func (s *Store) AutoUpdate() bool {
+	return s.File().AutoUpdate
+}
+
+// SetAutoUpdate persists the automatic update download preference.
+func (s *Store) SetAutoUpdate(on bool) {
+	s.Update(func(f *File) {
+		f.AutoUpdate = on
+	})
+}
+
 // AgentSettings is the assistant-related subset of prefs.
 type AgentSettings struct {
 	ChainID             string

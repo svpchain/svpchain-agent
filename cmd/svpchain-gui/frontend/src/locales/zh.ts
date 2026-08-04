@@ -53,6 +53,7 @@ export default {
     skillsConfigBase: 'Skills 目录地址',
     showToolSteps: '显示调用过程',
     agentRunLog: '记录助手运行日志',
+    autoUpdate: '自动下载更新',
     llmContextWindow: '上下文窗口（tokens）',
   },
   ph: {
@@ -83,6 +84,7 @@ export default {
     showToolSteps: '开启后在助手对话中展示工具调用、思考步骤等中间过程；默认关闭，仅显示最终回复。',
     remoteMCPDisabled: '开启后，助手完全不连接 Remote MCP 服务：不构建交易、不广播、不获取行情，仅保留本地签名与链上代理发现、委托功能。适合只针对链本身进行调试。',
     agentRunLog: '开启后将每次助手对话的工具调用、结果与 outcome 追加写入本地 agent_runs.jsonl（不含私钥与 API Key），便于排查与评估。',
+    autoUpdate: '开启后，启动时会在后台自动下载并校验新版本，就绪后提示重启安装。',
     llmContextWindow: '模型的上下文窗口大小（token 数）。对话历史约占其 70%；超出后自动用 LLM 总结压缩较早的对话。',
     skillsConfigBase:
       "填写配置根目录。实际 Skills 目录为：{'{路径}'}/com.svpchain.agent-gui/skills。留空则使用系统默认配置目录。",

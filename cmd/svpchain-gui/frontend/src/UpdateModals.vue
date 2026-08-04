@@ -22,10 +22,12 @@ async function maybeCheckUpdate() {
   try {
     if (!(await App.UpdateEnabled())) return
     const info = (await App.CheckUpdate()) as UpdateInfo | null
-    if (info && info.Latest) {
-      updateInfo.value = info
-      showAvailable.value = true
+    if (!info || !info.Latest) return
+    updateInfo.value = info
+    if (await App.UpdateAutoDownload()) {
+      if (await startUpdate({ silent: true })) return
     }
+    showAvailable.value = true
   } catch {
     /* silent */
   }
@@ -45,10 +47,10 @@ async function onSkip() {
   showAvailable.value = false
 }
 
-async function startUpdate() {
+async function startUpdate(opts: { silent?: boolean } = {}): Promise<boolean> {
   progressPercent.value = 0
   progressStage.value = 'downloading'
-  showProgress.value = true
+  showProgress.value = !opts.silent
   const handler = (e: { percent: number; stage: 'downloading' | 'verifying' | 'extracting' }) => {
     progressPercent.value = Math.round((e.percent || 0) * 100)
     if (e.stage) progressStage.value = e.stage
@@ -59,10 +61,14 @@ async function startUpdate() {
     showProgress.value = false
     stagedApp.value = staged
     showReady.value = true
+    return true
   } catch (err) {
     showProgress.value = false
-    failedErr.value = String(err)
-    showFailed.value = true
+    if (!opts.silent) {
+      failedErr.value = String(err)
+      showFailed.value = true
+    }
+    return false
   } finally {
     EventsOff('update:progress')
   }

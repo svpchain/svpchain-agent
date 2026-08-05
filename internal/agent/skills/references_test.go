@@ -70,6 +70,7 @@ func TestListReferences(t *testing.T) {
 }
 
 func TestComposeSystemPrompt_lendoraGatedOnTools(t *testing.T) {
+	hermetic(t)
 	withLendora, err := skills.ComposeSystemPrompt([]string{"build_bank_send", "lendora_get_all_markets"})
 	require.NoError(t, err)
 	require.Contains(t, withLendora, "Lendora Lending")

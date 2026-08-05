@@ -11,6 +11,21 @@ import (
 	"github.com/svpchain/svpchain-local-agent/internal/agent/skills"
 )
 
+// hermetic pins skill loading to the bundled set alone: an empty user skills
+// dir and no disabled skills. Without this, the developer's live prefs.json
+// (skill toggles flipped in the GUI) and user skill overrides leak into the
+// composed prompt, and the tests pass or fail depending on whose machine runs
+// them.
+func hermetic(t *testing.T) {
+	t.Helper()
+	t.Cleanup(func() {
+		skills.SetSkillsDirOverride("")
+		skills.ClearDisabledSkillsOverride()
+	})
+	skills.SetSkillsDirOverride(t.TempDir())
+	skills.SetDisabledSkillsOverride(nil)
+}
+
 // legacyTail is the composed prompt suffix when the full trading tool set is available
 // (all skills except x402/a2a, which are tool-gated).
 const legacyTail = `Workflow for on-chain writes:
@@ -28,6 +43,7 @@ When **Cached session context** is present in the system prompt, use that data d
 Be concise in final answers. Show tx hashes and key numbers when operations succeed.`
 
 func TestComposeSystemPrompt_matchesLegacyWithFullToolSet(t *testing.T) {
+	hermetic(t)
 	// Exclude x402-only tools (http_fetch, sign_typed_data, signer_whoami, x402_*) so the
 	// detailed x402 skill is not injected; signer-identity is also excluded via no signer_whoami.
 	tools := []string{
@@ -46,6 +62,7 @@ func TestComposeSystemPrompt_matchesLegacyWithFullToolSet(t *testing.T) {
 }
 
 func TestComposeSystemPrompt_includesX402SkillWhenToolsPresent(t *testing.T) {
+	hermetic(t)
 	tools := []string{"http_fetch", "x402_prepare_typed_data", "sign_typed_data", "signer_whoami"}
 	got, err := skills.ComposeSystemPrompt(tools)
 	require.NoError(t, err)
@@ -54,6 +71,7 @@ func TestComposeSystemPrompt_includesX402SkillWhenToolsPresent(t *testing.T) {
 }
 
 func TestComposeSystemPrompt_alwaysIncludesBase(t *testing.T) {
+	hermetic(t)
 	got, err := skills.ComposeSystemPrompt([]string{"build_bank_send"})
 	require.NoError(t, err)
 	require.Contains(t, got, "svpchain agent")
@@ -63,6 +81,7 @@ func TestComposeSystemPrompt_alwaysIncludesBase(t *testing.T) {
 }
 
 func TestComposeSystemPrompt_userSkillOverridesBundled(t *testing.T) {
+	hermetic(t)
 	dir := t.TempDir()
 	skillDir := filepath.Join(dir, "base")
 	require.NoError(t, os.MkdirAll(skillDir, 0o755))
@@ -82,6 +101,7 @@ Custom base instructions.
 }
 
 func TestLoadAll_includesBundledSkills(t *testing.T) {
+	hermetic(t)
 	all, err := skills.LoadAll()
 	require.NoError(t, err)
 	names := make([]string, len(all))

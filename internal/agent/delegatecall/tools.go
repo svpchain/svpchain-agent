@@ -427,7 +427,6 @@ func (s *Service) delegateTask(ctx context.Context, args map[string]any) (string
 		return "", err
 	}
 
-	taskArgs["proof"] = proof
 	envelope, err := json.Marshal(map[string]any{
 		"skill": skill,
 		"tool":  tool,
@@ -437,7 +436,10 @@ func (s *Service) delegateTask(ctx context.Context, args map[string]any) (string
 		return "", err
 	}
 
-	res, err := a2a.SendToAgent(ctx, remote.Endpoint, string(envelope))
+	// The credential rides the message metadata (the delegation extension's
+	// carrier), not the envelope args, so the callee can verify it before
+	// parsing any skill-specific request.
+	res, err := a2a.SendToAgentWithDelegation(ctx, remote.Endpoint, string(envelope), proof)
 	if err != nil {
 		return "", fmt.Errorf("send task to %s: %w", agentID, err)
 	}

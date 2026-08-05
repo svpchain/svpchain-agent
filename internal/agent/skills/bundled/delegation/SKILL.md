@@ -58,8 +58,9 @@ from an earlier result in the conversation, because registrations change.
    user approves the terms in a dialog). Its limits are the outer ceiling
    every later per-task grant narrows from.
 4. **Delegate** — `delegate_task` mints a single-use, short-lived credential
-   (user approves each one in a dialog), attaches it as `args.proof`, and
-   sends `{skill, tool, args}` to the agent's A2A endpoint.
+   (user approves each one in a dialog), attaches it to the A2A message
+   metadata under `svp.delegation/v1`, and sends `{skill, tool, args}` to the
+   agent's A2A endpoint.
 
 ## Non-negotiable rules
 
@@ -88,7 +89,8 @@ from an earlier result in the conversation, because registrations change.
 - The DEX agent's delegated-execution tools are `execute_place_order`,
   `execute_cancel_order`, `execute_batch_cancel` under the
   `svpchain-execution` skill; their `args` shapes are on its card. The
-  `proof` argument is attached automatically — never construct it yourself.
+  credential proof is attached automatically to the message metadata — never
+  construct or pass one yourself.
 - Task credentials default to a 300-second life and one use. Failed sends can
   be retried with a fresh `delegate_task` (a new credential is minted).
 - `root_id` values are hex strings from `list_delegations`; `delegate_task`

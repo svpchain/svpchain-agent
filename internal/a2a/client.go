@@ -19,8 +19,37 @@ type SendResult struct {
 	Response  string `json:"response"`
 }
 
+// DelegationMetadataKey is the message-metadata key the SVP delegation
+// extension (https://svpchain.io/a2a/ext/delegation/v1) defines for carrying
+// an SVP-DT credential chain: {"tokens": [<base64 canonical-CBOR>, …]},
+// root-issued token first.
+const DelegationMetadataKey = "svp.delegation/v1"
+
 // SendToAgent resolves the remote Agent Card, sends a user message, and returns the agent reply.
 func SendToAgent(ctx context.Context, agentURL, message string) (SendResult, error) {
+	return send(ctx, agentURL, message, nil)
+}
+
+// SendToAgentWithDelegation sends a user message with an SVP-DT credential
+// chain attached as message metadata under DelegationMetadataKey — the
+// carrier a callee's delegation extension advertises and verifies before
+// running the task.
+func SendToAgentWithDelegation(ctx context.Context, agentURL, message string, tokens []string) (SendResult, error) {
+	if len(tokens) == 0 {
+		return SendResult{}, fmt.Errorf("delegation tokens are required")
+	}
+	for i, tok := range tokens {
+		if strings.TrimSpace(tok) == "" {
+			return SendResult{}, fmt.Errorf("delegation token[%d] is empty", i)
+		}
+	}
+	metadata := map[string]any{
+		DelegationMetadataKey: map[string]any{"tokens": tokens},
+	}
+	return send(ctx, agentURL, message, metadata)
+}
+
+func send(ctx context.Context, agentURL, message string, metadata map[string]any) (SendResult, error) {
 	agentURL = strings.TrimSpace(agentURL)
 	message = strings.TrimSpace(message)
 	if agentURL == "" {
@@ -41,6 +70,7 @@ func SendToAgent(ctx context.Context, agentURL, message string) (SendResult, err
 	}
 
 	msg := a2a.NewMessage(a2a.MessageRoleUser, a2a.NewTextPart(message))
+	msg.Metadata = metadata
 	result, err := client.SendMessage(ctx, &a2a.SendMessageRequest{Message: msg})
 	if err != nil {
 		return SendResult{}, fmt.Errorf("send message: %w", err)

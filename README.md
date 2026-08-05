@@ -20,7 +20,7 @@ The user issues credentials with **their own account key**, under the DID `did:s
 
 1. **Discover** — the **Agents** tab (or the assistant's `discover_agents`) lists ACTIVE registered agents, with each agent's A2A card checked against the capability hash it registered on chain.
 2. **Root delegation** — one on-chain delegation to the user's own DID sets the outer ceiling: permitted actions, subaccounts, denominations, total and daily spend caps, expiry. Manage it in the **Delegations** tab.
-3. **Delegate a task** — the assistant mints a **single-use, short-lived** credential narrowing that ceiling to the one task, attaches it as `args.proof`, and sends `{skill, tool, args}` to the agent's A2A endpoint. The remote agent verifies it and executes on chain via `MsgAgentExecDelegated`.
+3. **Delegate a task** — the assistant mints a **single-use, short-lived** credential narrowing that ceiling to the one task, attaches it to the message metadata as `svp.delegation/v1`, and sends `{skill, tool, args}` to the agent's A2A endpoint. The remote agent verifies it and executes on chain via `MsgAgentExecDelegated`.
 
 **Every grant requires an explicit confirmation** in a dialog showing the exact terms. Declining, ignoring, or running headless all deny. **Pause** is the emergency stop: one click invalidates every outstanding credential under a delegation at once.
 

@@ -33,10 +33,11 @@ const (
 )
 
 // echoExecutor returns the envelope it received, so a test can inspect exactly
-// what the local agent sent — including the injected proof.
+// what the local agent sent — including the credential in the message metadata.
 type echoExecutor struct {
 	mu       sync.Mutex
 	received string
+	metadata map[string]any
 }
 
 func (e *echoExecutor) Execute(ctx context.Context, execCtx *a2asrv.ExecutorContext) iter.Seq2[a2a.Event, error] {
@@ -44,6 +45,7 @@ func (e *echoExecutor) Execute(ctx context.Context, execCtx *a2asrv.ExecutorCont
 		text := svpa2a.MessageText(execCtx.Message)
 		e.mu.Lock()
 		e.received = text
+		e.metadata = execCtx.Message.Metadata
 		e.mu.Unlock()
 
 		if !yield(a2a.NewSubmittedTask(execCtx, execCtx.Message), nil) {
@@ -153,8 +155,9 @@ func taskArgs() map[string]any {
 }
 
 // The end-to-end shape: a task delegated to a discovered agent arrives as
-// {skill, tool, args} with a verifiable credential in args.proof, addressed
-// to that agent and issued by the user.
+// {skill, tool, args} with a verifiable credential in the message metadata
+// under the delegation extension's key, addressed to that agent and issued
+// by the user.
 func TestDelegateTaskSendsAVerifiableProof(t *testing.T) {
 	svc, exec, life := stubStack(t)
 
@@ -168,8 +171,14 @@ func TestDelegateTaskSendsAVerifiableProof(t *testing.T) {
 
 	args := env["args"].(map[string]any)
 	require.NotNil(t, args["order"], "the caller's own args must survive")
+	require.Nil(t, args["proof"], "the credential must not ride the envelope args")
 
-	proof := args["proof"].([]any)
+	exec.mu.Lock()
+	deleg, ok := exec.metadata[svpa2a.DelegationMetadataKey].(map[string]any)
+	exec.mu.Unlock()
+	require.True(t, ok, "message metadata must carry %s", svpa2a.DelegationMetadataKey)
+
+	proof := deleg["tokens"].([]any)
 	require.Len(t, proof, 1, "a task credential is one hop")
 	raw, err := base64.StdEncoding.DecodeString(proof[0].(string))
 	require.NoError(t, err)

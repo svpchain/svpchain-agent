@@ -28,8 +28,8 @@ async function maybeCheckUpdate() {
       if (await startUpdate({ silent: true })) return
     }
     showAvailable.value = true
-  } catch {
-    /* silent */
+  } catch (err) {
+    console.warn('update check failed:', err)
   }
 }
 

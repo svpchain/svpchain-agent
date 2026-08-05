@@ -13,7 +13,7 @@ import (
 
 const (
 	githubOwner = "svpchain"
-	githubRepo  = "svpchain-local-agent"
+	githubRepo  = "local-agent"
 	releaseStem = "svpchain-local-agent"
 )
 

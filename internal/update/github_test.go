@@ -22,10 +22,10 @@ func TestCheckAvailable_findsUpdate(t *testing.T) {
 	}
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		require.Equal(t, "/repos/svpchain/svpchain-local-agent/releases/latest", r.URL.Path)
+		require.Equal(t, "/repos/svpchain/local-agent/releases/latest", r.URL.Path)
 		_ = json.NewEncoder(w).Encode(githubRelease{
 			TagName: "v1.0.2",
-			HTMLURL: "https://github.com/svpchain/svpchain-local-agent/releases/tag/v1.0.2",
+			HTMLURL: "https://github.com/svpchain/local-agent/releases/tag/v1.0.2",
 			Assets: []releaseAsset{
 				{Name: "svpchain-local-agent-1.0.2-macos.dmg", BrowserDownloadURL: "https://example.com/app.dmg"},
 				{Name: "svpchain-local-agent-1.0.2-windows-amd64.zip", BrowserDownloadURL: "https://example.com/app.zip"},
@@ -36,7 +36,7 @@ func TestCheckAvailable_findsUpdate(t *testing.T) {
 	t.Cleanup(srv.Close)
 
 	oldURL := latestReleaseURL
-	latestReleaseURL = srv.URL + "/repos/svpchain/svpchain-local-agent/releases/latest"
+	latestReleaseURL = srv.URL + "/repos/svpchain/local-agent/releases/latest"
 	t.Cleanup(func() { latestReleaseURL = oldURL })
 
 	info, err := checkAvailable(t.Context(), "1.0.1", "", srv.Client())
@@ -64,7 +64,7 @@ func TestCheckAvailable_respectsSkipVersion(t *testing.T) {
 	t.Cleanup(srv.Close)
 
 	oldURL := latestReleaseURL
-	latestReleaseURL = srv.URL + "/repos/svpchain/svpchain-local-agent/releases/latest"
+	latestReleaseURL = srv.URL + "/repos/svpchain/local-agent/releases/latest"
 	t.Cleanup(func() { latestReleaseURL = oldURL })
 
 	info, err := checkAvailable(t.Context(), "1.0.0", "v1.0.2", srv.Client())

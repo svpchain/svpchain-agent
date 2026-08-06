@@ -24,13 +24,13 @@
 
 助手执行的链上写入流程：远端 `build_*` → 本地 `sign_*` → 远端 `broadcast_*`，`signed_tx` 字段须原样传递。鉴权使用本地签名的 `svpchain-mcp-auth-v1:` challenge，换取 bearer token。若已配置转账白名单，则在助手构建转账前（预检，含合约转账）与本地签名层均会校验 —— 见 [转账白名单](security-whitelist.zh-CN.md)。
 
-**多 Agent** 场景下，助手可通过 `a2a_send_message` 调用远端 A2A Agent；也可运行 `svpchain-mcp a2a serve`，经 HTTP JSON-RPC 向其他 A2A 客户端暴露同一套编排循环 —— 见 [Agent-to-Agent (A2A)](a2a.zh-CN.md)。
+**多 Agent** 场景下，助手可通过 `a2a_send_message` 调用远端 A2A Agent —— 见 [Agent-to-Agent (A2A)](a2a.zh-CN.md)。本 Agent 仅作为 A2A 客户端，从不作为服务监听。
 
 ## 项目结构
 
 ```
 cmd/
-  svpchain-mcp/   # stdio 签名 MCP CLI：serve（默认）/ import / delete / list / a2a serve
+  svpchain-mcp/   # stdio 签名 MCP CLI：serve（默认）/ import / delete / list
   svpchain-gui/   # Wails GUI：Go 入口 + 内嵌 Vue 前端
 internal/
   agent/          # LLM 工具调用循环：远程 MCP 客户端 + 进程内本地签名器；转账预检白名单；会话记忆
@@ -39,7 +39,6 @@ internal/
     runlog/       # 本地 JSONL 运行日志（工具、outcome、tx hash、token 用量），用于排查与评估
     eval/         # 白名单门控的离线回归打分
   a2a/            # A2A 客户端：解析 Agent Card、SendMessage、解析回复
-  a2aserver/      # A2A HTTP 服务端：Agent Card、JSON-RPC /invoke、executor → agent.Run
   mcp/            # MCP 工具处理器（sign_transaction / sign_evm_transaction / sign_typed_data / sign_challenge / whoami）
   signer/         # 交易与 challenge 签名（eth_secp256k1）；转账策略校验
   whitelist/      # 地址白名单存储与收款方校验（供 agent 门控与 signer 使用）

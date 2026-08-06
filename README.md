@@ -8,7 +8,7 @@ A local-key **on-chain agent** for svpchain (Cosmos/EVM) that **discovers other 
 - **Remote build + broadcast MCP service** — constructs unsigned transactions, serves market data, and broadcasts signed transactions. Runs off-machine (`https://mcp-testnet.svpchain.org/`).
 - **Built-in LLM assistant** (`local-agent-gui`) — a streaming tool-calling loop (OpenAI-compatible APIs or native Anthropic) that orchestrates the two: the remote side *builds* and *broadcasts*, the local side *signs*. Keys never leave the machine. Optional **transfer whitelist**, modular **assistant skills**, multi-turn **conversation history**, and local **run logs** tighten transfers, prompts, and observability.
 - **Agent discovery & delegation** — find agents in the chain's `x/agent` registry and hand them tasks under short-lived **SVP-DT credentials**, so a remote agent can act on the user's account without ever holding the user's key.
-- **Google A2A (Agent-to-Agent)** — expose this agent as an A2A-compliant HTTP service, or delegate sub-tasks to other A2A agents.
+- **Google A2A (Agent-to-Agent)** — delegate sub-tasks to other A2A agents (client only; this agent never runs as a network service).
 
 The signer runs over **stdio** (no network port; the process that starts it is the trust boundary). The remote side is reached over HTTP and gated by a signed-challenge bearer token, so the remote never holds a key either.
 
@@ -44,6 +44,6 @@ See [Build, packaging & testing](docs/build-and-packaging.md) for prerequisites 
 | [Graphical app (svpchain-gui)](docs/gui.md) | Tabs, LLM settings (OpenAI-compatible / Anthropic), assistant skills & progressive references |
 | [Assistant memory & context](docs/assistant-context.md) | Session memory, conversation history & context management, run logs & evaluation |
 | [Transfer whitelist](docs/security-whitelist.md) | Two-layer enforcement (pre-flight gate + signer fallback) and their different empty-list semantics |
-| [Agent-to-Agent (A2A)](docs/a2a.md) | A2A server (`a2a serve`), A2A client (`a2a_send_message`), security notes |
+| [Agent-to-Agent (A2A)](docs/a2a.md) | A2A client (`a2a_send_message`), security notes |
 | [Build, packaging & testing](docs/build-and-packaging.md) | Build prerequisites, macOS `.app`/DMG, Windows zip, in-app updates, tests |
 | [Agent observability](docs/agent-observability.md) | Full design of run traces and offline eval |

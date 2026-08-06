@@ -25,7 +25,6 @@ Every assistant run used to start with the LLM calling `signer_whoami` (local ke
 - Windows: `%AppData%\com.svpchain.local-agent-gui\agent_memory.json`
 - Linux: `~/.config/com.svpchain.local-agent-gui/agent_memory.json`
 
-The same mechanism applies to `svpchain-mcp a2a serve` runs.
 
 ## Conversation history & context management
 

@@ -25,7 +25,6 @@
 - Windows：`%AppData%\com.svpchain.local-agent-gui\agent_memory.json`
 - Linux：`~/.config/com.svpchain.local-agent-gui/agent_memory.json`
 
-`svpchain-mcp a2a serve` 使用同一套机制。
 
 ## 对话历史与上下文管理
 

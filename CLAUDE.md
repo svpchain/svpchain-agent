@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 A local-key on-chain agent for svpchain (Cosmos SDK + EVM) that also **discovers remote agents from the chain and delegates tasks to them**. The defining constraint is a **three-party trust separation**: the signing key never leaves the local machine, the remote service builds and broadcasts but never holds a key, and an LLM assistant orchestrates the two.
 
-- **`svpchain-mcp`** — stdio MCP signing service. Holds the key (OS credential store), signs only payloads/challenges that pass strict cross-checks. Also hosts `a2a serve`.
+- **`svpchain-mcp`** — stdio MCP signing service. Holds the key (OS credential store), signs only payloads/challenges that pass strict cross-checks.
 - **Remote MCP** (`https://mcp-testnet.svpchain.org/`, HTTP) — builds unsigned txs, serves market data, broadcasts signed txs. Not in this repo.
 - **`local-agent-gui`** — Wails app (Go + embedded Vue) with a built-in LLM tool-calling assistant that runs the signer in-process.
 
@@ -18,7 +18,7 @@ The assistant can find agents registered in the chain's `x/agent` registry and h
 
 Flow: user creates one on-chain root delegation to their own DID (`create_root_delegation`) → per task, a **single-use, short-lived** credential is minted narrowing that grant (`delegate_task`) → the credential rides as `args.proof` in the A2A envelope `{skill, tool, args}` → the remote agent verifies it, wraps the action in `MsgAgentExecDelegated`, and broadcasts.
 
-**Every grant is gated on an explicit user confirmation** (`Config.Confirm` → Wails `agent:confirm` event → `ResolveConfirm`). A nil hook, a decline, or a timeout all deny. `internal/a2aserver` deliberately leaves both `AgentHubURL` and `Confirm` unset, so a remote A2A caller can never make this agent mint a credential.
+**Every grant is gated on an explicit user confirmation** (`Config.Confirm` → Wails `agent:confirm` event → `ResolveConfirm`). A nil hook, a decline, or a timeout all deny.
 
 Key packages: `internal/registry` (chain REST reads + broadcast, no SDK client), `internal/delegation` (lifecycle txs + minting), `internal/chainmsgs` (vendored `x/agentwallet` pb.go, wire-locked by golden-byte tests), `internal/agent/delegatecall` (the LLM tool surface).
 
@@ -51,7 +51,7 @@ Auth: a `svpchain-mcp-auth-v1:` challenge is signed locally and exchanged for a 
 
 ## Architecture map
 
-- `cmd/svpchain-mcp/` — CLI: `serve` (default), `import`/`list`/`delete` (key mgmt), `a2a serve`.
+- `cmd/svpchain-mcp/` — CLI: `serve` (default), `import`/`list`/`delete` (key mgmt).
 - `cmd/svpchain-gui/` — Go entry + `frontend/` (Vue 3 + naive-ui, vue-i18n en/zh). `wailsjs/` is generated bindings.
 - `internal/agent/` — the LLM tool-calling loop (`runner.go` `Run`, `dispatchTool`). Holds a remote MCP client + in-process `LocalSigner` (`local.go`). Local-only tools (`signer_whoami`, `evm_to_bech32`, `http_fetch`, `x402_*`, `a2a_send_message`) live here and are **not** exposed by the stdio server.
   - `skills/bundled/*/SKILL.md` — the system prompt is **assembled from modular skills**, not hardcoded. `base` is always on; others gate on available tools and `disabled_skills`. Bulky detail lives in `bundled/<name>/references/*.md`, loaded on demand by the LLM via the local `read_skill_reference` tool (`skills/references.go`).
@@ -62,7 +62,7 @@ Auth: a `svpchain-mcp-auth-v1:` challenge is signed locally and exchanged for a 
 - `internal/signer/` — `eth_secp256k1` + `SIGN_MODE_DIRECT` signing, EVM tx signing, EIP-712 typed data, signer-layer whitelist checks. `init()` sets svp bech32 prefixes — import this package rather than blank-importing `internal/config`.
 - `internal/mcp/` — stdio MCP tool handlers (the 5 signing tools + `whoami`).
 - `internal/payload/` — wire types (`TxPayload`, `SignedTx`, `EvmTxPayload`). **Intentionally no I/O** so the signer can be imported without chain/HTTP deps.
-- `internal/whitelist/` — address store + recipient checks; `internal/evmcall/` — pure ERC-20/721/1155 calldata decoder (no I/O) used by *both* whitelist layers to find the account a token call really pays; `internal/keystore/` — OS credential store; `internal/prefs/` — `prefs.json` (single config source); `internal/manage/` — key import/list/delete + MCP config gen; `internal/desktop/` — Wails bindings; `internal/a2a/` + `internal/a2aserver/` — A2A client/server; `internal/update/` — in-app GitHub-release updates.
+- `internal/whitelist/` — address store + recipient checks; `internal/evmcall/` — pure ERC-20/721/1155 calldata decoder (no I/O) used by *both* whitelist layers to find the account a token call really pays; `internal/keystore/` — OS credential store; `internal/prefs/` — `prefs.json` (single config source); `internal/manage/` — key import/list/delete + MCP config gen; `internal/desktop/` — Wails bindings; `internal/a2a/` — A2A client (this agent is never an A2A server); `internal/update/` — in-app GitHub-release updates.
 
 ## Transfer whitelist — two layers, different empty-list semantics
 

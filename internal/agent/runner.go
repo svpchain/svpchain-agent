@@ -29,11 +29,11 @@ import (
 )
 
 // ShutdownRemotePool closes pooled remote MCP sessions. Kept here so external callers
-// (desktop, a2aserver) keep using agent.ShutdownRemotePool unchanged.
+// (desktop) keep using agent.ShutdownRemotePool unchanged.
 func ShutdownRemotePool() { remotemcp.Shutdown() }
 
 // LLMConfig is the assistant's LLM settings. Aliased to llm.Config so external
-// callers (desktop, a2aserver) keep using agent.LLMConfig unchanged.
+// callers (desktop) keep using agent.LLMConfig unchanged.
 type LLMConfig = llm.Config
 
 // Step and StepKind are aliased from the leaf step package so external callers keep

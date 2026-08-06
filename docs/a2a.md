@@ -2,32 +2,9 @@
 
 **English** | [简体中文](a2a.zh-CN.md) · [← README](../README.md)
 
-This project implements [Google's A2A protocol](https://google.github.io/A2A/) via [`a2a-go`](https://github.com/a2aproject/a2a-go). A2A complements MCP: MCP connects the assistant to tools; A2A connects agents to other agents.
+This project implements the client side of [Google's A2A protocol](https://google.github.io/A2A/) via [`a2a-go`](https://github.com/a2aproject/a2a-go). A2A complements MCP: MCP connects the assistant to tools; A2A connects agents to other agents.
 
-## Expose this agent (A2A server)
-
-Run an HTTP JSON-RPC server that advertises an **Agent Card** and executes incoming tasks through the same `agent.Run` loop as the GUI assistant (remote MCP build/broadcast + local signing):
-
-```sh
-./build/svpchain-mcp a2a serve --chain-id svp-2517-1 --listen :8080 --public-url http://127.0.0.1:8080
-```
-
-| Flag | Required | Description |
-|------|----------|-------------|
-| `--chain-id` | no* | Cosmos chain id. Defaults to `agent_chain_id` in `prefs.json`. |
-| `--listen` | no | TCP listen address (default `:8080`). |
-| `--public-url` | no | Public base URL embedded in the Agent Card (default `http://127.0.0.1` + listen port). Set this when behind a reverse proxy or on a public host. |
-
-\* Chain id is required from either the flag or `prefs.json`.
-
-**Endpoints:**
-
-| Path | Purpose |
-|------|---------|
-| `GET /.well-known/agent-card.json` | Agent Card discovery (skills, capabilities, invoke URL) |
-| `POST /invoke` | JSON-RPC A2A methods (`SendMessage`, task streaming, cancel) |
-
-LLM settings (`llm_api_key`, `llm_base_url`, `llm_model`) and the remote MCP URL are read from `prefs.json`. Progress steps from the agent loop are streamed as A2A artifacts; task cancellation propagates to the running agent context.
+This agent is a **client only**. It is operated directly by its human owner and calls out to remote A2A agents; it does not expose an A2A server — a network-reachable service holding the owner's signing key is the wrong trust shape for a local wallet agent.
 
 ## Call other agents (A2A client)
 

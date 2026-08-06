@@ -24,13 +24,13 @@
 
 On-chain write flow the assistant follows: remote `build_*` → local `sign_*` → remote `broadcast_*`, passing `signed_tx` fields verbatim. Authentication uses a signed `svpchain-mcp-auth-v1:` challenge (signed locally), exchanged for a bearer token. When configured, a transfer whitelist is enforced both before the assistant builds a transfer (pre-flight, covering contract transfers) and again at the local signer — see [Transfer whitelist](security-whitelist.md).
 
-For **multi-agent** workflows, the assistant can call remote A2A agents with `a2a_send_message`, or you can run `svpchain-mcp a2a serve` to expose the same orchestration loop to other A2A clients over HTTP JSON-RPC — see [Agent-to-Agent (A2A)](a2a.md).
+For **multi-agent** workflows, the assistant can call remote A2A agents with `a2a_send_message` — see [Agent-to-Agent (A2A)](a2a.md). The agent is an A2A client only; it never listens as a service.
 
 ## Project layout
 
 ```
 cmd/
-  svpchain-mcp/   # stdio signing MCP CLI: serve (default) / import / delete / list / a2a serve
+  svpchain-mcp/   # stdio signing MCP CLI: serve (default) / import / delete / list
   svpchain-gui/   # Wails GUI: Go entry + embedded Vue frontend
 internal/
   agent/          # LLM tool-calling loop: remote MCP client + in-process local signer; pre-flight whitelist gate; session memory
@@ -39,7 +39,6 @@ internal/
     runlog/       # Local JSONL run traces (tools, outcomes, tx hashes, token usage) for debugging & eval
     eval/         # Offline regression scoring for the whitelist gate
   a2a/            # A2A client: resolve Agent Card, SendMessage, parse replies
-  a2aserver/      # A2A HTTP server: Agent Card, JSON-RPC /invoke, executor → agent.Run
   mcp/            # MCP tool handlers (sign_transaction / sign_evm_transaction / sign_typed_data / sign_challenge / whoami)
   signer/         # transaction + challenge signing (eth_secp256k1); transfer policy checks
   whitelist/      # address whitelist store + recipient checks (used by the agent gate and the signer)

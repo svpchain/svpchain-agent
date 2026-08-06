@@ -7,7 +7,7 @@
 - **本地签名 MCP 服务**（`svpchain-mcp`）—— 签名密钥仅保存在本机，永不外泄；只对通过严格交叉校验的 payload / challenge 进行签名。
 - **远程构建 + 广播 MCP 服务** —— 构造未签名交易、提供行情数据、广播已签名交易。运行于远端（`https://mcp-testnet.svpchain.org/`）。
 - **内置 LLM 助手**（`svpchain-gui`）—— 支持流式工具调用（OpenAI 兼容 API 或原生 Anthropic），协调上述两者：远端 *构建* 与 *广播*，本地 *签名*。密钥永不离开本机。可选的 **转账白名单**、模块化 **助手 Skills**（大体积细节放在 `references/*.md`，经 `read_skill_reference` 按需加载）、多轮 **对话历史** 与本地 **运行日志**，用于约束转出、提示词与可观测性。
-- **Google A2A（Agent-to-Agent）** —— 将本 Agent 暴露为符合 A2A 规范的 HTTP 服务，或通过 `a2a_send_message` 将子任务委托给其他 A2A Agent。
+- **Google A2A（Agent-to-Agent）** —— 通过 `a2a_send_message` 将子任务委托给其他 A2A Agent（仅客户端；本 Agent 不作为网络服务运行）。
 
 签名服务通过 **stdio** 运行（无网络端口；启动它的进程即为信任边界）。远端通过 HTTP 访问，并以签名 challenge 换取 bearer token 鉴权，远端同样不持有密钥。
 
@@ -33,6 +33,6 @@ make test
 | [图形界面（svpchain-gui）](docs/gui.zh-CN.md) | 标签页、LLM 设置（OpenAI 兼容 / Anthropic）、助手 Skills 与渐进式参考文件 |
 | [助手记忆与上下文](docs/assistant-context.zh-CN.md) | 会话记忆、对话历史与上下文管理、运行日志与评估 |
 | [转账白名单](docs/security-whitelist.zh-CN.md) | 两层校验（助手预检 + 签名器兜底）及各自的空列表语义 |
-| [Agent-to-Agent (A2A)](docs/a2a.zh-CN.md) | A2A 服务端（`a2a serve`）、A2A 客户端（`a2a_send_message`）、安全说明 |
+| [Agent-to-Agent (A2A)](docs/a2a.zh-CN.md) | A2A 客户端（`a2a_send_message`）、安全说明 |
 | [构建、打包与测试](docs/build-and-packaging.zh-CN.md) | 构建依赖、macOS `.app`/DMG、Windows zip、应用内更新、测试 |
 | [Agent 可观测性](docs/agent-observability.zh-CN.md) | 运行日志与离线评估的完整设计 |

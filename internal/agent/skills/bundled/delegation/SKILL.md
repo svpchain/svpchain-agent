@@ -66,12 +66,13 @@ from an earlier result in the conversation, because registrations change.
 
 To let an agent *read* the user's account without any spending power, grant
 `["query.account"]` with **no budget** (a budget on a read-only grant is
-refused). Subaccounts must still be listed explicitly. The DEX agent then
-answers its covered account tools (`get_subaccount`, `get_balance`) for the
-user's own account only — the owner argument defaults to the user — and the
-credential stays reusable for polling until it expires. `query.account` is an
-off-chain action: never list it in `create_root_delegation`'s actions, which
-accept only chain-executable write actions.
+refused). Subaccounts must still be listed explicitly. An agent that supports
+delegated reads answers its covered read tools for the user's own account
+only — the owner argument defaults to the user — and the credential stays
+reusable for polling until it expires. Which read tools accept a credential
+varies per agent; its card lists them. `query.account` is an off-chain
+action: never list it in `create_root_delegation`'s actions, which accept
+only chain-executable write actions.
 
 ## Re-delegation (intermediary agents)
 
@@ -99,10 +100,10 @@ has an intermediary — agent A must pass the task on to agent B — set
   copy the root delegation's full limits into a task credential.
 - **Never widen beyond the user's ask.** If the user says "buy 0.001 BTC",
   the budget is sized for that order — not "whatever the delegation allows".
-- **Empty grants deny.** Actions and subaccounts must be explicit; the DEX
-  agent's actions are `clob.place_order`, `clob.cancel_order`,
-  `clob.batch_cancel`, `sending.deposit_to_subaccount`, and the read-only
-  `query.account`.
+- **Empty grants deny.** Actions and subaccounts must be explicit. The
+  action namespace is defined by the chain: `clob.place_order`,
+  `clob.cancel_order`, `clob.batch_cancel`, `sending.deposit_to_subaccount`,
+  and the read-only `query.account`.
 - **Value-committing actions need a budget.** The chain prices an order and
   checks it against the credential's own budget, so `clob.place_order` without
   a `budget` is refused. Size the budget for this order (its notional, in the
@@ -117,13 +118,17 @@ has an intermediary — agent A must pass the task on to agent B — set
 
 ## Practical notes
 
-- The DEX agent's delegated-execution tools are `execute_place_order`,
-  `execute_cancel_order`, `execute_batch_cancel` and
-  `execute_deposit_to_subaccount` under the `svpchain-execution` skill, and
-  its delegated-read tools are `get_subaccount` and `get_balance` under
-  `svpchain-account` — always confirm the current list from its card. The
-  credential proof is attached automatically to the message metadata — never
-  construct or pass one yourself.
+- An agent's **card is the only authority** on which tools accept a
+  delegated credential — inspect it with `get_agent_card` before promising
+  anything; never assert a tool roster from memory. Some of an agent's tools
+  may instead require the agent's own authentication (e.g. a bearer-token
+  handshake); a delegated credential cannot unlock those, because the
+  handshake needs the account key this app never releases. A worked example
+  of one real card lives in the `dex-agent.md` reference — read it with
+  `read_skill_reference(skill="delegation", file="dex-agent.md")` when
+  planning against the DEX agent, but the live card always wins.
+- The credential proof is attached automatically to the message metadata —
+  never construct or pass one yourself.
 - Task credentials default to a 300-second life. Write credentials are
   consumed on use (the chain burns the nonce); read credentials stay valid
   for polling until expiry. Failed sends can be retried with a fresh

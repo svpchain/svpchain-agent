@@ -40,12 +40,19 @@ type MintParams struct {
 	TTLSeconds int64
 	// Now is the mint time in unix seconds.
 	Now int64
+	// Redelegable lets the audience extend this credential one further hop —
+	// but only to the DIDs in RedelegateTo. Both-or-neither: redelegable
+	// without targets (an unconstrained re-delegation grant) is refused, as is
+	// targets without redelegable.
+	Redelegable  bool
+	RedelegateTo []string
 }
 
-// Mint issues one single-use depth-1 credential under the user's delegation,
+// Mint issues one short-lived depth-1 credential under the user's delegation,
 // signed with the user's own account key (the chain resolves the issuer DID
 // through its x/auth fallback). Returns the base64 proof chain, root first —
-// exactly the wire form remote agents expect in args.proof.
+// the wire form the delegation extension carries in message metadata
+// ("svp.delegation/v1").
 func (l *Lifecycle) Mint(ctx context.Context, p MintParams) ([]string, error) {
 	if len(p.RootID) != 32 {
 		return nil, fmt.Errorf("root id must be 32 bytes, got %d", len(p.RootID))
@@ -55,6 +62,20 @@ func (l *Lifecycle) Mint(ctx context.Context, p MintParams) ([]string, error) {
 	}
 	if p.Now <= 0 {
 		return nil, fmt.Errorf("mint time is required")
+	}
+	if p.Redelegable && len(p.RedelegateTo) == 0 {
+		return nil, fmt.Errorf(
+			"a redelegable credential must name explicit redelegate_to DIDs — an unconstrained redelegable grant is refused")
+	}
+	if !p.Redelegable && len(p.RedelegateTo) > 0 {
+		return nil, fmt.Errorf("redelegate_to is set but the credential is not redelegable")
+	}
+	for i, did := range p.RedelegateTo {
+		did = strings.TrimSpace(did)
+		if !strings.HasPrefix(did, "did:svp:") {
+			return nil, fmt.Errorf("redelegate_to %q is not a did:svp: DID", did)
+		}
+		p.RedelegateTo[i] = did
 	}
 
 	// The epoch is read fresh on every mint: a stale epoch mints a
@@ -141,22 +162,38 @@ func buildCaveats(principal string, p MintParams, ttl int64) (svpdt.Caveats, err
 		return svpdt.Caveats{}, fmt.Errorf("svc budget: %w", err)
 	}
 
+	// RedelegateTo is ALWAYS explicitly constrained, never the zero value:
+	// svpdt's zero OptionalStringSet is permissive in Allows (unconstrained
+	// means "any active agent") despite reading like a deny-default. Today a
+	// non-redelegable credential masks that via Redelegable=false, but this
+	// caveat must never depend on masking.
+	redelegateTo, err := svpdt.ConstrainedTo(p.RedelegateTo...)
+	if err != nil {
+		return svpdt.Caveats{}, fmt.Errorf("redelegate_to: %w", err)
+	}
+
+	// Non-redelegable (the default): one hop, the credential names its
+	// executor and dies there. Redelegable: exactly one further hop, to the
+	// named targets only — matching the root delegation's MaxDepth of 2.
+	maxDepth := uint32(1)
+	if p.Redelegable {
+		maxDepth = 2
+	}
+
 	return svpdt.Caveats{
-		Principal:   principal,
-		Budget:      budget,
-		SvcBudget:   svcBudget,
-		Actions:     actions,
-		Skills:      skills,
-		Subaccounts: svpdt.NewUint32Set(p.Subaccounts...),
-		Denoms:      denoms,
-		Contracts:   contracts,
-		// One hop, no re-delegation: the credential names its executor and
-		// dies there. Multi-hop chains are a deliberate future decision, not
-		// a default.
-		Redelegable: false,
-		MaxDepth:    1,
-		NotBefore:   p.Now - 60,
-		Expires:     p.Now + ttl,
+		Principal:    principal,
+		Budget:       budget,
+		SvcBudget:    svcBudget,
+		Actions:      actions,
+		Skills:       skills,
+		Subaccounts:  svpdt.NewUint32Set(p.Subaccounts...),
+		Denoms:       denoms,
+		Contracts:    contracts,
+		RedelegateTo: redelegateTo,
+		Redelegable:  p.Redelegable,
+		MaxDepth:     maxDepth,
+		NotBefore:    p.Now - 60,
+		Expires:      p.Now + ttl,
 	}, nil
 }
 

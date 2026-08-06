@@ -57,10 +57,40 @@ from an earlier result in the conversation, because registrations change.
    user's own DID must exist; create it with `create_root_delegation` (the
    user approves the terms in a dialog). Its limits are the outer ceiling
    every later per-task grant narrows from.
-4. **Delegate** — `delegate_task` mints a single-use, short-lived credential
-   (user approves each one in a dialog), attaches it to the A2A message
-   metadata under `svp.delegation/v1`, and sends `{skill, tool, args}` to the
-   agent's A2A endpoint.
+4. **Delegate** — `delegate_task` mints a short-lived credential (user
+   approves each one in a dialog), attaches it to the A2A message metadata
+   under `svp.delegation/v1`, and sends `{skill, tool, args}` to the agent's
+   A2A endpoint.
+
+## Read-only delegation
+
+To let an agent *read* the user's account without any spending power, grant
+`["query.account"]` with **no budget** (a budget on a read-only grant is
+refused). Subaccounts must still be listed explicitly. The DEX agent then
+answers its covered account tools (`get_subaccount`, `get_balance`) for the
+user's own account only — the owner argument defaults to the user — and the
+credential stays reusable for polling until it expires. `query.account` is an
+off-chain action: never list it in `create_root_delegation`'s actions, which
+accept only chain-executable write actions.
+
+## Re-delegation (intermediary agents)
+
+By default a credential dies with the agent it names. When a workflow truly
+has an intermediary — agent A must pass the task on to agent B — set
+`redelegable: true` and list the permitted final executor(s) in
+`redelegate_to`. Then:
+
+- The intermediary may hand a **narrowed** copy of the credential one further
+  hop, only to the DIDs listed. Anyone else in `aud` is refused.
+- The user sees and must approve the target list in the confirmation dialog.
+- The grant can only shrink down the chain: budgets, actions, subaccounts and
+  expiry all narrow, never widen.
+- Never set `redelegable` "just in case" — it widens the blast radius, and a
+  non-redelegable credential is the safe default.
+- Caveat: the target list is enforced by the verifying agent; on the chain
+  itself a redelegated **write** is currently bounded by budget, epoch and
+  nonce rather than the target list, so keep redelegable write grants tightly
+  budgeted.
 
 ## Non-negotiable rules
 
@@ -71,7 +101,8 @@ from an earlier result in the conversation, because registrations change.
   the budget is sized for that order — not "whatever the delegation allows".
 - **Empty grants deny.** Actions and subaccounts must be explicit; the DEX
   agent's actions are `clob.place_order`, `clob.cancel_order`,
-  `clob.batch_cancel`.
+  `clob.batch_cancel`, `sending.deposit_to_subaccount`, and the read-only
+  `query.account`.
 - **Value-committing actions need a budget.** The chain prices an order and
   checks it against the credential's own budget, so `clob.place_order` without
   a `budget` is refused. Size the budget for this order (its notional, in the
@@ -87,11 +118,15 @@ from an earlier result in the conversation, because registrations change.
 ## Practical notes
 
 - The DEX agent's delegated-execution tools are `execute_place_order`,
-  `execute_cancel_order`, `execute_batch_cancel` under the
-  `svpchain-execution` skill; their `args` shapes are on its card. The
+  `execute_cancel_order`, `execute_batch_cancel` and
+  `execute_deposit_to_subaccount` under the `svpchain-execution` skill, and
+  its delegated-read tools are `get_subaccount` and `get_balance` under
+  `svpchain-account` — always confirm the current list from its card. The
   credential proof is attached automatically to the message metadata — never
   construct or pass one yourself.
-- Task credentials default to a 300-second life and one use. Failed sends can
-  be retried with a fresh `delegate_task` (a new credential is minted).
+- Task credentials default to a 300-second life. Write credentials are
+  consumed on use (the chain burns the nonce); read credentials stay valid
+  for polling until expiry. Failed sends can be retried with a fresh
+  `delegate_task` (a new credential is minted).
 - `root_id` values are hex strings from `list_delegations`; `delegate_task`
   picks the newest usable self-delegation automatically when omitted.

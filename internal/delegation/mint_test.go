@@ -132,3 +132,119 @@ func mustToken(t *testing.T, b64 string) *svpdt.Token {
 	require.NoError(t, err)
 	return tok
 }
+
+// A default (non-redelegable) credential must carry an explicitly constrained
+// empty redelegate_to — never the zero OptionalStringSet, whose unconstrained
+// form is permissive — and a max_depth of 1.
+func TestMintDefaultsAreNonRedelegable(t *testing.T) {
+	l := mintFixture(t, "1", false)
+	proof, err := l.Mint(context.Background(), baseParams())
+	require.NoError(t, err)
+
+	cav := mustToken(t, proof[0]).Payload.Caveats
+	require.False(t, cav.Redelegable)
+	require.Equal(t, uint32(1), cav.MaxDepth)
+	require.True(t, cav.RedelegateTo.Constrained, "redelegate_to must never be the permissive unconstrained form")
+	require.Empty(t, cav.RedelegateTo.Set)
+}
+
+func TestMintRedelegableCaveats(t *testing.T) {
+	const executorDID = "did:svp:svp1executor"
+	l := mintFixture(t, "1", false)
+	p := baseParams()
+	p.Redelegable = true
+	p.RedelegateTo = []string{executorDID}
+	proof, err := l.Mint(context.Background(), p)
+	require.NoError(t, err)
+
+	cav := mustToken(t, proof[0]).Payload.Caveats
+	require.True(t, cav.Redelegable)
+	require.Equal(t, uint32(2), cav.MaxDepth)
+	require.True(t, cav.RedelegateTo.Constrained)
+	require.True(t, cav.RedelegateTo.Set.Has(executorDID))
+}
+
+func TestMintRedelegableValidation(t *testing.T) {
+	l := mintFixture(t, "1", false)
+
+	p := baseParams()
+	p.Redelegable = true // no targets
+	_, err := l.Mint(context.Background(), p)
+	require.ErrorContains(t, err, "redelegate_to")
+
+	p = baseParams()
+	p.RedelegateTo = []string{"did:svp:svp1executor"} // targets without redelegable
+	_, err = l.Mint(context.Background(), p)
+	require.ErrorContains(t, err, "not redelegable")
+
+	p = baseParams()
+	p.Redelegable = true
+	p.RedelegateTo = []string{"svp1notadid"}
+	_, err = l.Mint(context.Background(), p)
+	require.ErrorContains(t, err, "did:svp:")
+}
+
+// The intermediary topology end to end: the user mints a redelegable
+// credential to an intermediary, the intermediary attenuates it to the named
+// executor, and the 2-token chain verifies for the executor — while
+// attenuating to anyone outside redelegate_to is refused.
+func TestMintRedelegableChainAttenuatesToNamedExecutor(t *testing.T) {
+	const (
+		interDID    = "did:svp:svp1intermediary"
+		executorDID = "did:svp:svp1executor"
+	)
+	l := mintFixture(t, "1", false)
+
+	p := baseParams()
+	p.AudienceDID = interDID
+	p.Redelegable = true
+	p.RedelegateTo = []string{executorDID}
+	proof, err := l.Mint(context.Background(), p)
+	require.NoError(t, err)
+	parentRaw, err := base64.StdEncoding.DecodeString(proof[0])
+	require.NoError(t, err)
+	parent := mustToken(t, proof[0])
+
+	interKey := make([]byte, 32)
+	interKey[31] = 0x42
+	interSigner, err := svpdt.NewPrivateKeySigner(interKey)
+	require.NoError(t, err)
+
+	childCaveats := parent.Payload.Caveats.Clone()
+	childCaveats.Redelegable = false
+	childCaveats.RedelegateTo, err = svpdt.ConstrainedTo()
+	require.NoError(t, err)
+
+	// Outside the target list: the cooperative path already refuses.
+	_, _, err = svpdt.Attenuate(interSigner, svpdt.AttenuateParams{
+		Parent:   parentRaw,
+		Issuer:   interDID,
+		Audience: "did:svp:svp1someoneelse",
+		Caveats:  childCaveats,
+		Nonce:    [16]byte{0x07},
+	})
+	require.Error(t, err, "attenuating outside redelegate_to must refuse")
+
+	_, childRaw, err := svpdt.Attenuate(interSigner, svpdt.AttenuateParams{
+		Parent:   parentRaw,
+		Issuer:   interDID,
+		Audience: executorDID,
+		Caveats:  childCaveats,
+		Nonce:    [16]byte{0x08},
+	})
+	require.NoError(t, err)
+
+	resolver := svpdt.SingleKeyResolver(map[string][]byte{
+		l.OwnerDID(): l.Priv.PubKey().Bytes(),
+		interDID:     interSigner.PublicKey(),
+	})
+	verified, err := svpdt.VerifyChain([][]byte{parentRaw, childRaw}, resolver, svpdt.VerifyOpts{
+		ChainID:  testChainID,
+		Now:      testNow,
+		MaxDepth: 4,
+		Audience: executorDID,
+	})
+	require.NoError(t, err)
+	require.Equal(t, l.Owner(), verified.Principal, "the principal survives the extra hop")
+	require.Equal(t, uint32(2), verified.Depth)
+}

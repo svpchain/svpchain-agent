@@ -26,6 +26,17 @@ var committingActions = map[string]bool{
 	"clob.place_order": true,
 }
 
+// allQueryActions reports whether every action is a read-only query.* grant —
+// the kind that authorizes off-chain reads and never commits value.
+func allQueryActions(actions []string) bool {
+	for _, a := range actions {
+		if !strings.HasPrefix(a, "query.") {
+			return false
+		}
+	}
+	return len(actions) > 0
+}
+
 func (s *Service) now() int64 {
 	if s.Now != nil {
 		return s.Now()
@@ -234,6 +245,10 @@ func (s *Service) createRootDelegation(ctx context.Context, args map[string]any)
 		maxTTL = p
 	}
 
+	// Root Limits govern chain-side execution only: the keeper checks them
+	// when a delegated write lands, but off-chain reads (query.* credentials)
+	// are authorized purely from the token chain plus the verifier's
+	// epoch/pause heartbeat, so query.* actions never belong in here.
 	limits := chainmsgs.Limits{
 		SpendLimitTotal:    toSDKCoinList(spendTotal),
 		SpendLimitDaily:    toSDKCoinList(spendDaily),
@@ -241,7 +256,7 @@ func (s *Service) createRootDelegation(ctx context.Context, args map[string]any)
 		Actions:            actions,
 		Skills:             skills,
 		Subaccounts:        subaccounts,
-		MaxDepth:           2, // user → executor is depth 1; leave one hop of headroom
+		MaxDepth:           2, // user → executor is depth 1; a redelegable credential uses the one hop of headroom
 		MaxTokenTtlSeconds: maxTTL,
 	}
 
@@ -373,6 +388,32 @@ func (s *Service) delegateTask(ctx context.Context, args map[string]any) (string
 			}
 		}
 	}
+	// The inverse guard: read-only grants carry no budget. Nothing prices a
+	// query.* action, so a budget on one only widens what a leaked credential
+	// is worth.
+	if len(budget) > 0 && allQueryActions(actions) {
+		return "", fmt.Errorf("read-only actions take no budget — remove it, or add the committing action it funds")
+	}
+	redelegable, _ := args["redelegable"].(bool)
+	redelegateTo := argStrings(args, "redelegate_to")
+	if redelegable && len(redelegateTo) == 0 {
+		return "", fmt.Errorf(
+			"redelegable requires redelegate_to — name the agent DID(s) the credential may be passed on to")
+	}
+	if !redelegable && len(redelegateTo) > 0 {
+		return "", fmt.Errorf("redelegate_to is set but redelegable is false")
+	}
+	// Every re-delegation target must be a real, active registered agent —
+	// the same standard the direct audience is held to below.
+	for _, did := range redelegateTo {
+		target, err := s.Registry.AgentByID(ctx, did)
+		if err != nil {
+			return "", fmt.Errorf("redelegate_to agent %s is not registered: %w", did, err)
+		}
+		if !target.Active() {
+			return "", fmt.Errorf("redelegate_to agent %s is not active (status %s)", did, target.Status)
+		}
+	}
 	ttl := argInt64(args, "expires_in_seconds")
 
 	// Resolve the executor from the registry — the credential is addressed to
@@ -397,31 +438,41 @@ func (s *Service) delegateTask(ctx context.Context, args map[string]any) (string
 	if ttlShown <= 0 {
 		ttlShown = delegation.DefaultTaskTTLSeconds
 	}
+	lines := []string{
+		"Agent: " + agentID + " (" + remote.Endpoint + ")",
+		"Task: " + skill + " / " + tool,
+		"Actions: " + strings.Join(actions, ", "),
+		"Subaccounts: " + fmt.Sprint(subaccounts),
+		"Budget: " + coinsText(budget),
+		fmt.Sprintf("Credential expires in %d seconds; usable only by %s", ttlShown, agentID),
+	}
+	if redelegable {
+		// The one place the user learns the blast radius grew: the executor
+		// may hand a narrowed copy of this grant to the listed agents.
+		lines = append(lines, fmt.Sprintf(
+			"RE-DELEGABLE: %s may pass a narrowed credential to: %s (one further hop, same expiry ceiling)",
+			agentID, strings.Join(redelegateTo, ", ")))
+	}
 	if err := s.confirm(ctx, ConfirmRequest{
 		Kind:  "delegate_task",
 		Title: "Delegate task to " + agentID,
-		Lines: []string{
-			"Agent: " + agentID + " (" + remote.Endpoint + ")",
-			"Task: " + skill + " / " + tool,
-			"Actions: " + strings.Join(actions, ", "),
-			"Subaccounts: " + fmt.Sprint(subaccounts),
-			"Budget: " + coinsText(budget),
-			fmt.Sprintf("Credential expires in %d seconds, single use", ttlShown),
-		},
+		Lines: lines,
 	}); err != nil {
 		return "", err
 	}
 
 	proof, err := s.Lifecycle.Mint(ctx, delegation.MintParams{
-		RootID:      rootID,
-		AudienceDID: agentID,
-		Actions:     actions,
-		Skills:      argStrings(args, "skills"),
-		Subaccounts: subaccounts,
-		Denoms:      argStrings(args, "denoms"),
-		Budget:      budget,
-		TTLSeconds:  ttl,
-		Now:         s.now(),
+		RootID:       rootID,
+		AudienceDID:  agentID,
+		Actions:      actions,
+		Skills:       argStrings(args, "skills"),
+		Subaccounts:  subaccounts,
+		Denoms:       argStrings(args, "denoms"),
+		Budget:       budget,
+		TTLSeconds:   ttl,
+		Now:          s.now(),
+		Redelegable:  redelegable,
+		RedelegateTo: redelegateTo,
 	})
 	if err != nil {
 		return "", err

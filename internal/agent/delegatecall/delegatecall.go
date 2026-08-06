@@ -267,7 +267,9 @@ func (s *Service) delegationToolDefs() []llm.Tool {
 				Name: "create_root_delegation",
 				Description: "Create the user's on-chain root delegation (to their own DID). Required once " +
 					"before any delegate_task. The user confirms the terms in a dialog. Empty lists DENY, " +
-					"so every action and subaccount the user wants delegated must be listed.",
+					"so every action and subaccount the user wants delegated must be listed. List only " +
+					"chain-executable (write) actions here — query.* actions belong in task credentials, " +
+					"not the root.",
 				Parameters: map[string]any{
 					"type": "object",
 					"properties": map[string]any{
@@ -344,11 +346,14 @@ func (s *Service) delegationToolDefs() []llm.Tool {
 			Type: "function",
 			Function: llm.Function{
 				Name: "delegate_task",
-				Description: "Delegate one task to a discovered remote agent. Mints a single-use, short-lived " +
-					"SVP-DT credential (after the user confirms the grant in a dialog), injects it as args.proof, " +
-					"and sends {skill, tool, args} to the agent's A2A endpoint. Use get_agent_card first to learn " +
-					"the agent's skills/tools and their argument shapes. Grant the minimum: only the actions, " +
-					"subaccounts and budget this one task needs.",
+				Description: "Delegate one task to a discovered remote agent. Mints a short-lived " +
+					"SVP-DT credential (after the user confirms the grant in a dialog), attaches it to the " +
+					"A2A message metadata under svp.delegation/v1, and sends {skill, tool, args} to the " +
+					"agent's A2A endpoint. Use get_agent_card first to learn the agent's skills/tools and " +
+					"their argument shapes. Grant the minimum: only the actions, subaccounts and budget " +
+					"this one task needs. For read-only tasks grant [\"query.account\"] with no budget. " +
+					"Set redelegable=true plus redelegate_to ONLY when the target agent must sub-delegate " +
+					"to another named agent — never \"just in case\".",
 				Parameters: map[string]any{
 					"type": "object",
 					"properties": map[string]any{
@@ -357,11 +362,11 @@ func (s *Service) delegationToolDefs() []llm.Tool {
 						"tool":     map[string]any{"type": "string", "description": "Tool name within the skill"},
 						"args": map[string]any{
 							"type":        "object",
-							"description": "Tool arguments per the agent's card; proof is injected automatically",
+							"description": "Tool arguments per the agent's card; the credential is attached to the message metadata automatically — never place it in args",
 						},
 						"actions": map[string]any{
 							"type": "array", "items": map[string]any{"type": "string"},
-							"description": "Actions the credential grants, e.g. [\"clob.place_order\"]",
+							"description": "Actions the credential grants, e.g. [\"clob.place_order\"], or [\"query.account\"] for read-only access",
 						},
 						"skills": map[string]any{
 							"type": "array", "items": map[string]any{"type": "string"},
@@ -388,6 +393,18 @@ func (s *Service) delegationToolDefs() []llm.Tool {
 						"root_id": map[string]any{
 							"type":        "string",
 							"description": "Root delegation to mint under (hex); defaults to the newest usable one",
+						},
+						"redelegable": map[string]any{
+							"type": "boolean",
+							"description": "Allow the target agent to re-delegate a NARROWED copy of this credential " +
+								"one further hop. Requires redelegate_to. Default false; leave false unless the " +
+								"workflow truly has an intermediary.",
+						},
+						"redelegate_to": map[string]any{
+							"type": "array", "items": map[string]any{"type": "string"},
+							"description": "Agent DIDs the credential may be re-delegated to (required with " +
+								"redelegable; each must be a registered active agent). The credential is " +
+								"useless to anyone not listed.",
 						},
 					},
 					"required": []string{"agent_id", "skill", "tool", "actions", "subaccounts"},

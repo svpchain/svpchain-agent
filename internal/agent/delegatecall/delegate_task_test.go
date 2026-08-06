@@ -10,6 +10,7 @@ import (
 	"iter"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"sync"
 	"testing"
@@ -112,9 +113,15 @@ func stubStack(t *testing.T) (*Service, *echoExecutor, *delegation.Lifecycle) {
 
 	chainMux := http.NewServeMux()
 	chainMux.HandleFunc("/dydxprotocol/agent/agent/", func(w http.ResponseWriter, r *http.Request) {
+		// Echo the requested DID so any agent id — the direct audience or a
+		// redelegate_to target — resolves as a registered active agent.
+		id := strings.TrimPrefix(r.URL.Path, "/dydxprotocol/agent/agent/")
+		if unescaped, err := url.PathUnescape(id); err == nil {
+			id = unescaped
+		}
 		fmt.Fprintf(w, `{"agent":{"agent_id":%q,"operator":"svp1remoteagentoperator","endpoint":%q,
 			"capability_hash":%q,"capabilities":["trading"],"status":"AGENT_STATUS_ACTIVE"}}`,
-			remoteDID, agentSrv.URL, base64.StdEncoding.EncodeToString(cardHash[:]))
+			id, agentSrv.URL, base64.StdEncoding.EncodeToString(cardHash[:]))
 	})
 	chainMux.HandleFunc("/dydxprotocol/agentwallet/delegations_by_delegator/", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, `{"delegations":[{"root_id":%q,"delegator":%q,"agent_id":%q,
@@ -262,4 +269,108 @@ func TestDelegateTaskRequiresExplicitActions(t *testing.T) {
 	_, err := svc.Call(context.Background(), "delegate_task", args)
 	require.Error(t, err)
 	require.True(t, strings.Contains(err.Error(), "actions is required"))
+}
+
+// A redelegable grant still sends one token — the intermediary appends its
+// own hop — with the redelegation caveats set, and the confirmation dialog
+// names the widened blast radius before anything is minted.
+func TestDelegateTaskRedelegableProof(t *testing.T) {
+	const executorDID = "did:svp:svp1finalexecutor"
+	svc, exec, life := stubStack(t)
+
+	var confirmed []ConfirmRequest
+	svc.Confirm = func(_ context.Context, req ConfirmRequest) bool {
+		confirmed = append(confirmed, req)
+		return true
+	}
+
+	args := taskArgs()
+	args["redelegable"] = true
+	args["redelegate_to"] = []any{executorDID}
+	_, err := svc.Call(context.Background(), "delegate_task", args)
+	require.NoError(t, err)
+
+	require.Len(t, confirmed, 1)
+	dialog := strings.Join(confirmed[0].Lines, "\n")
+	require.Contains(t, dialog, "RE-DELEGABLE")
+	require.Contains(t, dialog, executorDID)
+
+	exec.mu.Lock()
+	deleg := exec.metadata[svpa2a.DelegationMetadataKey].(map[string]any)
+	exec.mu.Unlock()
+	proof := deleg["tokens"].([]any)
+	require.Len(t, proof, 1, "the issuer still emits one token")
+
+	raw, err := base64.StdEncoding.DecodeString(proof[0].(string))
+	require.NoError(t, err)
+	tok, err := svpdt.UnmarshalToken(raw)
+	require.NoError(t, err)
+	cav := tok.Payload.Caveats
+	require.True(t, cav.Redelegable)
+	require.Equal(t, uint32(2), cav.MaxDepth)
+	require.True(t, cav.RedelegateTo.Constrained)
+	require.True(t, cav.RedelegateTo.Set.Has(executorDID))
+	_ = life
+}
+
+// Redelegable without targets is refused before the user ever sees a dialog.
+func TestDelegateTaskRedelegableRequiresTargets(t *testing.T) {
+	svc, exec, _ := stubStack(t)
+	hookFired := false
+	svc.Confirm = func(context.Context, ConfirmRequest) bool {
+		hookFired = true
+		return true
+	}
+
+	args := taskArgs()
+	args["redelegable"] = true
+	_, err := svc.Call(context.Background(), "delegate_task", args)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "redelegate_to")
+	require.False(t, hookFired, "a doomed grant must not cost the user a dialog")
+
+	args = taskArgs()
+	args["redelegate_to"] = []any{"did:svp:svp1finalexecutor"} // without redelegable
+	_, err = svc.Call(context.Background(), "delegate_task", args)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "redelegable is false")
+	require.False(t, hookFired)
+
+	exec.mu.Lock()
+	defer exec.mu.Unlock()
+	require.Empty(t, exec.received)
+}
+
+// A read-only grant needs no budget — and refuses one, since nothing prices
+// a query action and a budget only widens what a leaked credential is worth.
+func TestDelegateTaskReadOnlyGrants(t *testing.T) {
+	svc, exec, life := stubStack(t)
+
+	args := taskArgs()
+	args["tool"] = "get_balance"
+	args["skill"] = "svpchain-account"
+	args["actions"] = []any{"query.account"}
+	delete(args, "budget")
+	_, err := svc.Call(context.Background(), "delegate_task", args)
+	require.NoError(t, err)
+
+	exec.mu.Lock()
+	deleg := exec.metadata[svpa2a.DelegationMetadataKey].(map[string]any)
+	exec.mu.Unlock()
+	raw, err := base64.StdEncoding.DecodeString(deleg["tokens"].([]any)[0].(string))
+	require.NoError(t, err)
+	verified, err := svpdt.VerifyChain([][]byte{raw}, svpdt.SingleKeyResolver(map[string][]byte{
+		life.OwnerDID(): life.Priv.PubKey().Bytes(),
+	}), svpdt.VerifyOpts{ChainID: testChainID, Now: testNow, MaxDepth: 4, Audience: remoteDID})
+	require.NoError(t, err)
+	require.True(t, verified.Effective.Actions.Has("query.account"))
+	require.Empty(t, verified.Effective.Budget)
+
+	args = taskArgs()
+	args["tool"] = "get_balance"
+	args["skill"] = "svpchain-account"
+	args["actions"] = []any{"query.account"}
+	_, err = svc.Call(context.Background(), "delegate_task", args) // budget kept
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "no budget")
 }

@@ -10,6 +10,7 @@ import (
 	"github.com/cosmos/gogoproto/proto"
 
 	"github.com/svpchain/svpchain-local-agent/internal/chainmsgs"
+	settlementmsgs "github.com/svpchain/svpchain-local-agent/internal/chainmsgs/settlement"
 	"github.com/svpchain/svpchain-local-agent/internal/payload"
 	"github.com/svpchain/svpchain-local-agent/internal/whitelist"
 )
@@ -55,10 +56,23 @@ var allowedMsgTypeURLs = map[string]struct{}{
 	"/dydxprotocol.agentwallet.MsgResumeDelegation": {},
 	"/dydxprotocol.agentwallet.MsgRevokeDelegation": {},
 	"/dydxprotocol.agentwallet.MsgRevokeToken":      {},
+
+	// x/settlement — the user's own escrow lifecycle, built locally by
+	// internal/delegation. Each is decoded in full below: the opener must be
+	// the signing key. MsgRecordSpend and MsgClaim are deliberately absent —
+	// recording is the paid agent's move inside MsgAgentExecDelegated, and
+	// claiming withdraws an agent operator's earnings; this wallet has no
+	// legitimate reason to sign either.
+	"/dydxprotocol.settlement.MsgOpenSettlement":   {},
+	"/dydxprotocol.settlement.MsgSettle":           {},
+	"/dydxprotocol.settlement.MsgRefundSettlement": {},
 }
 
 // delegationMsgPrefix marks the agentwallet lifecycle messages.
 const delegationMsgPrefix = "/dydxprotocol.agentwallet.Msg"
+
+// settlementMsgPrefix marks the settlement escrow lifecycle messages.
+const settlementMsgPrefix = "/dydxprotocol.settlement.Msg"
 
 // validateTxBody decodes the SIGN_MODE_DIRECT TxBody bytes the remote server
 // produced and enforces the signer's own policy before signing. It fails closed:
@@ -98,6 +112,11 @@ func validateTxBody(bodyBytes []byte, summary payload.Summary, signerAddr, chain
 		}
 		if strings.HasPrefix(msg.TypeUrl, delegationMsgPrefix) {
 			if err := validateDelegationMsg(msg.TypeUrl, msg.Value, signerAddr); err != nil {
+				return fmt.Errorf("message %d: %w", i, err)
+			}
+		}
+		if strings.HasPrefix(msg.TypeUrl, settlementMsgPrefix) {
+			if err := validateSettlementMsg(msg.TypeUrl, msg.Value, signerAddr); err != nil {
 				return fmt.Errorf("message %d: %w", i, err)
 			}
 		}
@@ -198,6 +217,51 @@ func validateDelegationMsg(typeURL string, value []byte, signerAddr string) erro
 	}
 	if signerAddr != "" && delegator != signerAddr {
 		return fmt.Errorf("%s.delegator %q is not the signing key %q", typeURL, delegator, signerAddr)
+	}
+	return nil
+}
+
+// validateSettlementMsg decodes a settlement escrow lifecycle message and
+// checks that the opener it names is the signing key: opening escrows the
+// signer's own funds, and closing returns them to the same account. An order
+// this wallet did not open is refused outright.
+func validateSettlementMsg(typeURL string, value []byte, signerAddr string) error {
+	var opener string
+	switch typeURL {
+	case "/dydxprotocol.settlement.MsgOpenSettlement":
+		var msg settlementmsgs.MsgOpenSettlement
+		if err := proto.Unmarshal(value, &msg); err != nil {
+			return fmt.Errorf("decode %s: %w", typeURL, err)
+		}
+		if !msg.Cap.IsValid() || msg.Cap.IsZero() {
+			return fmt.Errorf("MsgOpenSettlement.cap %q is not a positive coin", msg.Cap.String())
+		}
+		opener = msg.Opener
+	case "/dydxprotocol.settlement.MsgSettle":
+		var msg settlementmsgs.MsgSettle
+		if err := proto.Unmarshal(value, &msg); err != nil {
+			return fmt.Errorf("decode %s: %w", typeURL, err)
+		}
+		opener = msg.Opener
+	case "/dydxprotocol.settlement.MsgRefundSettlement":
+		var msg settlementmsgs.MsgRefundSettlement
+		if err := proto.Unmarshal(value, &msg); err != nil {
+			return fmt.Errorf("decode %s: %w", typeURL, err)
+		}
+		// A slash attribution is a governance move; this wallet never makes it.
+		if msg.SlashAgentId != "" {
+			return fmt.Errorf("MsgRefundSettlement.slash_agent_id must be empty")
+		}
+		opener = msg.Opener
+	default:
+		return fmt.Errorf("unrecognized settlement message %q", typeURL)
+	}
+
+	if _, err := sdk.AccAddressFromBech32(opener); err != nil {
+		return fmt.Errorf("%s.opener %q is not a valid address: %w", typeURL, opener, err)
+	}
+	if signerAddr != "" && opener != signerAddr {
+		return fmt.Errorf("%s.opener %q is not the signing key %q", typeURL, opener, signerAddr)
 	}
 	return nil
 }

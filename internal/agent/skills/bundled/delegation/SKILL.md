@@ -11,6 +11,9 @@ tools:
   - resume_delegation
   - revoke_delegation
   - delegate_task
+  - list_settlements
+  - settle_settlement
+  - refund_settlement
 ---
 
 # Agent discovery & delegated tasks
@@ -62,6 +65,30 @@ from an earlier result in the conversation, because registrations change.
    under `svp.delegation/v1`, and sends `{skill, tool, args}` to the agent's
    A2A endpoint.
 
+## Paying an agent for its work
+
+Pass `service_budget` (one coin) to `delegate_task` when the task is paid
+work. This opens an on-chain settlement escrow for that amount (plus the
+chain's payment fee), binds the credential to the order, and adds
+`settlement.record_spend` on subaccount 0 to the grant — all shown in the
+confirmation dialog. The agent records its spend against the escrow as it
+works and is paid from it; it can never take more than the cap.
+
+Afterwards, close the order:
+
+- `settle_settlement` — the task succeeded: the agent keeps what it recorded,
+  the unspent remainder refunds to the user.
+- `refund_settlement` — the task failed or was aborted: everything the agent
+  has not yet claimed returns to the user and its accruals are zeroed.
+- `list_settlements` — every order with its status, recorded spend, and what
+  each agent is still owed.
+
+Prerequisite: the root delegation must grant `settlement.record_spend`,
+cover subaccount 0, and carry a `svc_spend_limit_total` — the service
+allowance is a separate ceiling from the trading budget, so paying for work
+never burns the user's trading allowance. `delegate_task` refuses up front
+when the root cannot pay, before any escrow opens.
+
 ## Read-only delegation
 
 To let an agent *read* the user's account without any spending power, grant
@@ -103,6 +130,7 @@ has an intermediary — agent A must pass the task on to agent B — set
 - **Empty grants deny.** Actions and subaccounts must be explicit. The
   action namespace is defined by the chain: `clob.place_order`,
   `clob.cancel_order`, `clob.batch_cancel`, `sending.deposit_to_subaccount`,
+  `settlement.record_spend` (added automatically with `service_budget`),
   and the read-only `query.account`.
 - **Value-committing actions need a budget.** The chain prices an order and
   checks it against the credential's own budget, so `clob.place_order` without

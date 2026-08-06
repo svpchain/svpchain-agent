@@ -57,7 +57,8 @@ func IsTool(name string) bool {
 	case "discover_agents", "get_agent_card",
 		"list_delegations", "create_root_delegation",
 		"pause_delegation", "resume_delegation", "revoke_delegation",
-		"delegate_task":
+		"delegate_task",
+		"list_settlements", "settle_settlement", "refund_settlement":
 		return true
 	default:
 		return false
@@ -86,6 +87,12 @@ func (s *Service) Call(ctx context.Context, name string, args map[string]any) (s
 		return s.revokeDelegation(ctx, args)
 	case "delegate_task":
 		return s.delegateTask(ctx, args)
+	case "list_settlements":
+		return s.listSettlements(ctx)
+	case "settle_settlement":
+		return s.settleSettlement(ctx, args)
+	case "refund_settlement":
+		return s.refundSettlement(ctx, args)
 	default:
 		return "", fmt.Errorf("unknown delegation tool %q", name)
 	}
@@ -291,6 +298,11 @@ func (s *Service) delegationToolDefs() []llm.Tool {
 						},
 						"spend_limit_total": coinListSchema("Lifetime spend cap (required)"),
 						"spend_limit_daily": coinListSchema("Per-day spend cap (optional)"),
+						"svc_spend_limit_total": coinListSchema(
+							"Lifetime cap on paying agents for their services (optional, but " +
+								"required before any delegate_task with a service_budget — an " +
+								"empty service allowance denies all agent payments)"),
+						"svc_spend_limit_daily": coinListSchema("Per-day service payment cap (optional)"),
 						"expires_at": map[string]any{
 							"type":        "integer",
 							"description": "Unix seconds when the delegation expires; default 30 days",
@@ -386,6 +398,20 @@ func (s *Service) delegationToolDefs() []llm.Tool {
 								"refuses it against an empty budget. Size it for this task, not for " +
 								"the delegation's whole allowance.",
 						),
+						"service_budget": map[string]any{
+							"type": "object",
+							"description": "Pay the agent for this task: one coin, e.g. " +
+								`{"denom":"uusdc","amount":"500000"}. Opens an on-chain ` +
+								"escrow order for that amount (plus the chain's payment fee), binds " +
+								"the credential to it, and grants settlement.record_spend on " +
+								"subaccount 0 so the agent can record its spend and be paid. After " +
+								"the task, settle_settlement pays out and refunds the rest. Requires " +
+								"the root delegation to grant the action and a svc_spend_limit_total.",
+							"properties": map[string]any{
+								"denom":  map[string]any{"type": "string"},
+								"amount": map[string]any{"type": "string"},
+							},
+						},
 						"expires_in_seconds": map[string]any{
 							"type":        "integer",
 							"description": "Credential TTL; default 300, clamped to the chain ceiling",
@@ -408,6 +434,48 @@ func (s *Service) delegationToolDefs() []llm.Tool {
 						},
 					},
 					"required": []string{"agent_id", "skill", "tool", "actions", "subaccounts"},
+				},
+			},
+		},
+		{
+			Type: "function",
+			Function: llm.Function{
+				Name: "list_settlements",
+				Description: "List the user's settlement escrow orders: status, cap, recorded " +
+					"spend, and — for open orders — what each agent is still owed.",
+				Parameters: map[string]any{"type": "object", "properties": map[string]any{}},
+			},
+		},
+		{
+			Type: "function",
+			Function: llm.Function{
+				Name: "settle_settlement",
+				Description: "Close a settlement order normally after a paid task: the unrecorded " +
+					"remainder refunds to the user, and what the agent recorded stays claimable " +
+					"by it. Use after the task's work is delivered.",
+				Parameters: map[string]any{
+					"type": "object",
+					"properties": map[string]any{
+						"settlement_id": map[string]any{"type": "string", "description": "Order id (hex) from delegate_task or list_settlements"},
+					},
+					"required": []string{"settlement_id"},
+				},
+			},
+		},
+		{
+			Type: "function",
+			Function: llm.Function{
+				Name: "refund_settlement",
+				Description: "Close a settlement order by full refund: everything not yet claimed " +
+					"returns to the user and the agent's unclaimed accruals are zeroed. The " +
+					"Emergency-Stop companion for a failed or aborted task — use settle_settlement " +
+					"for a task that succeeded.",
+				Parameters: map[string]any{
+					"type": "object",
+					"properties": map[string]any{
+						"settlement_id": map[string]any{"type": "string", "description": "Order id (hex)"},
+					},
+					"required": []string{"settlement_id"},
 				},
 			},
 		},

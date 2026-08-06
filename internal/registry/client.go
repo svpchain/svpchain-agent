@@ -287,6 +287,43 @@ func (c *Client) DelegationByRoot(ctx context.Context, rootID []byte) (Delegatio
 	return out.Delegation, err
 }
 
+// SettlementsByOpener lists the user's escrow orders.
+func (c *Client) SettlementsByOpener(ctx context.Context, opener string) ([]Settlement, error) {
+	var out struct {
+		Settlements []Settlement `json:"settlements"`
+	}
+	err := c.getJSON(
+		ctx,
+		"/dydxprotocol/settlement/settlements_by_opener/"+url.PathEscape(opener)+
+			"?pagination.limit=200",
+		false, &out,
+	)
+	return out.Settlements, err
+}
+
+// SettlementByID fetches one escrow order.
+func (c *Client) SettlementByID(ctx context.Context, id []byte) (Settlement, error) {
+	var out struct {
+		Settlement Settlement `json:"settlement"`
+	}
+	err := c.getJSON(
+		ctx, "/dydxprotocol/settlement/settlement/"+rootIDPath(id), false, &out,
+	)
+	return out.Settlement, err
+}
+
+// ClaimablesBySettlement lists an order's outstanding accruals — what each
+// agent is still owed out of the escrow.
+func (c *Client) ClaimablesBySettlement(ctx context.Context, id []byte) ([]Claimable, error) {
+	var out struct {
+		Claimables []Claimable `json:"claimables"`
+	}
+	err := c.getJSON(
+		ctx, "/dydxprotocol/settlement/claimables_by_settlement/"+rootIDPath(id), false, &out,
+	)
+	return out.Claimables, err
+}
+
 // Epoch reads a delegation's revocation heartbeat. Never cached: this is the
 // value a credential must carry at mint time, and a stale read mints a token
 // the chain rejects.

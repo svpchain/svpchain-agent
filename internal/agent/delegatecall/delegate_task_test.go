@@ -17,6 +17,8 @@ import (
 
 	"github.com/a2aproject/a2a-go/v2/a2a"
 	"github.com/a2aproject/a2a-go/v2/a2asrv"
+	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
+	"github.com/cosmos/gogoproto/proto"
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
 	"github.com/stretchr/testify/require"
 	"github.com/svpchain/svpdt"
@@ -81,7 +83,41 @@ func (e *echoExecutor) envelope(t *testing.T) map[string]any {
 // stubStack is a chain REST endpoint plus a remote A2A agent, wired to each
 // other the way the real ones are: the registry's endpoint points at the
 // agent, and the agent's DID is what credentials must be addressed to.
-func stubStack(t *testing.T) (*Service, *echoExecutor, *delegation.Lifecycle) {
+// txCapture records every tx the stub chain accepted, so a test can decode
+// what the lifecycle actually signed and broadcast.
+type txCapture struct {
+	mu     sync.Mutex
+	bodies [][]byte
+}
+
+func (c *txCapture) add(b []byte) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.bodies = append(c.bodies, b)
+}
+
+// soleMsg asserts exactly one captured tx since idx whose sole message has the
+// given type URL, returning its value bytes.
+func (c *txCapture) soleMsg(t *testing.T, typeURL string) []byte {
+	t.Helper()
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	for _, raw := range c.bodies {
+		var txRaw txtypes.TxRaw
+		require.NoError(t, proto.Unmarshal(raw, &txRaw))
+		var body txtypes.TxBody
+		require.NoError(t, proto.Unmarshal(txRaw.BodyBytes, &body))
+		for _, msg := range body.Messages {
+			if msg.TypeUrl == typeURL {
+				return msg.Value
+			}
+		}
+	}
+	t.Fatalf("no broadcast tx carries %s", typeURL)
+	return nil
+}
+
+func stubStack(t *testing.T) (*Service, *echoExecutor, *delegation.Lifecycle, *txCapture) {
 	t.Helper()
 
 	exec := &echoExecutor{}
@@ -123,17 +159,66 @@ func stubStack(t *testing.T) (*Service, *echoExecutor, *delegation.Lifecycle) {
 			"capability_hash":%q,"capabilities":["trading"],"status":"AGENT_STATUS_ACTIVE"}}`,
 			id, agentSrv.URL, base64.StdEncoding.EncodeToString(cardHash[:]))
 	})
-	chainMux.HandleFunc("/dydxprotocol/agentwallet/delegations_by_delegator/", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintf(w, `{"delegations":[{"root_id":%q,"delegator":%q,"agent_id":%q,
-			"limits":{"actions":["clob.place_order"],"subaccounts":[0],"max_depth":2,"max_token_ttl_seconds":600},
-			"epoch":"1","paused":false,"expires_at":"1900000000","created_at_height":"10"}]}`,
+	delegationJSON := func() string {
+		return fmt.Sprintf(`{"root_id":%q,"delegator":%q,"agent_id":%q,
+			"limits":{"actions":["clob.place_order","settlement.record_spend"],"subaccounts":[0],
+			"svc_spend_limit_total":[{"denom":"uusdc","amount":"10000000"}],
+			"max_depth":2,"max_token_ttl_seconds":600},
+			"epoch":"1","paused":false,"expires_at":"1900000000","created_at_height":"10"}`,
 			base64.StdEncoding.EncodeToString(rootID), owner, ownerDID)
+	}
+	chainMux.HandleFunc("/dydxprotocol/agentwallet/delegations_by_delegator/", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintf(w, `{"delegations":[%s]}`, delegationJSON())
+	})
+	// A second root that exists but cannot pay agents: no settlement action,
+	// no service allowance. What the payment pre-check must catch.
+	poorRootID := make([]byte, 32)
+	for i := range poorRootID {
+		poorRootID[i] = 0x22
+	}
+	chainMux.HandleFunc("/dydxprotocol/agentwallet/delegation/", func(w http.ResponseWriter, r *http.Request) {
+		suffix := r.URL.Path[strings.LastIndex(r.URL.Path, "/")+1:]
+		if suffix == base64.URLEncoding.EncodeToString(poorRootID) {
+			fmt.Fprintf(w, `{"delegation":{"root_id":%q,"delegator":%q,"agent_id":%q,
+				"limits":{"actions":["clob.place_order"],"subaccounts":[0],"max_depth":2,"max_token_ttl_seconds":600},
+				"epoch":"1","paused":false,"expires_at":"1900000000","created_at_height":"10"}}`,
+				base64.StdEncoding.EncodeToString(poorRootID), owner, ownerDID)
+			return
+		}
+		fmt.Fprintf(w, `{"delegation":%s}`, delegationJSON())
 	})
 	chainMux.HandleFunc("/dydxprotocol/agentwallet/epoch/", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprint(w, `{"epoch":"1","paused":false}`)
 	})
 	chainMux.HandleFunc("/dydxprotocol/agentwallet/params", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprint(w, `{"params":{"max_delegation_depth":4,"max_token_ttl_seconds":"600"}}`)
+	})
+	capture := &txCapture{}
+	chainMux.HandleFunc("/cosmos/auth/v1beta1/accounts/", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, `{"account":{"account_number":"1","sequence":"0"}}`)
+	})
+	settlementID := make([]byte, 32)
+	settlementID[0] = 0xC0
+	chainMux.HandleFunc("/cosmos/tx/v1beta1/txs", func(w http.ResponseWriter, r *http.Request) {
+		var in struct {
+			TxBytes string `json:"tx_bytes"`
+		}
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&in))
+		raw, err := base64.StdEncoding.DecodeString(in.TxBytes)
+		require.NoError(t, err)
+		capture.add(raw)
+		fmt.Fprint(w, `{"tx_response":{"txhash":"AB12","code":0}}`)
+	})
+	chainMux.HandleFunc("/cosmos/tx/v1beta1/txs/", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, `{"tx_response":{"txhash":"AB12","code":0,"height":"5"}}`)
+	})
+	chainMux.HandleFunc("/dydxprotocol/settlement/settlements_by_opener/", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintf(w, `{"settlements":[{"id":%q,"opener":%q,
+			"cap":{"denom":"uusdc","amount":"500000"},"fee_paid":{"denom":"uusdc","amount":"1000"},
+			"total_recorded":{"denom":"uusdc","amount":"0"},"total_claimed":{"denom":"uusdc","amount":"0"},
+			"refunded":{"denom":"uusdc","amount":"0"},"status":"SETTLEMENT_STATUS_OPEN",
+			"created_at_height":"9","memo":"m"}]}`,
+			base64.StdEncoding.EncodeToString(settlementID), owner)
 	})
 	chainSrv := httptest.NewServer(chainMux)
 	t.Cleanup(chainSrv.Close)
@@ -146,7 +231,7 @@ func stubStack(t *testing.T) (*Service, *echoExecutor, *delegation.Lifecycle) {
 		Confirm:   func(context.Context, ConfirmRequest) bool { return true },
 		Now:       func() int64 { return testNow },
 	}
-	return svc, exec, life
+	return svc, exec, life, capture
 }
 
 func taskArgs() map[string]any {
@@ -166,7 +251,7 @@ func taskArgs() map[string]any {
 // under the delegation extension's key, addressed to that agent and issued
 // by the user.
 func TestDelegateTaskSendsAVerifiableProof(t *testing.T) {
-	svc, exec, life := stubStack(t)
+	svc, exec, life, _ := stubStack(t)
 
 	out, err := svc.Call(context.Background(), "delegate_task", taskArgs())
 	require.NoError(t, err)
@@ -208,7 +293,7 @@ func TestDelegateTaskSendsAVerifiableProof(t *testing.T) {
 // The safety-critical invariant: a declined dialog mints nothing and sends
 // nothing.
 func TestDelegateTaskRefusesWithoutApproval(t *testing.T) {
-	svc, exec, _ := stubStack(t)
+	svc, exec, _, _ := stubStack(t)
 	svc.Confirm = func(context.Context, ConfirmRequest) bool { return false }
 
 	_, err := svc.Call(context.Background(), "delegate_task", taskArgs())
@@ -222,7 +307,7 @@ func TestDelegateTaskRefusesWithoutApproval(t *testing.T) {
 
 // A nil hook is a denial, so a headless caller cannot silently mint.
 func TestDelegateTaskRefusesWithoutAConfirmHook(t *testing.T) {
-	svc, _, _ := stubStack(t)
+	svc, _, _, _ := stubStack(t)
 	svc.Confirm = nil
 
 	_, err := svc.Call(context.Background(), "delegate_task", taskArgs())
@@ -234,7 +319,7 @@ func TestDelegateTaskRefusesWithoutAConfirmHook(t *testing.T) {
 // budget, so an order credential with no budget is dead on arrival. Catching
 // it here keeps a doomed credential from costing the user a confirmation.
 func TestDelegateTaskRequiresABudgetForCommittingActions(t *testing.T) {
-	svc, exec, _ := stubStack(t)
+	svc, exec, _, _ := stubStack(t)
 	args := taskArgs()
 	delete(args, "budget")
 
@@ -249,7 +334,7 @@ func TestDelegateTaskRequiresABudgetForCommittingActions(t *testing.T) {
 
 // A cancellation commits nothing, so it needs no budget.
 func TestDelegateTaskAllowsCancelWithoutBudget(t *testing.T) {
-	svc, _, _ := stubStack(t)
+	svc, _, _, _ := stubStack(t)
 	args := taskArgs()
 	delete(args, "budget")
 	args["tool"] = "execute_cancel_order"
@@ -262,7 +347,7 @@ func TestDelegateTaskAllowsCancelWithoutBudget(t *testing.T) {
 // Empty grants deny in SVP-DT, so a task with no actions is a mistake worth
 // catching before a credential is minted.
 func TestDelegateTaskRequiresExplicitActions(t *testing.T) {
-	svc, _, _ := stubStack(t)
+	svc, _, _, _ := stubStack(t)
 	args := taskArgs()
 	delete(args, "actions")
 
@@ -276,7 +361,7 @@ func TestDelegateTaskRequiresExplicitActions(t *testing.T) {
 // names the widened blast radius before anything is minted.
 func TestDelegateTaskRedelegableProof(t *testing.T) {
 	const executorDID = "did:svp:svp1finalexecutor"
-	svc, exec, life := stubStack(t)
+	svc, exec, life, _ := stubStack(t)
 
 	var confirmed []ConfirmRequest
 	svc.Confirm = func(_ context.Context, req ConfirmRequest) bool {
@@ -315,7 +400,7 @@ func TestDelegateTaskRedelegableProof(t *testing.T) {
 
 // Redelegable without targets is refused before the user ever sees a dialog.
 func TestDelegateTaskRedelegableRequiresTargets(t *testing.T) {
-	svc, exec, _ := stubStack(t)
+	svc, exec, _, _ := stubStack(t)
 	hookFired := false
 	svc.Confirm = func(context.Context, ConfirmRequest) bool {
 		hookFired = true
@@ -344,7 +429,7 @@ func TestDelegateTaskRedelegableRequiresTargets(t *testing.T) {
 // A read-only grant needs no budget — and refuses one, since nothing prices
 // a query action and a budget only widens what a leaked credential is worth.
 func TestDelegateTaskReadOnlyGrants(t *testing.T) {
-	svc, exec, life := stubStack(t)
+	svc, exec, life, _ := stubStack(t)
 
 	args := taskArgs()
 	args["tool"] = "get_balance"

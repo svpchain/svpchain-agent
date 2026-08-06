@@ -86,6 +86,25 @@ func argInt64(args map[string]any, key string) int64 {
 	return 0
 }
 
+// argCoin parses one {"denom":..,"amount":..} object; absent returns a zero
+// Coin and no error.
+func argCoin(args map[string]any, key string) (registry.Coin, error) {
+	m, ok := args[key].(map[string]any)
+	if !ok {
+		return registry.Coin{}, nil
+	}
+	denom, _ := m["denom"].(string)
+	amount, _ := m["amount"].(string)
+	denom, amount = strings.TrimSpace(denom), strings.TrimSpace(amount)
+	if denom == "" || amount == "" {
+		return registry.Coin{}, fmt.Errorf("%s needs non-empty denom and amount (amount as integer string)", key)
+	}
+	if _, ok := sdkmath.NewIntFromString(amount); !ok {
+		return registry.Coin{}, fmt.Errorf("%s.amount %q is not a base-10 integer", key, amount)
+	}
+	return registry.Coin{Denom: denom, Amount: amount}, nil
+}
+
 // argCoins parses [{"denom":..,"amount":..}] into registry coins.
 func argCoins(args map[string]any, key string) ([]registry.Coin, error) {
 	raw, ok := args[key].([]any)
@@ -223,6 +242,14 @@ func (s *Service) createRootDelegation(ctx context.Context, args map[string]any)
 	if err != nil {
 		return "", err
 	}
+	svcTotal, err := argCoins(args, "svc_spend_limit_total")
+	if err != nil {
+		return "", err
+	}
+	svcDaily, err := argCoins(args, "svc_spend_limit_daily")
+	if err != nil {
+		return "", err
+	}
 	spendDaily, err := argCoins(args, "spend_limit_daily")
 	if err != nil {
 		return "", err
@@ -252,6 +279,8 @@ func (s *Service) createRootDelegation(ctx context.Context, args map[string]any)
 	limits := chainmsgs.Limits{
 		SpendLimitTotal:    toSDKCoinList(spendTotal),
 		SpendLimitDaily:    toSDKCoinList(spendDaily),
+		SvcSpendLimitTotal: toSDKCoinList(svcTotal),
+		SvcSpendLimitDaily: toSDKCoinList(svcDaily),
 		Denoms:             denoms,
 		Actions:            actions,
 		Skills:             skills,
@@ -266,6 +295,7 @@ func (s *Service) createRootDelegation(ctx context.Context, args map[string]any)
 		"Subaccounts: " + fmt.Sprint(subaccounts),
 		"Total spend cap: " + coinsText(spendTotal),
 		"Daily spend cap: " + coinsText(spendDaily),
+		"Service payment cap (total): " + coinsText(svcTotal),
 		"Expires: " + time.Unix(expiresAt, 0).UTC().Format(time.RFC3339),
 	}
 	if err := s.confirm(ctx, ConfirmRequest{
@@ -394,6 +424,22 @@ func (s *Service) delegateTask(ctx context.Context, args map[string]any) (string
 	if len(budget) > 0 && allQueryActions(actions) {
 		return "", fmt.Errorf("read-only actions take no budget — remove it, or add the committing action it funds")
 	}
+	serviceBudget, err := argCoin(args, "service_budget")
+	if err != nil {
+		return "", err
+	}
+	payingForService := serviceBudget.Denom != ""
+	if payingForService {
+		// The paid agent records its spend on subaccount 0 (settlement is
+		// bank-level); the grant must say so explicitly, and the user sees
+		// both in the dialog below.
+		if !containsStr(actions, settlementRecordAction) {
+			actions = append(actions, settlementRecordAction)
+		}
+		if !containsU32(subaccounts, 0) {
+			subaccounts = append(subaccounts, 0)
+		}
+	}
 	redelegable, _ := args["redelegable"].(bool)
 	redelegateTo := argStrings(args, "redelegate_to")
 	if redelegable && len(redelegateTo) == 0 {
@@ -433,6 +479,28 @@ func (s *Service) delegateTask(ctx context.Context, args map[string]any) (string
 	if err != nil {
 		return "", err
 	}
+	if payingForService {
+		// Fail before the user is asked: a root that never granted the
+		// settlement action or a service allowance would let the task run and
+		// then refuse the agent's payment — the worst place to find out.
+		root, err := s.Registry.DelegationByRoot(ctx, rootID)
+		if err != nil {
+			return "", fmt.Errorf("read root delegation: %w", err)
+		}
+		if !containsStr(root.Limits.Actions, settlementRecordAction) {
+			return "", fmt.Errorf(
+				"the root delegation does not grant %s — recreate it with the action (and a svc_spend_limit_total) to pay agents",
+				settlementRecordAction)
+		}
+		if !containsU32(root.Limits.Subaccounts, 0) {
+			return "", fmt.Errorf(
+				"the root delegation does not cover subaccount 0, which settlement recording is pinned to")
+		}
+		if len(root.Limits.SvcSpendLimitTotal) == 0 {
+			return "", fmt.Errorf(
+				"the root delegation has no svc_spend_limit_total — an empty service allowance denies all agent payments")
+		}
+	}
 
 	ttlShown := ttl
 	if ttlShown <= 0 {
@@ -453,12 +521,33 @@ func (s *Service) delegateTask(ctx context.Context, args map[string]any) (string
 			"RE-DELEGABLE: %s may pass a narrowed credential to: %s (one further hop, same expiry ceiling)",
 			agentID, strings.Join(redelegateTo, ", ")))
 	}
+	if payingForService {
+		lines = append(lines, fmt.Sprintf(
+			"SERVICE PAYMENT: %s %s escrowed for this task (plus the chain's payment fee); "+
+				"%s may record spend up to that cap and be paid from it. Unspent escrow "+
+				"returns when you settle.",
+			serviceBudget.Amount, serviceBudget.Denom, agentID))
+	}
 	if err := s.confirm(ctx, ConfirmRequest{
 		Kind:  "delegate_task",
 		Title: "Delegate task to " + agentID,
 		Lines: lines,
 	}); err != nil {
 		return "", err
+	}
+
+	// The escrow opens only after the user approved the whole grant — an
+	// order without a task would strand funds behind an extra settle step.
+	var settlementHex string
+	var svcBudget []registry.Coin
+	if payingForService {
+		order, err := s.Lifecycle.OpenSettlement(
+			ctx, serviceBudget, "task:"+skill+"/"+tool+" agent:"+agentID)
+		if err != nil {
+			return "", fmt.Errorf("open settlement escrow: %w", err)
+		}
+		settlementHex = hex.EncodeToString(order.ID)
+		svcBudget = []registry.Coin{serviceBudget}
 	}
 
 	proof, err := s.Lifecycle.Mint(ctx, delegation.MintParams{
@@ -469,6 +558,8 @@ func (s *Service) delegateTask(ctx context.Context, args map[string]any) (string
 		Subaccounts:  subaccounts,
 		Denoms:       argStrings(args, "denoms"),
 		Budget:       budget,
+		SvcBudget:    svcBudget,
+		Settlement:   settlementHex,
 		TTLSeconds:   ttl,
 		Now:          s.now(),
 		Redelegable:  redelegable,
@@ -494,12 +585,112 @@ func (s *Service) delegateTask(ctx context.Context, args map[string]any) (string
 	if err != nil {
 		return "", fmt.Errorf("send task to %s: %w", agentID, err)
 	}
-	return jsonResult(map[string]any{
+	result := map[string]any{
 		"agent_id": agentID,
 		"task_id":  res.TaskID,
 		"state":    res.State,
 		"response": res.Response,
-	})
+	}
+	if settlementHex != "" {
+		result["settlement_id"] = settlementHex
+		result["settlement_note"] = "settle_settlement pays out what the agent recorded and refunds the rest; refund_settlement claws everything unclaimed back"
+	}
+	return jsonResult(result)
+}
+
+// settlementRecordAction is the chain's tag for recording spend against a
+// settlement order; byte-identical to the app registry's constant.
+const settlementRecordAction = "settlement.record_spend"
+
+func containsStr(haystack []string, needle string) bool {
+	for _, v := range haystack {
+		if v == needle {
+			return true
+		}
+	}
+	return false
+}
+
+func containsU32(haystack []uint32, needle uint32) bool {
+	for _, v := range haystack {
+		if v == needle {
+			return true
+		}
+	}
+	return false
+}
+
+// ---- settlement lifecycle tools ----
+
+func (s *Service) listSettlements(ctx context.Context) (string, error) {
+	if !s.canDelegate() {
+		return "", fmt.Errorf("settlement requires a signing key; import one in the Keys tab")
+	}
+	orders, err := s.Registry.SettlementsByOpener(ctx, s.Lifecycle.Owner())
+	if err != nil {
+		return "", err
+	}
+	out := make([]map[string]any, 0, len(orders))
+	for _, o := range orders {
+		entry := map[string]any{
+			"settlement_id":  hex.EncodeToString(o.ID),
+			"status":         o.Status,
+			"cap":            o.Cap,
+			"total_recorded": o.TotalRecorded,
+			"total_claimed":  o.TotalClaimed,
+			"refunded":       o.Refunded,
+			"memo":           o.Memo,
+		}
+		if o.Open() {
+			if claims, err := s.Registry.ClaimablesBySettlement(ctx, o.ID); err == nil {
+				entry["claimables"] = claims
+			}
+		}
+		out = append(out, entry)
+	}
+	return jsonResult(map[string]any{"settlements": out})
+}
+
+func (s *Service) settleSettlement(ctx context.Context, args map[string]any) (string, error) {
+	if !s.canDelegate() {
+		return "", fmt.Errorf("settlement requires a signing key; import one in the Keys tab")
+	}
+	id, err := argSettlementID(args)
+	if err != nil {
+		return "", err
+	}
+	res, err := s.Lifecycle.SettleSettlement(ctx, id)
+	if err != nil {
+		return "", err
+	}
+	return jsonResult(map[string]any{"tx_hash": res.TxHash, "settled": true})
+}
+
+func (s *Service) refundSettlement(ctx context.Context, args map[string]any) (string, error) {
+	if !s.canDelegate() {
+		return "", fmt.Errorf("settlement requires a signing key; import one in the Keys tab")
+	}
+	id, err := argSettlementID(args)
+	if err != nil {
+		return "", err
+	}
+	res, err := s.Lifecycle.RefundSettlement(ctx, id)
+	if err != nil {
+		return "", err
+	}
+	return jsonResult(map[string]any{"tx_hash": res.TxHash, "refunded": true})
+}
+
+func argSettlementID(args map[string]any) ([]byte, error) {
+	hexID := argString(args, "settlement_id")
+	if hexID == "" {
+		return nil, fmt.Errorf("settlement_id (hex) is required")
+	}
+	id, err := hex.DecodeString(strings.TrimPrefix(hexID, "0x"))
+	if err != nil || len(id) != 32 {
+		return nil, fmt.Errorf("settlement_id must be 32 bytes of hex")
+	}
+	return id, nil
 }
 
 // resolveRoot picks the delegation the credential descends from: an explicit

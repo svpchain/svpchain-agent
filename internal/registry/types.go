@@ -116,6 +116,33 @@ type Delegation struct {
 	CreatedAtHeight FlexUint64 `json:"created_at_height"`
 }
 
+// Settlement is one x/settlement escrow order record.
+type Settlement struct {
+	ID               []byte     `json:"id"`
+	Opener           string     `json:"opener"`
+	Cap              Coin       `json:"cap"`
+	FeePaid          Coin       `json:"fee_paid"`
+	TotalRecorded    Coin       `json:"total_recorded"`
+	TotalClaimed     Coin       `json:"total_claimed"`
+	Refunded         Coin       `json:"refunded"`
+	Status           string     `json:"status"`
+	RootDelegationID []byte     `json:"root_delegation_id"`
+	CreatedAtHeight  FlexUint64 `json:"created_at_height"`
+	Memo             string     `json:"memo"`
+}
+
+// Open reports whether the order still accepts records.
+func (s Settlement) Open() bool {
+	return s.Status == "SETTLEMENT_STATUS_OPEN"
+}
+
+// Claimable is one agent's unclaimed accrual on one settlement order.
+type Claimable struct {
+	SettlementID []byte `json:"settlement_id"`
+	AgentID      string `json:"agent_id"`
+	Amount       Coin   `json:"amount"`
+}
+
 // Spend is a delegation's consumed budget in one bucket.
 type Spend struct {
 	Spent    []Coin `json:"spent"`

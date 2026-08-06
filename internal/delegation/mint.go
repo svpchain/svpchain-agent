@@ -35,6 +35,10 @@ type MintParams struct {
 	Budget []registry.Coin
 	// SvcBudget caps buying downstream agent services. Usually empty.
 	SvcBudget []registry.Coin
+	// Settlement binds the credential to one escrow order (lowercase hex id):
+	// the paid agent can record spend against that order and no other. Empty
+	// leaves it unbound.
+	Settlement string
 	// TTLSeconds bounds the credential's life; 0 means DefaultTaskTTLSeconds.
 	// Clamped to the chain's MaxTokenTtlSeconds either way.
 	TTLSeconds int64
@@ -184,6 +188,7 @@ func buildCaveats(principal string, p MintParams, ttl int64) (svpdt.Caveats, err
 		Principal:    principal,
 		Budget:       budget,
 		SvcBudget:    svcBudget,
+		Settlement:   strings.TrimSpace(p.Settlement),
 		Actions:      actions,
 		Skills:       skills,
 		Subaccounts:  svpdt.NewUint32Set(p.Subaccounts...),

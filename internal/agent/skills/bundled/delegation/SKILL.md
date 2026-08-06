@@ -123,10 +123,7 @@ has an intermediary — agent A must pass the task on to agent B — set
   anything; never assert a tool roster from memory. Some of an agent's tools
   may instead require the agent's own authentication (e.g. a bearer-token
   handshake); a delegated credential cannot unlock those, because the
-  handshake needs the account key this app never releases. A worked example
-  of one real card lives in the `dex-agent.md` reference — read it with
-  `read_skill_reference(skill="delegation", file="dex-agent.md")` when
-  planning against the DEX agent, but the live card always wins.
+  handshake needs the account key this app never releases.
 - The credential proof is attached automatically to the message metadata —
   never construct or pass one yourself.
 - Task credentials default to a 300-second life. Write credentials are

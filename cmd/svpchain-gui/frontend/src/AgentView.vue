@@ -5,8 +5,19 @@ import { NButton, NInput, NSelect, NScrollbar } from 'naive-ui'
 import * as App from '../wailsjs/go/desktop/App'
 import { desktop } from '../wailsjs/go/models'
 import { EventsOn } from '../wailsjs/runtime/runtime'
+import { renderMarkdown } from './markdown'
 
 const { t, tm } = useI18n()
+
+// Rendered markdown links must not navigate the webview; only http(s) URLs
+// are handed to the system browser.
+function onBubbleClick(e: MouseEvent) {
+  const a = (e.target as HTMLElement).closest('a')
+  if (!a) return
+  e.preventDefault()
+  const href = a.getAttribute('href') || ''
+  if (/^https?:\/\//i.test(href)) App.OpenURL(href)
+}
 
 import type { Entry } from './types'
 
@@ -394,7 +405,11 @@ onUnmounted(() => {
           <template v-else-if="line.role === 'assistant'">
             <div class="assistant-block">
               <div class="assistant-avatar" aria-hidden="true">S</div>
-              <div class="bubble assistant-bubble">{{ line.text }}</div>
+              <div
+                class="bubble assistant-bubble markdown-body"
+                @click="onBubbleClick"
+                v-html="renderMarkdown(line.text)"
+              ></div>
             </div>
           </template>
           <template v-else>
@@ -649,8 +664,92 @@ onUnmounted(() => {
   font-size: 14px;
   line-height: 1.7;
   color: var(--text-primary);
-  white-space: pre-wrap;
   word-break: break-word;
+}
+
+/* Rendered markdown inside the assistant bubble (v-html needs :deep). */
+.markdown-body :deep(p),
+.markdown-body :deep(ul),
+.markdown-body :deep(ol),
+.markdown-body :deep(pre),
+.markdown-body :deep(blockquote),
+.markdown-body :deep(table) {
+  margin: 0 0 10px;
+}
+.markdown-body :deep(*:last-child) {
+  margin-bottom: 0;
+}
+.markdown-body :deep(h1),
+.markdown-body :deep(h2),
+.markdown-body :deep(h3),
+.markdown-body :deep(h4) {
+  margin: 14px 0 8px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+.markdown-body :deep(ul),
+.markdown-body :deep(ol) {
+  padding-left: 22px;
+}
+.markdown-body :deep(li) {
+  margin-bottom: 4px;
+}
+.markdown-body :deep(code) {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12.5px;
+  background: var(--bg-chip);
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  padding: 1px 5px;
+  word-break: break-all;
+}
+.markdown-body :deep(pre) {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  overflow-x: auto;
+}
+.markdown-body :deep(pre code) {
+  background: none;
+  border: none;
+  padding: 0;
+  word-break: normal;
+  white-space: pre;
+}
+.markdown-body :deep(blockquote) {
+  border-left: 3px solid var(--border-default);
+  padding: 2px 12px;
+  color: var(--text-secondary);
+}
+.markdown-body :deep(a) {
+  color: var(--accent);
+  text-decoration: none;
+}
+.markdown-body :deep(a:hover) {
+  text-decoration: underline;
+}
+.markdown-body :deep(table) {
+  border-collapse: collapse;
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+}
+.markdown-body :deep(th),
+.markdown-body :deep(td) {
+  border: 1px solid var(--border-default);
+  padding: 5px 10px;
+  text-align: left;
+}
+.markdown-body :deep(th) {
+  background: var(--bg-chip);
+  font-weight: 600;
+}
+.markdown-body :deep(hr) {
+  border: none;
+  border-top: 1px solid var(--border-subtle);
+  margin: 12px 0;
 }
 
 .step-bubble {

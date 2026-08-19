@@ -7,7 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
-	appconfig "github.com/svpchain/svpchain-local-agent/internal/config"
+	appconfig "github.com/svpchain/svpchain-agent/internal/config"
 )
 
 func TestWhitelistAliasPrompt(t *testing.T) {

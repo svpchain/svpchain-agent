@@ -11,7 +11,7 @@ import (
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
 	"github.com/stretchr/testify/require"
 
-	"github.com/svpchain/svpchain-local-agent/internal/registry"
+	"github.com/svpchain/svpchain-agent/internal/registry"
 )
 
 // TestEmitCrossRepoFixture regenerates the credential fixture the chain's

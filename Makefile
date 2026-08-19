@@ -1,6 +1,6 @@
 BUILDDIR ?= build
 BINARY   := svpchain-mcp
-GUIBIN   := local-agent-gui
+GUIBIN   := svpchain-gui
 
 .PHONY: build build-gui build-all package-macos-app package-windows-app build-macos-icon install test tidy clean clean-build
 

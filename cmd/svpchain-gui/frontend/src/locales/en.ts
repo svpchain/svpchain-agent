@@ -87,7 +87,7 @@ export default {
     autoUpdate: 'When on, new releases are downloaded and verified in the background at startup, and you are prompted to restart once the update is ready to install.',
     llmContextWindow: "Your model's context window in tokens. Conversation history is kept within ~70% of this; older turns are auto-summarized when it overflows.",
     skillsConfigBase:
-      "Config root directory. Resolved skills path: {'{path}'}/com.svpchain.agent-gui/skills. Leave empty for the OS default.",
+      "Config root directory. Resolved skills path: {'{path}'}/com.svpchain.agent/skills. Leave empty for the OS default.",
   },
   settings: {
     section: {

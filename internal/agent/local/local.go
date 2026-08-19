@@ -7,9 +7,9 @@ import (
 
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
 
-	"github.com/svpchain/svpchain-local-agent/internal/agent/llm"
-	signermcp "github.com/svpchain/svpchain-local-agent/internal/mcp"
-	"github.com/svpchain/svpchain-local-agent/internal/payload"
+	"github.com/svpchain/svpchain-agent/internal/agent/llm"
+	signermcp "github.com/svpchain/svpchain-agent/internal/mcp"
+	"github.com/svpchain/svpchain-agent/internal/payload"
 )
 
 // Signer executes in-process sign_* tools.

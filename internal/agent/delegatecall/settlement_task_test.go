@@ -12,8 +12,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/svpchain/svpdt"
 
-	settlementmsgs "github.com/svpchain/svpchain-local-agent/internal/chainmsgs/settlement"
-	svpa2a "github.com/svpchain/svpchain-local-agent/internal/a2a"
+	settlementmsgs "github.com/svpchain/svpchain-agent/internal/chainmsgs/settlement"
+	svpa2a "github.com/svpchain/svpchain-agent/internal/a2a"
 )
 
 // stubSettlementIDHex matches the order the stub chain lists for the opener.

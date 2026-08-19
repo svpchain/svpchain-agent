@@ -1,8 +1,8 @@
 package desktop
 
 import (
-	"github.com/svpchain/svpchain-local-agent/internal/prefs"
-	"github.com/svpchain/svpchain-local-agent/internal/whitelist"
+	"github.com/svpchain/svpchain-agent/internal/prefs"
+	"github.com/svpchain/svpchain-agent/internal/whitelist"
 )
 
 // WhitelistEntry is one whitelisted address for the Security tab.

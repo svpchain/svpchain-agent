@@ -9,10 +9,10 @@ import (
 	"strings"
 	"time"
 
-	localsigner "github.com/svpchain/svpchain-local-agent/internal/agent/local"
-	remotemcp "github.com/svpchain/svpchain-local-agent/internal/agent/remote"
-	"github.com/svpchain/svpchain-local-agent/internal/agent/step"
-	"github.com/svpchain/svpchain-local-agent/internal/prefs"
+	localsigner "github.com/svpchain/svpchain-agent/internal/agent/local"
+	remotemcp "github.com/svpchain/svpchain-agent/internal/agent/remote"
+	"github.com/svpchain/svpchain-agent/internal/agent/step"
+	"github.com/svpchain/svpchain-agent/internal/prefs"
 )
 
 const memoryFileName = "agent_memory.json"

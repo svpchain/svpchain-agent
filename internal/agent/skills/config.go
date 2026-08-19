@@ -3,7 +3,7 @@ package skills
 import (
 	"strings"
 
-	"github.com/svpchain/svpchain-local-agent/internal/prefs"
+	"github.com/svpchain/svpchain-agent/internal/prefs"
 )
 
 func loadSkillsConfigBaseFromPrefs() string {

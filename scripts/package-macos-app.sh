@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# package-macos-app.sh — Build the double-clickable macOS app "SVPChain Local Agent.app"
+# package-macos-app.sh — Build the double-clickable macOS app "SVPChain Agent.app"
 #
-# Bundles local-agent-gui and svpchain-mcp into Contents/MacOS/
+# Bundles svpchain-gui and svpchain-mcp into Contents/MacOS/
 # so the GUI can auto-detect the MCP signer binary path.
 #
 # Usage:
@@ -10,19 +10,19 @@
 #   SIGN_IDENTITY="Developer ID Application: …" ./scripts/package-macos-app.sh
 #
 # Output:
-#   build/SVPChain Local Agent.app
-#   build/svpchain-local-agent-<version>-macos.dmg (drag .app to Applications)
+#   build/SVPChain Agent.app
+#   build/svpchain-agent-<version>-macos.dmg (drag .app to Applications)
 
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
-APP_NAME="SVPChain Local Agent"
-BUNDLE_ID="${BUNDLE_ID:-com.svpchain.local-agent-gui}"
+APP_NAME="SVPChain Agent"
+BUNDLE_ID="${BUNDLE_ID:-com.svpchain.agent}"
 BUILDDIR="${BUILDDIR:-$ROOT/build}"
 APP_PATH="${APP_PATH:-$BUILDDIR/$APP_NAME.app}"
-RELEASE_STEM="svpchain-local-agent"
+RELEASE_STEM="svpchain-agent"
 
 if [[ "$(uname -s)" != "Darwin" ]]; then
 	echo "package-macos-app.sh: macOS only" >&2
@@ -69,7 +69,7 @@ go build -mod=readonly -trimpath -o "$BUILDDIR/svpchain-mcp" ./cmd/svpchain-mcp
 
 echo "==> Building GUI with wails (frontend + bindings + binary)"
 "$ROOT/scripts/sync-wails-icon.sh"
-GUI_LDFLAGS="-X github.com/svpchain/svpchain-local-agent/internal/desktop.Version=${VERSION}"
+GUI_LDFLAGS="-X github.com/svpchain/svpchain-agent/internal/desktop.Version=${VERSION}"
 (
 	cd "$ROOT/cmd/svpchain-gui"
 	echo "Build started, please wait..."
@@ -79,15 +79,15 @@ GUI_LDFLAGS="-X github.com/svpchain/svpchain-local-agent/internal/desktop.Versio
 # `go build` work without the frontend toolchain with it. Put it back so
 # packaging does not leave the working tree dirty.
 touch "$ROOT/cmd/svpchain-gui/frontend/dist/.gitkeep"
-cp "$ROOT/cmd/svpchain-gui/build/bin/local-agent-gui.app/Contents/MacOS/local-agent-gui" "$BUILDDIR/local-agent-gui"
+cp "$ROOT/cmd/svpchain-gui/build/bin/svpchain-gui.app/Contents/MacOS/svpchain-gui" "$BUILDDIR/svpchain-gui"
 
 echo "==> Assembling .app bundle"
 rm -rf "$APP_PATH"
 mkdir -p "$APP_PATH/Contents/MacOS" "$APP_PATH/Contents/Resources"
 
-cp "$BUILDDIR/local-agent-gui" "$APP_PATH/Contents/MacOS/"
+cp "$BUILDDIR/svpchain-gui" "$APP_PATH/Contents/MacOS/"
 cp "$BUILDDIR/svpchain-mcp" "$APP_PATH/Contents/MacOS/"
-chmod +x "$APP_PATH/Contents/MacOS/local-agent-gui" \
+chmod +x "$APP_PATH/Contents/MacOS/svpchain-gui" \
 	"$APP_PATH/Contents/MacOS/svpchain-mcp"
 
 if [[ -f "$ROOT/packaging/macos/AppIcon.icns" ]]; then
@@ -123,7 +123,7 @@ if command -v codesign >/dev/null 2>&1; then
 		sign_args+=(--sign -)
 	fi
 	codesign "${sign_args[@]}" "$APP_PATH/Contents/MacOS/svpchain-mcp"
-	codesign "${sign_args[@]}" "$APP_PATH/Contents/MacOS/local-agent-gui"
+	codesign "${sign_args[@]}" "$APP_PATH/Contents/MacOS/svpchain-gui"
 	codesign "${sign_args[@]}" "$APP_PATH"
 	codesign --verify --deep --strict "$APP_PATH"
 fi

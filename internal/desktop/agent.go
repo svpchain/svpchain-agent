@@ -8,14 +8,14 @@ import (
 
 	wruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 
-	"github.com/svpchain/svpchain-local-agent/internal/agent"
-	"github.com/svpchain/svpchain-local-agent/internal/agent/history"
-	"github.com/svpchain/svpchain-local-agent/internal/agent/llm"
-	"github.com/svpchain/svpchain-local-agent/internal/agent/runlog"
-	"github.com/svpchain/svpchain-local-agent/internal/agent/skills"
-	"github.com/svpchain/svpchain-local-agent/internal/i18n"
-	"github.com/svpchain/svpchain-local-agent/internal/manage"
-	"github.com/svpchain/svpchain-local-agent/internal/prefs"
+	"github.com/svpchain/svpchain-agent/internal/agent"
+	"github.com/svpchain/svpchain-agent/internal/agent/history"
+	"github.com/svpchain/svpchain-agent/internal/agent/llm"
+	"github.com/svpchain/svpchain-agent/internal/agent/runlog"
+	"github.com/svpchain/svpchain-agent/internal/agent/skills"
+	"github.com/svpchain/svpchain-agent/internal/i18n"
+	"github.com/svpchain/svpchain-agent/internal/manage"
+	"github.com/svpchain/svpchain-agent/internal/prefs"
 )
 
 // SkillSetting is one assistant skill row for the Settings UI.

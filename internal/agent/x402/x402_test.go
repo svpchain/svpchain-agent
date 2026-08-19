@@ -8,7 +8,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/svpchain/svpchain-local-agent/internal/signer"
+	"github.com/svpchain/svpchain-agent/internal/signer"
 )
 
 func samplePaymentRequiredB64(t *testing.T) string {

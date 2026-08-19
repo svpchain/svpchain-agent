@@ -1,4 +1,4 @@
-// Command svpchain-gui is the graphical tool for svpchain-local-agent.
+// Command svpchain-gui is the graphical tool for svpchain-agent.
 //
 // It is a Wails desktop app: the Go application layer lives in internal/desktop
 // (key management and in-app updates), and the UI is a Vue frontend embedded

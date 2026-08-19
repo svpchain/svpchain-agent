@@ -7,7 +7,7 @@ import (
 
 	wruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 
-	"github.com/svpchain/svpchain-local-agent/internal/agent/delegatecall"
+	"github.com/svpchain/svpchain-agent/internal/agent/delegatecall"
 )
 
 // confirmTimeout bounds how long a grant dialog may sit unanswered. A dialog

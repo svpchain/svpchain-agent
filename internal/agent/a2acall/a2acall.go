@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	svpa2a "github.com/svpchain/svpchain-local-agent/internal/a2a"
+	svpa2a "github.com/svpchain/svpchain-agent/internal/a2a"
 )
 
 func IsTool(name string) bool {

@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"runtime"
 
-	"github.com/svpchain/svpchain-local-agent/internal/agent/guard"
-	"github.com/svpchain/svpchain-local-agent/internal/agent/runlog"
+	"github.com/svpchain/svpchain-agent/internal/agent/guard"
+	"github.com/svpchain/svpchain-agent/internal/agent/runlog"
 )
 
 // GuardCase is one offline regression case for the transfer whitelist gate.

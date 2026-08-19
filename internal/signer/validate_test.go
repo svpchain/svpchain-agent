@@ -11,8 +11,8 @@ import (
 	"github.com/cosmos/gogoproto/proto"
 	"github.com/stretchr/testify/require"
 
-	"github.com/svpchain/svpchain-local-agent/internal/payload"
-	"github.com/svpchain/svpchain-local-agent/internal/signer"
+	"github.com/svpchain/svpchain-agent/internal/payload"
+	"github.com/svpchain/svpchain-agent/internal/signer"
 )
 
 // payloadWithBody wraps raw TxBody bytes in a minimal signable TxPayload with an

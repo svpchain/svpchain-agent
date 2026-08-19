@@ -8,7 +8,7 @@ A local-key on-chain agent for svpchain (Cosmos SDK + EVM) that also **discovers
 
 - **`svpchain-mcp`** — stdio MCP signing service. Holds the key (OS credential store), signs only payloads/challenges that pass strict cross-checks.
 - **Remote MCP** (`https://mcp-testnet.svpchain.org/`, HTTP) — builds unsigned txs, serves market data, broadcasts signed txs. Not in this repo.
-- **`local-agent-gui`** — Wails app (Go + embedded Vue) with a built-in LLM tool-calling assistant that runs the signer in-process.
+- **`svpchain-gui`** — Wails app (Go + embedded Vue) with a built-in LLM tool-calling assistant that runs the signer in-process.
 
 ## Agent discovery & delegation (what makes this project distinct)
 
@@ -78,7 +78,7 @@ The standalone `svpchain-mcp` signer reads the same `prefs.json` but does **not*
 ## Keys & config
 
 - Keys: OS credential store (Keychain / Cred Manager / Secret Service), service `svpchain-agent`, account = chain id. **One key per chain.** No `--key-hex` flag by design (would leak into process args). Headless fallback: `SIGNER_KEY_HEX`.
-- Config: `prefs.json` in the app config dir (`~/Library/Application Support/com.svpchain.local-agent-gui/` on macOS, `%AppData%` on Windows). Holds LLM settings, remote MCP URL, whitelist, `disabled_skills`. `agent_memory.json` sits alongside it.
+- Config: `prefs.json` in the app config dir (`~/Library/Application Support/com.svpchain.agent/` on macOS, `%AppData%` on Windows). Holds LLM settings, remote MCP URL, whitelist, `disabled_skills`. `agent_memory.json` sits alongside it.
 - EVM chain id: parsed from `--chain-id` (`svp_2517-1` → `2517`) unless `--evm-chain-id` overrides. No chain number + no flag = EVM signing disabled, Cosmos unaffected.
 
 ## Conventions for code changes

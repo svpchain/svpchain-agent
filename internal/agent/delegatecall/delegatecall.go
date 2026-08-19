@@ -10,9 +10,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/svpchain/svpchain-local-agent/internal/agent/llm"
-	"github.com/svpchain/svpchain-local-agent/internal/delegation"
-	"github.com/svpchain/svpchain-local-agent/internal/registry"
+	"github.com/svpchain/svpchain-agent/internal/agent/llm"
+	"github.com/svpchain/svpchain-agent/internal/delegation"
+	"github.com/svpchain/svpchain-agent/internal/registry"
 )
 
 // ConfirmRequest is what the user is shown before anything is granted.

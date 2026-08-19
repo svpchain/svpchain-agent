@@ -21,9 +21,9 @@
 
 **文件位置**（与 `prefs.json` 同目录）：
 
-- macOS：`~/Library/Application Support/com.svpchain.local-agent-gui/agent_memory.json`
-- Windows：`%AppData%\com.svpchain.local-agent-gui\agent_memory.json`
-- Linux：`~/.config/com.svpchain.local-agent-gui/agent_memory.json`
+- macOS：`~/Library/Application Support/com.svpchain.agent/agent_memory.json`
+- Windows：`%AppData%\com.svpchain.agent\agent_memory.json`
+- Linux：`~/.config/com.svpchain.agent/agent_memory.json`
 
 
 ## 对话历史与上下文管理

@@ -7,16 +7,16 @@ import (
 
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
 
-	"github.com/svpchain/svpchain-local-agent/internal/agent/a2acall"
-	"github.com/svpchain/svpchain-local-agent/internal/agent/delegatecall"
-	"github.com/svpchain/svpchain-local-agent/internal/agent/guard"
-	"github.com/svpchain/svpchain-local-agent/internal/agent/httpfetch"
-	"github.com/svpchain/svpchain-local-agent/internal/agent/llm"
-	localsigner "github.com/svpchain/svpchain-local-agent/internal/agent/local"
-	"github.com/svpchain/svpchain-local-agent/internal/agent/memory"
-	remotemcp "github.com/svpchain/svpchain-local-agent/internal/agent/remote"
-	"github.com/svpchain/svpchain-local-agent/internal/agent/skills"
-	"github.com/svpchain/svpchain-local-agent/internal/agent/x402"
+	"github.com/svpchain/svpchain-agent/internal/agent/a2acall"
+	"github.com/svpchain/svpchain-agent/internal/agent/delegatecall"
+	"github.com/svpchain/svpchain-agent/internal/agent/guard"
+	"github.com/svpchain/svpchain-agent/internal/agent/httpfetch"
+	"github.com/svpchain/svpchain-agent/internal/agent/llm"
+	localsigner "github.com/svpchain/svpchain-agent/internal/agent/local"
+	"github.com/svpchain/svpchain-agent/internal/agent/memory"
+	remotemcp "github.com/svpchain/svpchain-agent/internal/agent/remote"
+	"github.com/svpchain/svpchain-agent/internal/agent/skills"
+	"github.com/svpchain/svpchain-agent/internal/agent/x402"
 )
 
 // buildToolList merges remote MCP tool schemas with the local-only tool defs.

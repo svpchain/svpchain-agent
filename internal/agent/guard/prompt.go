@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/svpchain/svpchain-local-agent/internal/whitelist"
+	"github.com/svpchain/svpchain-agent/internal/whitelist"
 )
 
 // AliasPrompt builds a system-prompt section mapping whitelist aliases

@@ -8,7 +8,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/ethereum/go-ethereum/common"
 
-	appconfig "github.com/svpchain/svpchain-local-agent/internal/config"
+	appconfig "github.com/svpchain/svpchain-agent/internal/config"
 )
 
 const (

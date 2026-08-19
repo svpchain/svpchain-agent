@@ -6,7 +6,7 @@ import (
 
 	"github.com/jeandeaual/go-locale"
 
-	"github.com/svpchain/svpchain-local-agent/internal/brand"
+	"github.com/svpchain/svpchain-agent/internal/brand"
 )
 
 // Lang is a supported language code.

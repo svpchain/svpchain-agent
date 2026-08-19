@@ -7,7 +7,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/svpchain/svpchain-local-agent/internal/agent/delegatecall"
+	"github.com/svpchain/svpchain-agent/internal/agent/delegatecall"
 )
 
 // With the remote MCP switched off, the tool list must contain no remote

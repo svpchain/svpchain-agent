@@ -11,9 +11,9 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/svpchain/svpchain-local-agent/internal/agent/guard"
-	"github.com/svpchain/svpchain-local-agent/internal/agent/llm"
-	"github.com/svpchain/svpchain-local-agent/internal/prefs"
+	"github.com/svpchain/svpchain-agent/internal/agent/guard"
+	"github.com/svpchain/svpchain-agent/internal/agent/llm"
+	"github.com/svpchain/svpchain-agent/internal/prefs"
 )
 
 const logFileName = "agent_runs.jsonl"

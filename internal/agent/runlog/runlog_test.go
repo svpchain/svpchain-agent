@@ -6,7 +6,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/svpchain/svpchain-local-agent/internal/agent/llm"
+	"github.com/svpchain/svpchain-agent/internal/agent/llm"
 )
 
 func TestRedact_truncateAndKey(t *testing.T) {

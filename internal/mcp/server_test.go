@@ -18,9 +18,9 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/stretchr/testify/require"
 
-	"github.com/svpchain/svpchain-local-agent/internal/payload"
-	"github.com/svpchain/svpchain-local-agent/internal/prefs"
-	"github.com/svpchain/svpchain-local-agent/internal/signer"
+	"github.com/svpchain/svpchain-agent/internal/payload"
+	"github.com/svpchain/svpchain-agent/internal/prefs"
+	"github.com/svpchain/svpchain-agent/internal/signer"
 )
 
 func TestMain(m *testing.M) {

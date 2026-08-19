@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/svpchain/svpchain-local-agent/internal/prefs"
+	"github.com/svpchain/svpchain-agent/internal/prefs"
 )
 
 func TestMain(m *testing.M) {

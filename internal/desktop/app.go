@@ -13,13 +13,13 @@ import (
 
 	wruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 
-	"github.com/svpchain/svpchain-local-agent/internal/agent"
-	"github.com/svpchain/svpchain-local-agent/internal/agent/skills"
-	"github.com/svpchain/svpchain-local-agent/internal/brand"
-	"github.com/svpchain/svpchain-local-agent/internal/i18n"
-	"github.com/svpchain/svpchain-local-agent/internal/manage"
-	"github.com/svpchain/svpchain-local-agent/internal/prefs"
-	"github.com/svpchain/svpchain-local-agent/internal/update"
+	"github.com/svpchain/svpchain-agent/internal/agent"
+	"github.com/svpchain/svpchain-agent/internal/agent/skills"
+	"github.com/svpchain/svpchain-agent/internal/brand"
+	"github.com/svpchain/svpchain-agent/internal/i18n"
+	"github.com/svpchain/svpchain-agent/internal/manage"
+	"github.com/svpchain/svpchain-agent/internal/prefs"
+	"github.com/svpchain/svpchain-agent/internal/update"
 )
 
 // App is the Wails application context; its exported methods are bound to JS.
@@ -203,7 +203,7 @@ func (a *App) StartUpdate(info *update.Info) (string, error) {
 	if err != nil {
 		return "", localized(err)
 	}
-	staging := filepath.Join(cache, "com.svpchain.agent-gui", "update", info.Latest)
+	staging := filepath.Join(cache, brand.BundleID, "update", info.Latest)
 
 	progress := func(done, total int64) {
 		if total <= 0 {

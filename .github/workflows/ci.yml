@@ -113,11 +113,11 @@ jobs:
           tags=""
           if [ "${{ matrix.target }}" != "darwin-arm64" ]; then tags="-tags webkit2_41"; fi
           ( cd cmd/svpchain-gui && wails build -clean -trimpath $tags \
-              -ldflags "-X github.com/svpchain/svpchain-local-agent/internal/desktop.Version=${VERSION}" )
+              -ldflags "-X github.com/svpchain/svpchain-agent/internal/desktop.Version=${VERSION}" )
           if [ "${{ matrix.target }}" = "darwin-arm64" ]; then
-            cp cmd/svpchain-gui/build/bin/local-agent-gui.app/Contents/MacOS/local-agent-gui dist/
+            cp cmd/svpchain-gui/build/bin/svpchain-gui.app/Contents/MacOS/svpchain-gui dist/
           else
-            cp cmd/svpchain-gui/build/bin/local-agent-gui dist/
+            cp cmd/svpchain-gui/build/bin/svpchain-gui dist/
           fi
 
       - name: Build signer and app (Windows)
@@ -131,10 +131,10 @@ jobs:
           go build -mod=readonly -trimpath -o dist/svpchain-mcp.exe ./cmd/svpchain-mcp
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           Push-Location cmd/svpchain-gui
-          wails build -clean -trimpath -ldflags "-X github.com/svpchain/svpchain-local-agent/internal/desktop.Version=$env:VERSION"
+          wails build -clean -trimpath -ldflags "-X github.com/svpchain/svpchain-agent/internal/desktop.Version=$env:VERSION"
           if ($LASTEXITCODE -ne 0) { Pop-Location; exit $LASTEXITCODE }
           Pop-Location
-          Copy-Item cmd/svpchain-gui/build/bin/local-agent-gui.exe dist/
+          Copy-Item cmd/svpchain-gui/build/bin/svpchain-gui.exe dist/
 
       - name: Verify the app binary was produced
         shell: bash
@@ -142,11 +142,11 @@ jobs:
         # empty artifact upload would still be a green check.
         run: |
           ls -l dist/
-          test -s dist/local-agent-gui || test -s dist/local-agent-gui.exe
+          test -s dist/svpchain-gui || test -s dist/svpchain-gui.exe
 
       - name: Upload app artifact
         uses: actions/upload-artifact@v4
         with:
-          name: local-agent-${{ matrix.target }}
+          name: svpchain-agent-${{ matrix.target }}
           path: dist/*
           if-no-files-found: error

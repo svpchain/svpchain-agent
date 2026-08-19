@@ -7,7 +7,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/svpchain/svpchain-local-agent/internal/manage"
+	"github.com/svpchain/svpchain-agent/internal/manage"
 )
 
 func TestFormatNoSigningKey(t *testing.T) {

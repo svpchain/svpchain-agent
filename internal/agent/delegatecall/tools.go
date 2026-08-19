@@ -11,10 +11,10 @@ import (
 	sdkmath "cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	"github.com/svpchain/svpchain-local-agent/internal/a2a"
-	"github.com/svpchain/svpchain-local-agent/internal/chainmsgs"
-	"github.com/svpchain/svpchain-local-agent/internal/delegation"
-	"github.com/svpchain/svpchain-local-agent/internal/registry"
+	"github.com/svpchain/svpchain-agent/internal/a2a"
+	"github.com/svpchain/svpchain-agent/internal/chainmsgs"
+	"github.com/svpchain/svpchain-agent/internal/delegation"
+	"github.com/svpchain/svpchain-agent/internal/registry"
 )
 
 // defaultDelegationDays is a root delegation's default life.

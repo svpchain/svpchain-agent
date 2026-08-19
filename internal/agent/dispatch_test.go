@@ -6,7 +6,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/svpchain/svpchain-local-agent/internal/agent/memory"
+	"github.com/svpchain/svpchain-agent/internal/agent/memory"
 )
 
 // dispatchTool must short-circuit signer_whoami / whoami to cached session memory

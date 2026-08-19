@@ -13,8 +13,8 @@ import (
 
 const (
 	githubOwner = "svpchain"
-	githubRepo  = "local-agent"
-	releaseStem = "svpchain-local-agent"
+	githubRepo  = "svpchain-agent"
+	releaseStem = "svpchain-agent"
 )
 
 var latestReleaseURL = fmt.Sprintf("https://api.github.com/repos/%s/%s/releases/latest", githubOwner, githubRepo)

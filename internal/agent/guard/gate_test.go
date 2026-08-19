@@ -11,9 +11,9 @@ import (
 	ethcrypto "github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/require"
 
-	appconfig "github.com/svpchain/svpchain-local-agent/internal/config"
-	"github.com/svpchain/svpchain-local-agent/internal/prefs"
-	"github.com/svpchain/svpchain-local-agent/internal/whitelist"
+	appconfig "github.com/svpchain/svpchain-agent/internal/config"
+	"github.com/svpchain/svpchain-agent/internal/prefs"
+	"github.com/svpchain/svpchain-agent/internal/whitelist"
 )
 
 const gateChainID = "localsvp-1"

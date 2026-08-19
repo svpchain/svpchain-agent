@@ -6,13 +6,16 @@ import (
 
 	"github.com/99designs/keyring"
 
-	"github.com/svpchain/svpchain-local-agent/internal/brand"
+	"github.com/svpchain/svpchain-agent/internal/brand"
 )
 
 // ServiceName is the service/collection name for signing keys in the OS credential store.
 // On macOS Keychain it is the entry service; on Windows Credential Manager a prefix;
 // on Linux Secret Service an attribute name.
-const ServiceName = "svpchain-local-agent"
+const ServiceName = "svpchain-agent"
+
+// legacyServiceName is the credential-store service used before the project rename.
+const legacyServiceName = "svpchain-local-agent"
 
 // ErrNotFound is returned by Load when no key exists under the given name.
 // Callers (especially the serve path) use it to decide whether to fall back to SIGNER_KEY_HEX.
@@ -24,9 +27,24 @@ var ErrNotFound = errors.New("no key stored in the OS credential store")
 //
 // The macOS Keychain backend requires a CGO build; release binaries are compiled with CGO_ENABLED=1.
 // On headless Linux without Secret Service, Open (or a later Get) fails and callers fall back to SIGNER_KEY_HEX.
+//
+// If the current service has no keys, Open falls back to the pre-rename service so existing
+// installs keep finding their signing key.
 func Open() (keyring.Keyring, error) {
+	primary, err := openNamed(ServiceName)
+	if err != nil {
+		return openNamed(legacyServiceName)
+	}
+	if hasKeys(primary) {
+		return primary, nil
+	}
+	legacy, legacyErr := openNamed(legacyServiceName)
+	return selectRing(primary, nil, legacy, legacyErr)
+}
+
+func openNamed(name string) (keyring.Keyring, error) {
 	return keyring.Open(keyring.Config{
-		ServiceName: ServiceName,
+		ServiceName: name,
 		AllowedBackends: []keyring.BackendType{
 			keyring.KeychainBackend,
 			keyring.WinCredBackend,
@@ -37,8 +55,32 @@ func Open() (keyring.Keyring, error) {
 		KeychainAccessibleWhenUnlocked: true,
 		// On Linux, store in the user's default login collection.
 		LibSecretCollectionName: "login",
-		WinCredPrefix:           ServiceName,
+		WinCredPrefix:           name,
 	})
+}
+
+func selectRing(primary keyring.Keyring, primaryErr error, legacy keyring.Keyring, legacyErr error) (keyring.Keyring, error) {
+	if primaryErr != nil {
+		if legacyErr != nil {
+			return nil, primaryErr
+		}
+		return legacy, nil
+	}
+	if hasKeys(primary) {
+		return primary, nil
+	}
+	if legacyErr == nil && hasKeys(legacy) {
+		return legacy, nil
+	}
+	return primary, nil
+}
+
+func hasKeys(ring keyring.Keyring) bool {
+	if ring == nil {
+		return false
+	}
+	names, err := List(ring)
+	return err == nil && len(names) > 0
 }
 
 // Store writes hexKey under name, overwriting any existing value (key rotation = import again).

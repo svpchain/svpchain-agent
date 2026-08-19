@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/svpchain/svpchain-local-agent/internal/registry"
+	"github.com/svpchain/svpchain-agent/internal/registry"
 )
 
 // DiscoveredAgent is one registry row for the Agents tab.

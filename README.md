@@ -1,4 +1,4 @@
-# svpchain-local-agent
+# svpchain-agent
 
 **English** | [简体中文](README.zh-CN.md)
 
@@ -6,7 +6,7 @@ A local-key **on-chain agent** for svpchain (Cosmos/EVM) that **discovers other 
 
 - **Local signing MCP service** (`svpchain-mcp`) — keeps the user's signing key on the local machine, never exposes it, and only signs payloads/challenges that pass strict cross-checks.
 - **Remote build + broadcast MCP service** — constructs unsigned transactions, serves market data, and broadcasts signed transactions. Runs off-machine (`https://mcp-testnet.svpchain.org/`).
-- **Built-in LLM assistant** (`local-agent-gui`) — a streaming tool-calling loop (OpenAI-compatible APIs or native Anthropic) that orchestrates the two: the remote side *builds* and *broadcasts*, the local side *signs*. Keys never leave the machine. Optional **transfer whitelist**, modular **assistant skills**, multi-turn **conversation history**, and local **run logs** tighten transfers, prompts, and observability.
+- **Built-in LLM assistant** (`svpchain-gui`) — a streaming tool-calling loop (OpenAI-compatible APIs or native Anthropic) that orchestrates the two: the remote side *builds* and *broadcasts*, the local side *signs*. Keys never leave the machine. Optional **transfer whitelist**, modular **assistant skills**, multi-turn **conversation history**, and local **run logs** tighten transfers, prompts, and observability.
 - **Agent discovery & delegation** — find agents in the chain's `x/agent` registry and hand them tasks under short-lived **SVP-DT credentials**, so a remote agent can act on the user's account without ever holding the user's key.
 - **Google A2A (Agent-to-Agent)** — delegate sub-tasks to other A2A agents (client only; this agent never runs as a network service).
 

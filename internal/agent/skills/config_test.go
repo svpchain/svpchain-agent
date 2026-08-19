@@ -6,7 +6,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/svpchain/svpchain-local-agent/internal/agent/skills"
+	"github.com/svpchain/svpchain-agent/internal/agent/skills"
 )
 
 func TestUserSkillsDir_appliedConfigBase(t *testing.T) {
@@ -19,7 +19,7 @@ func TestUserSkillsDir_appliedConfigBase(t *testing.T) {
 	skills.ApplySkillsConfigBase(root)
 
 	got := skills.UserSkillsDir()
-	want := filepath.Join(root, "com.svpchain.agent-gui", "skills")
+	want := filepath.Join(root, "com.svpchain.agent", "skills")
 	require.Equal(t, want, got)
 }
 
@@ -39,7 +39,7 @@ func TestUserSkillsDir_setSkillsDirOverrideTakesPrecedence(t *testing.T) {
 func TestResolveUserSkillsDir(t *testing.T) {
 	got, err := skills.ResolveUserSkillsDir("/tmp/example")
 	require.NoError(t, err)
-	require.Equal(t, filepath.Join("/tmp/example", "com.svpchain.agent-gui", "skills"), got)
+	require.Equal(t, filepath.Join("/tmp/example", "com.svpchain.agent", "skills"), got)
 }
 
 func TestUserSkillsDir_emptyBaseUsesOSDefault(t *testing.T) {
@@ -50,6 +50,6 @@ func TestUserSkillsDir_emptyBaseUsesOSDefault(t *testing.T) {
 
 	defaultBase, err := skills.DefaultSkillsConfigBase()
 	require.NoError(t, err)
-	want := filepath.Join(defaultBase, "com.svpchain.agent-gui", "skills")
+	want := filepath.Join(defaultBase, "com.svpchain.agent", "skills")
 	require.Equal(t, want, skills.UserSkillsDir())
 }

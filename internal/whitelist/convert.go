@@ -1,6 +1,6 @@
 package whitelist
 
-import "github.com/svpchain/svpchain-local-agent/internal/prefs"
+import "github.com/svpchain/svpchain-agent/internal/prefs"
 
 // EntriesFromPrefs converts persisted whitelist rows to domain entries.
 func EntriesFromPrefs(in []prefs.WhitelistEntry) []Entry {

@@ -9,9 +9,9 @@ import (
 	"github.com/cosmos/gogoproto/proto"
 	"github.com/stretchr/testify/require"
 
-	settlementmsgs "github.com/svpchain/svpchain-local-agent/internal/chainmsgs/settlement"
-	"github.com/svpchain/svpchain-local-agent/internal/payload"
-	"github.com/svpchain/svpchain-local-agent/internal/signer"
+	settlementmsgs "github.com/svpchain/svpchain-agent/internal/chainmsgs/settlement"
+	"github.com/svpchain/svpchain-agent/internal/payload"
+	"github.com/svpchain/svpchain-agent/internal/signer"
 )
 
 func openSettlementAny(t *testing.T, opener string, amount int64) *codectypes.Any {

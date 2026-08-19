@@ -1,7 +1,7 @@
 package history
 
 import (
-	"github.com/svpchain/svpchain-local-agent/internal/agent/llm"
+	"github.com/svpchain/svpchain-agent/internal/agent/llm"
 )
 
 // DefaultContextWindow is assumed when the user has not configured one.

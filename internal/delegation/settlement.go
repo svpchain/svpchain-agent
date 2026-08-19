@@ -8,8 +8,8 @@ import (
 	sdkmath "cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	settlementmsgs "github.com/svpchain/svpchain-local-agent/internal/chainmsgs/settlement"
-	"github.com/svpchain/svpchain-local-agent/internal/registry"
+	settlementmsgs "github.com/svpchain/svpchain-agent/internal/chainmsgs/settlement"
+	"github.com/svpchain/svpchain-agent/internal/registry"
 )
 
 // OpenSettlement escrows cap (plus the chain's payment fee, charged on top)

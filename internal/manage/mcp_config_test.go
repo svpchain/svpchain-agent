@@ -25,7 +25,7 @@ func TestMCPConfigJSON(t *testing.T) {
 func TestMCPConfigText_ClaudeCode(t *testing.T) {
 	got, err := MCPConfigText(AgentNameClaudeCode, "svp-2517-1", "/usr/local/bin/svpchain-mcp")
 	require.NoError(t, err)
-	require.Contains(t, got, "claude mcp add-json -s user svpchain-local-agent")
+	require.Contains(t, got, "claude mcp add-json -s user svpchain-agent")
 	require.Contains(t, got, "claude mcp add-json -s user svpchain-remote")
 	require.Contains(t, got, `"svp-2517-1"`)
 	require.Contains(t, got, RemoteMCPURL)
@@ -35,7 +35,7 @@ func TestMCPConfigText_Cursor(t *testing.T) {
 	got, err := MCPConfigText(AgentNameCursor, "svp-2517-1", "/usr/local/bin/svpchain-mcp")
 	require.NoError(t, err)
 	require.Contains(t, got, `"mcpServers"`)
-	require.Contains(t, got, `"svpchain-local-agent"`)
+	require.Contains(t, got, `"svpchain-agent"`)
 	require.Contains(t, got, `"svpchain-remote"`)
 	require.Contains(t, got, `"type": "http"`)
 }

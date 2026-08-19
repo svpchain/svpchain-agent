@@ -8,7 +8,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/svpchain/svpchain-local-agent/internal/prefs"
+	"github.com/svpchain/svpchain-agent/internal/prefs"
 )
 
 func TestSessionMemoryRoundTrip(t *testing.T) {

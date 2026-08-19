@@ -10,16 +10,18 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
+
+	"github.com/svpchain/svpchain-agent/internal/brand"
 )
 
-const helperScript = `param(
+var helperScript = `param(
 	[int]$AppPid,
 	[string]$TargetDir,
 	[string]$StagedDir
 )
 $ErrorActionPreference = "Stop"
 
-$logDir = Join-Path $env:LOCALAPPDATA "com.svpchain.agent-gui\update"
+$logDir = Join-Path $env:LOCALAPPDATA "` + brand.BundleID + `\update"
 New-Item -ItemType Directory -Force -Path $logDir | Out-Null
 $logPath = Join-Path $logDir "apply-update.log"
 Start-Transcript -Path $logPath -Append | Out-Null
@@ -91,7 +93,7 @@ func LaunchReplacer(target, staged string) error {
 	if err != nil {
 		return err
 	}
-	helperDir := filepath.Join(cache, "com.svpchain.agent-gui", "update")
+	helperDir := filepath.Join(cache, brand.BundleID, "update")
 	if err := os.MkdirAll(helperDir, 0o755); err != nil {
 		return err
 	}

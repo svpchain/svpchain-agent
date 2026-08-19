@@ -10,7 +10,7 @@ import (
 	"github.com/99designs/keyring"
 	"github.com/stretchr/testify/require"
 
-	"github.com/svpchain/svpchain-local-agent/internal/keystore"
+	"github.com/svpchain/svpchain-agent/internal/keystore"
 )
 
 const (
@@ -154,7 +154,7 @@ func TestSelectKey_SurfacesLoadError(t *testing.T) {
 // /Applications bundle and passed only on a machine that happened to have one.
 func TestGuessSignerBinaryPath(t *testing.T) {
 	dir := t.TempDir()
-	guiPath := filepath.Join(dir, "local-agent-gui")
+	guiPath := filepath.Join(dir, "svpchain-gui")
 	signerPath := filepath.Join(dir, "svpchain-mcp")
 	require.NoError(t, os.WriteFile(guiPath, []byte("gui"), 0o755))
 	require.NoError(t, os.WriteFile(signerPath, []byte("signer"), 0o755))
@@ -166,7 +166,7 @@ func TestGuessSignerBinaryPath(t *testing.T) {
 
 func TestGuessSignerBinaryPathWindowsName(t *testing.T) {
 	dir := t.TempDir()
-	guiPath := filepath.Join(dir, "local-agent-gui.exe")
+	guiPath := filepath.Join(dir, "svpchain-gui.exe")
 	require.NoError(t, os.WriteFile(guiPath, []byte("gui"), 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "svpchain-mcp.exe"), []byte("signer"), 0o755))
 
@@ -177,7 +177,7 @@ func TestGuessSignerBinaryPathWindowsName(t *testing.T) {
 // asking, rather than handing out a path that does not exist.
 func TestGuessSignerBinaryPathMissing(t *testing.T) {
 	dir := t.TempDir()
-	guiPath := filepath.Join(dir, "local-agent-gui")
+	guiPath := filepath.Join(dir, "svpchain-gui")
 	require.NoError(t, os.WriteFile(guiPath, []byte("gui"), 0o755))
 
 	require.Empty(t, GuessSignerBinaryPath(guiPath))
@@ -187,7 +187,7 @@ func TestGuessSignerBinaryPathMissing(t *testing.T) {
 // A directory named like the signer is not a signer.
 func TestGuessSignerBinaryPathIgnoresDirectories(t *testing.T) {
 	dir := t.TempDir()
-	guiPath := filepath.Join(dir, "local-agent-gui")
+	guiPath := filepath.Join(dir, "svpchain-gui")
 	require.NoError(t, os.WriteFile(guiPath, []byte("gui"), 0o755))
 	require.NoError(t, os.Mkdir(filepath.Join(dir, "svpchain-mcp"), 0o755))
 

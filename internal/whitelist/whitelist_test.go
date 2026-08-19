@@ -6,7 +6,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/stretchr/testify/require"
 
-	appconfig "github.com/svpchain/svpchain-local-agent/internal/config"
+	appconfig "github.com/svpchain/svpchain-agent/internal/config"
 )
 
 func TestValidateCosmosAddress(t *testing.T) {

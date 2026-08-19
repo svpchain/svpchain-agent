@@ -15,10 +15,10 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"golang.org/x/term"
 
-	"github.com/svpchain/svpchain-local-agent/internal/keystore"
-	"github.com/svpchain/svpchain-local-agent/internal/manage"
-	signermcp "github.com/svpchain/svpchain-local-agent/internal/mcp"
-	"github.com/svpchain/svpchain-local-agent/internal/signer"
+	"github.com/svpchain/svpchain-agent/internal/keystore"
+	"github.com/svpchain/svpchain-agent/internal/manage"
+	signermcp "github.com/svpchain/svpchain-agent/internal/mcp"
+	"github.com/svpchain/svpchain-agent/internal/signer"
 )
 
 func usage(w io.Writer) {
@@ -79,7 +79,7 @@ func runServe(args []string) error {
 	h := &signermcp.Handlers{Priv: priv, ChainID: *chainID, EVMChainID: evmID}
 
 	srv := mcp.NewServer(&mcp.Implementation{
-		Name:    "svpchain-local-agent",
+		Name:    "svpchain-agent",
 		Version: "v0.1.0",
 	}, nil)
 	signermcp.Register(srv, h)

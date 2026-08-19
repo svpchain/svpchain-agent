@@ -5,13 +5,13 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleExecutable</key>
-	<string>local-agent-gui</string>
+	<string>svpchain-gui</string>
 	<key>CFBundleIdentifier</key>
 	<string>@BUNDLE_ID@</string>
 	<key>CFBundleName</key>
-	<string>SVPChain Local Agent</string>
+	<string>SVPChain Agent</string>
 	<key>CFBundleDisplayName</key>
-	<string>SVPChain Local Agent</string>
+	<string>SVPChain Agent</string>
 	<key>CFBundleLocalizations</key>
 	<array>
 		<string>en</string>

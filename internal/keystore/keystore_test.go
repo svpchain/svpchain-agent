@@ -8,7 +8,7 @@ import (
 	"github.com/99designs/keyring"
 	"github.com/stretchr/testify/require"
 
-	"github.com/svpchain/svpchain-local-agent/internal/keystore"
+	"github.com/svpchain/svpchain-agent/internal/keystore"
 )
 
 const sampleHex = "bdac2376052bca8d4ae7c2012578f00ef5c2ce40c06bb0a06f986cd1e016c570"
@@ -68,4 +68,36 @@ func TestList_ReturnsNames(t *testing.T) {
 func TestErrNotFound_IsSentinel(t *testing.T) {
 	// Preserve the public sentinel so callers can rely on errors.Is for SIGNER_KEY_HEX fallback.
 	require.True(t, errors.Is(keystore.ErrNotFound, keystore.ErrNotFound))
+}
+
+func TestSelectRing_prefersPrimaryWhenPopulated(t *testing.T) {
+	primary := newRing()
+	legacy := newRing()
+	require.NoError(t, keystore.Store(primary, "localsvp-1", sampleHex))
+	require.NoError(t, keystore.Store(legacy, "other", sampleHex))
+
+	got, err := keystore.SelectRingForTest(primary, nil, legacy, nil)
+	require.NoError(t, err)
+	names, err := keystore.List(got)
+	require.NoError(t, err)
+	require.Equal(t, []string{"localsvp-1"}, names)
+}
+
+func TestSelectRing_fallsBackToLegacyWhenPrimaryEmpty(t *testing.T) {
+	primary := newRing()
+	legacy := newRing()
+	require.NoError(t, keystore.Store(legacy, "localsvp-1", sampleHex))
+
+	got, err := keystore.SelectRingForTest(primary, nil, legacy, nil)
+	require.NoError(t, err)
+	names, err := keystore.List(got)
+	require.NoError(t, err)
+	require.Equal(t, []string{"localsvp-1"}, names)
+}
+
+func TestSelectRing_usesEmptyPrimaryWhenLegacyMissing(t *testing.T) {
+	primary := newRing()
+	got, err := keystore.SelectRingForTest(primary, nil, nil, errors.New("no legacy"))
+	require.NoError(t, err)
+	require.Equal(t, primary, got)
 }

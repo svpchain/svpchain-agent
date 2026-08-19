@@ -2,7 +2,7 @@
 //
 // Log file: next to prefs.json as agent_runs.jsonl
 //
-//	macOS: ~/Library/Application Support/com.svpchain.agent-gui/agent_runs.jsonl
+//	macOS: ~/Library/Application Support/com.svpchain.agent/agent_runs.jsonl
 //
 // Each line is one JSON Run with run_id, steps, llm_rounds, usage totals, outcome
 // (success|failed|stopped|rejected|cancelled), and tx_hashes extracted from broadcast tool results.

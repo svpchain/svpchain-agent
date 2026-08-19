@@ -1,6 +1,6 @@
 # package-windows.ps1 — Build the Windows release folder and zip archive.
 #
-# Bundles local-agent-gui.exe and svpchain-mcp.exe into one folder so the GUI
+# Bundles svpchain-gui.exe and svpchain-mcp.exe into one folder so the GUI
 # can auto-detect the MCP signer binary path.
 #
 # Usage:
@@ -8,17 +8,17 @@
 #   $env:VERSION = "1.0.0"; .\scripts\package-windows.ps1
 #
 # Output:
-#   build\SVPChain Local Agent\local-agent-gui.exe
-#   build\SVPChain Local Agent\svpchain-mcp.exe
-#   build\svpchain-local-agent-<version>-windows-amd64.zip
+#   build\SVPChain Agent\svpchain-gui.exe
+#   build\SVPChain Agent\svpchain-mcp.exe
+#   build\svpchain-agent-<version>-windows-amd64.zip
 
 $ErrorActionPreference = "Stop"
 
 $Root = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
 Set-Location $Root
 
-$AppDirName = "SVPChain Local Agent"
-$ReleaseStem = "svpchain-local-agent"
+$AppDirName = "SVPChain Agent"
+$ReleaseStem = "svpchain-agent"
 $BuildDir = if ($env:BUILDDIR) { $env:BUILDDIR } else { Join-Path $Root "build" }
 $AppDir = Join-Path $BuildDir $AppDirName
 
@@ -76,7 +76,7 @@ foreach ($dir in @("windows", "darwin")) {
 }
 
 Write-Host "==> Building GUI with wails (frontend + bindings + binary)"
-$GuiLdflags = "-X github.com/svpchain/svpchain-local-agent/internal/desktop.Version=$Version"
+$GuiLdflags = "-X github.com/svpchain/svpchain-agent/internal/desktop.Version=$Version"
 Push-Location (Join-Path $Root "cmd\svpchain-gui")
 Write-Host "Build started, please wait..."
 & $Wails build -clean -trimpath -ldflags $GuiLdflags
@@ -89,7 +89,7 @@ New-Item -ItemType File -Force -Path (Join-Path $Root "cmd\svpchain-gui\frontend
 
 Write-Host "==> Assembling release folder"
 New-Item -ItemType Directory -Force -Path $AppDir | Out-Null
-Copy-Item (Join-Path $Root "cmd\svpchain-gui\build\bin\local-agent-gui.exe") $AppDir
+Copy-Item (Join-Path $Root "cmd\svpchain-gui\build\bin\svpchain-gui.exe") $AppDir
 Copy-Item (Join-Path $BuildDir "svpchain-mcp.exe") $AppDir
 Copy-Item (Join-Path $Root "packaging\windows\READ-BEFORE-RUN.txt") $AppDir
 Copy-Item (Join-Path $Root "packaging\windows\运行前先阅读.txt") $AppDir

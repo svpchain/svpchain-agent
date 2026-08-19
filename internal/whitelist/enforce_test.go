@@ -10,9 +10,9 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
-	appconfig "github.com/svpchain/svpchain-local-agent/internal/config"
-	"github.com/svpchain/svpchain-local-agent/internal/prefs"
-	"github.com/svpchain/svpchain-local-agent/internal/whitelist"
+	appconfig "github.com/svpchain/svpchain-agent/internal/config"
+	"github.com/svpchain/svpchain-agent/internal/prefs"
+	"github.com/svpchain/svpchain-agent/internal/whitelist"
 )
 
 func TestCheckCosmosRecipient_enforced(t *testing.T) {

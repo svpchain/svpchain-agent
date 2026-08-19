@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/svpchain/svpdt"
 
-	"github.com/svpchain/svpchain-local-agent/internal/registry"
+	"github.com/svpchain/svpchain-agent/internal/registry"
 )
 
 const (

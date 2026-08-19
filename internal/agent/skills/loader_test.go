@@ -8,7 +8,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/svpchain/svpchain-local-agent/internal/agent/skills"
+	"github.com/svpchain/svpchain-agent/internal/agent/skills"
 )
 
 // hermetic pins skill loading to the bundled set alone: an empty user skills

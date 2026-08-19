@@ -6,7 +6,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/svpchain/svpchain-local-agent/internal/agent/local"
+	"github.com/svpchain/svpchain-agent/internal/agent/local"
 )
 
 func TestA2ASendFromArgs(t *testing.T) {

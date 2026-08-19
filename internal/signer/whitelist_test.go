@@ -11,10 +11,10 @@ import (
 	ethcrypto "github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/require"
 
-	appconfig "github.com/svpchain/svpchain-local-agent/internal/config"
-	"github.com/svpchain/svpchain-local-agent/internal/payload"
-	"github.com/svpchain/svpchain-local-agent/internal/prefs"
-	"github.com/svpchain/svpchain-local-agent/internal/signer"
+	appconfig "github.com/svpchain/svpchain-agent/internal/config"
+	"github.com/svpchain/svpchain-agent/internal/payload"
+	"github.com/svpchain/svpchain-agent/internal/prefs"
+	"github.com/svpchain/svpchain-agent/internal/signer"
 )
 
 func TestSign_RejectsNonWhitelistedBankSend(t *testing.T) {

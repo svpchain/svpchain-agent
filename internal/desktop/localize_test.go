@@ -6,8 +6,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/svpchain/svpchain-local-agent/internal/i18n"
-	"github.com/svpchain/svpchain-local-agent/internal/manage"
+	"github.com/svpchain/svpchain-agent/internal/i18n"
+	"github.com/svpchain/svpchain-agent/internal/manage"
 )
 
 func TestLocalized_NoSigningKey(t *testing.T) {

@@ -23,9 +23,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/svpchain/svpdt"
 
-	svpa2a "github.com/svpchain/svpchain-local-agent/internal/a2a"
-	"github.com/svpchain/svpchain-local-agent/internal/delegation"
-	"github.com/svpchain/svpchain-local-agent/internal/registry"
+	svpa2a "github.com/svpchain/svpchain-agent/internal/a2a"
+	"github.com/svpchain/svpchain-agent/internal/delegation"
+	"github.com/svpchain/svpchain-agent/internal/registry"
 )
 
 const (

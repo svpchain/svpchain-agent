@@ -9,10 +9,10 @@ import (
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	"github.com/cosmos/gogoproto/proto"
 
-	"github.com/svpchain/svpchain-local-agent/internal/chainmsgs"
-	settlementmsgs "github.com/svpchain/svpchain-local-agent/internal/chainmsgs/settlement"
-	"github.com/svpchain/svpchain-local-agent/internal/payload"
-	"github.com/svpchain/svpchain-local-agent/internal/whitelist"
+	"github.com/svpchain/svpchain-agent/internal/chainmsgs"
+	settlementmsgs "github.com/svpchain/svpchain-agent/internal/chainmsgs/settlement"
+	"github.com/svpchain/svpchain-agent/internal/payload"
+	"github.com/svpchain/svpchain-agent/internal/whitelist"
 )
 
 // bankMsgSendTypeURL is the Any type URL for a x/bank send; the only message

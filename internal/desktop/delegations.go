@@ -10,11 +10,11 @@ import (
 
 	"github.com/99designs/keyring"
 
-	"github.com/svpchain/svpchain-local-agent/internal/delegation"
-	"github.com/svpchain/svpchain-local-agent/internal/keystore"
-	"github.com/svpchain/svpchain-local-agent/internal/manage"
-	"github.com/svpchain/svpchain-local-agent/internal/registry"
-	"github.com/svpchain/svpchain-local-agent/internal/signer"
+	"github.com/svpchain/svpchain-agent/internal/delegation"
+	"github.com/svpchain/svpchain-agent/internal/keystore"
+	"github.com/svpchain/svpchain-agent/internal/manage"
+	"github.com/svpchain/svpchain-agent/internal/registry"
+	"github.com/svpchain/svpchain-agent/internal/signer"
 )
 
 // DelegationRow is one root delegation for the Delegations tab.

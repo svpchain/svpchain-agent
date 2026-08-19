@@ -5,10 +5,18 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+
+	"github.com/svpchain/svpchain-agent/internal/brand"
 )
 
-const configDirName = "com.svpchain.local-agent-gui"
 const prefsFileName = "prefs.json"
+
+// legacyConfigDirNames are previous product directory names. The first existing
+// one is renamed to brand.BundleID so prefs, history, and run logs keep working.
+var legacyConfigDirNames = []string{
+	"com.svpchain.local-agent-gui",
+	"com.svpchain.agent-gui",
+}
 
 var pathOverride string
 
@@ -26,7 +34,32 @@ func Path() string {
 	if err != nil {
 		return ""
 	}
-	return filepath.Join(dir, configDirName, prefsFileName)
+	return filepath.Join(resolveConfigDir(dir), prefsFileName)
+}
+
+// resolveConfigDir returns the app config directory under userConfigDir,
+// migrating a leftover directory from an older product name when needed.
+func resolveConfigDir(userConfigDir string) string {
+	canonical := filepath.Join(userConfigDir, brand.BundleID)
+	if dirExists(canonical) {
+		return canonical
+	}
+	for _, name := range legacyConfigDirNames {
+		legacy := filepath.Join(userConfigDir, name)
+		if !dirExists(legacy) {
+			continue
+		}
+		if err := os.Rename(legacy, canonical); err == nil {
+			return canonical
+		}
+		return legacy
+	}
+	return canonical
+}
+
+func dirExists(path string) bool {
+	st, err := os.Stat(path)
+	return err == nil && st.IsDir()
 }
 
 // File is the on-disk prefs.json schema.

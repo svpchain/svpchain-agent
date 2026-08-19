@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/svpchain/svpchain-local-agent/internal/manage"
+	"github.com/svpchain/svpchain-agent/internal/manage"
 )
 
 // The runner reads an empty URL as "remote MCP off", so the toggle has to

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/svpchain/svpchain-local-agent/internal/evmcall"
+	"github.com/svpchain/svpchain-agent/internal/evmcall"
 )
 
 // Enforced reports whether any whitelist entries exist. When true, outbound

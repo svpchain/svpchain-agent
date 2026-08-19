@@ -67,7 +67,7 @@ func claudeCodeConfig(chainID, signerBinaryPath string) (string, error) {
 		return "", err
 	}
 
-	line1 := fmt.Sprintf("claude mcp add-json -s user svpchain-local-agent '%s'", string(signerJSON))
+	line1 := fmt.Sprintf("claude mcp add-json -s user svpchain-agent '%s'", string(signerJSON))
 	line2 := fmt.Sprintf("claude mcp add-json -s user svpchain-remote '%s'", string(remoteJSON))
 	return line1 + "\n\n" + line2 + "\n", nil
 }
@@ -75,7 +75,7 @@ func claudeCodeConfig(chainID, signerBinaryPath string) (string, error) {
 func mcpServersConfig(chainID, signerBinaryPath string) (string, error) {
 	cfg := MCPConfig{
 		MCPServers: map[string]mcpServerEntry{
-			"svpchain-local-agent": {
+			"svpchain-agent": {
 				Command: signerBinaryPath,
 				Args:    []string{"--chain-id", chainID},
 			},

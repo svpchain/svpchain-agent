@@ -1,7 +1,7 @@
 package desktop
 
 import (
-	"github.com/svpchain/svpchain-local-agent/internal/agent/history"
+	"github.com/svpchain/svpchain-agent/internal/agent/history"
 )
 
 // TranscriptLine is one displayable chat message restored from history.

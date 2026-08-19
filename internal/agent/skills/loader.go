@@ -10,12 +10,13 @@ import (
 	"strings"
 
 	"gopkg.in/yaml.v3"
+
+	"github.com/svpchain/svpchain-agent/internal/brand"
 )
 
 //go:embed bundled/*/SKILL.md bundled/*/references/*.md
 var bundled embed.FS
 
-const configDirName = "com.svpchain.agent-gui"
 const skillsSubdir = "skills"
 
 // Skill is one LLM instruction module loaded from SKILL.md.
@@ -81,7 +82,7 @@ func ResolveUserSkillsDir(base string) (string, error) {
 			return "", err
 		}
 	}
-	return filepath.Join(base, configDirName, skillsSubdir), nil
+	return filepath.Join(base, brand.BundleID, skillsSubdir), nil
 }
 
 // UserSkillsDir returns the directory for optional user-provided skills.
@@ -97,7 +98,7 @@ func UserSkillsDir() string {
 		}
 		base = dir
 	}
-	return filepath.Join(base, configDirName, skillsSubdir)
+	return filepath.Join(base, brand.BundleID, skillsSubdir)
 }
 
 func skillsConfigBase() string {

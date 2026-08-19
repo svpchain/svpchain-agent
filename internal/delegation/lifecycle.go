@@ -19,10 +19,10 @@ import (
 	"github.com/cosmos/gogoproto/proto"
 	"github.com/google/uuid"
 
-	"github.com/svpchain/svpchain-local-agent/internal/chainmsgs"
-	"github.com/svpchain/svpchain-local-agent/internal/payload"
-	"github.com/svpchain/svpchain-local-agent/internal/registry"
-	"github.com/svpchain/svpchain-local-agent/internal/signer"
+	"github.com/svpchain/svpchain-agent/internal/chainmsgs"
+	"github.com/svpchain/svpchain-agent/internal/payload"
+	"github.com/svpchain/svpchain-agent/internal/registry"
+	"github.com/svpchain/svpchain-agent/internal/signer"
 )
 
 // Fee defaults mirror the DEX agent's deployment config: stateful messages on

@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/svpchain/svpchain-local-agent/internal/brand"
+	"github.com/svpchain/svpchain-agent/internal/brand"
 )
 
 // ErrNoSigningKey is returned when no signing key exists for the requested chain id.

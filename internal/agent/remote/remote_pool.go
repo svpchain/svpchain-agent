@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/svpchain/svpchain-local-agent/internal/agent/step"
+	"github.com/svpchain/svpchain-agent/internal/agent/step"
 )
 
 // Reconnect pooled remote MCP sessions after this idle period. Load balancers and

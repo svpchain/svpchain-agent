@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"github.com/svpchain/svpchain-agent/internal/brand"
 )
 
 const helperScript = `#!/bin/bash
@@ -34,7 +36,7 @@ func LaunchReplacer(target, staged string) error {
 	if err != nil {
 		return err
 	}
-	helperDir := filepath.Join(cache, "com.svpchain.agent-gui", "update")
+	helperDir := filepath.Join(cache, brand.BundleID, "update")
 	if err := os.MkdirAll(helperDir, 0o755); err != nil {
 		return err
 	}

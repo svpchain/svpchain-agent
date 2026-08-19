@@ -3,7 +3,7 @@ package desktop
 import (
 	"errors"
 
-	"github.com/svpchain/svpchain-local-agent/internal/i18n"
+	"github.com/svpchain/svpchain-agent/internal/i18n"
 )
 
 func localized(err error) error {

@@ -87,9 +87,9 @@
 
 | 平台 | 路径 |
 |------|------|
-| macOS | `~/Library/Application Support/com.svpchain.local-agent-gui/agent_runs.jsonl` |
-| Linux | `$XDG_CONFIG_HOME/com.svpchain.local-agent-gui/agent_runs.jsonl` |
-| Windows | `%AppData%\com.svpchain.local-agent-gui\agent_runs.jsonl` |
+| macOS | `~/Library/Application Support/com.svpchain.agent/agent_runs.jsonl` |
+| Linux | `$XDG_CONFIG_HOME/com.svpchain.agent/agent_runs.jsonl` |
+| Windows | `%AppData%\com.svpchain.agent\agent_runs.jsonl` |
 
 ### 3.3 单条记录结构（每行一个 JSON）
 
@@ -145,10 +145,10 @@
 
 ```bash
 # 美化输出最近一条
-tail -1 ~/Library/Application\ Support/com.svpchain.local-agent-gui/agent_runs.jsonl | jq .
+tail -1 ~/Library/Application\ Support/com.svpchain.agent/agent_runs.jsonl | jq .
 
 # 统计 outcome 分布
-jq -r .outcome ~/Library/Application\ Support/com.svpchain.local-agent-gui/agent_runs.jsonl | sort | uniq -c
+jq -r .outcome ~/Library/Application\ Support/com.svpchain.agent/agent_runs.jsonl | sort | uniq -c
 ```
 
 ---

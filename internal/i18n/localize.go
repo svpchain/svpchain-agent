@@ -8,8 +8,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/svpchain/svpchain-local-agent/internal/agent/guard"
-	"github.com/svpchain/svpchain-local-agent/internal/manage"
+	"github.com/svpchain/svpchain-agent/internal/agent/guard"
+	"github.com/svpchain/svpchain-agent/internal/manage"
 )
 
 var (

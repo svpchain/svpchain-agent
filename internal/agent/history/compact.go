@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/svpchain/svpchain-local-agent/internal/agent/llm"
+	"github.com/svpchain/svpchain-agent/internal/agent/llm"
 )
 
 // keepRecentTurns is how many most-recent turns survive compaction verbatim.

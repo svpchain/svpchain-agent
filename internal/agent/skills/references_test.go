@@ -7,7 +7,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/svpchain/svpchain-local-agent/internal/agent/skills"
+	"github.com/svpchain/svpchain-agent/internal/agent/skills"
 )
 
 func TestReadReference_bundledLendora(t *testing.T) {

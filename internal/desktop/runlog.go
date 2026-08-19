@@ -1,7 +1,7 @@
 package desktop
 
 import (
-	"github.com/svpchain/svpchain-local-agent/internal/agent/runlog"
+	"github.com/svpchain/svpchain-agent/internal/agent/runlog"
 )
 
 // AgentRunLogPath returns the local JSONL run log file path.

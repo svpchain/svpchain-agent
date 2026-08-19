@@ -8,7 +8,7 @@ import (
 	ethcrypto "github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/require"
 
-	"github.com/svpchain/svpchain-local-agent/internal/evmcall"
+	"github.com/svpchain/svpchain-agent/internal/evmcall"
 )
 
 const (

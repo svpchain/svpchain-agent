@@ -3,7 +3,7 @@ package skills
 import (
 	"sort"
 
-	"github.com/svpchain/svpchain-local-agent/internal/prefs"
+	"github.com/svpchain/svpchain-agent/internal/prefs"
 )
 
 // Setting is one skill row for the Settings UI.

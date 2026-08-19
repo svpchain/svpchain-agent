@@ -12,7 +12,7 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
-	"github.com/svpchain/svpchain-local-agent/internal/agent/result"
+	"github.com/svpchain/svpchain-agent/internal/agent/result"
 )
 
 const defaultRemoteURL = "https://mcp-testnet.svpchain.org/"

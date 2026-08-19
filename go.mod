@@ -1,4 +1,4 @@
-module github.com/svpchain/svpchain-local-agent
+module github.com/svpchain/svpchain-agent
 
 go 1.25.0
 

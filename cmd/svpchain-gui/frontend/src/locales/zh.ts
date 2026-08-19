@@ -87,7 +87,7 @@ export default {
     autoUpdate: '开启后，启动时会在后台自动下载并校验新版本，就绪后提示重启安装。',
     llmContextWindow: '模型的上下文窗口大小（token 数）。对话历史约占其 70%；超出后自动用 LLM 总结压缩较早的对话。',
     skillsConfigBase:
-      "填写配置根目录。实际 Skills 目录为：{'{路径}'}/com.svpchain.agent-gui/skills。留空则使用系统默认配置目录。",
+      "填写配置根目录。实际 Skills 目录为：{'{路径}'}/com.svpchain.agent/skills。留空则使用系统默认配置目录。",
   },
   settings: {
     section: {

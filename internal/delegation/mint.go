@@ -10,7 +10,7 @@ import (
 
 	"github.com/svpchain/svpdt"
 
-	"github.com/svpchain/svpchain-local-agent/internal/registry"
+	"github.com/svpchain/svpchain-agent/internal/registry"
 )
 
 // DefaultTaskTTLSeconds bounds a per-task credential's life when the caller

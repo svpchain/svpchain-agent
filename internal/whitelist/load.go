@@ -1,6 +1,6 @@
 package whitelist
 
-import "github.com/svpchain/svpchain-local-agent/internal/prefs"
+import "github.com/svpchain/svpchain-agent/internal/prefs"
 
 // LoadStore reads the user's saved whitelist entries from prefs.json. This is
 // the signer-layer view, where an empty list means "unrestricted" (see

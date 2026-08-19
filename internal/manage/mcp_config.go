@@ -11,8 +11,6 @@ const (
 	AgentNameClaudeDesktop = "Claude Desktop"
 	AgentNameCursor        = "Cursor"
 	AgentNameWindsurf      = "Windsurf"
-
-	RemoteMCPURL = "https://mcp-testnet.svpchain.org/"
 )
 
 // AgentNames is the display order for AI Agent radio buttons in the GUI.
@@ -59,17 +57,8 @@ func claudeCodeConfig(chainID, signerBinaryPath string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	remoteJSON, err := json.MarshalIndent(map[string]string{
-		"type": "http",
-		"url":  RemoteMCPURL,
-	}, "", "  ")
-	if err != nil {
-		return "", err
-	}
-
 	line1 := fmt.Sprintf("claude mcp add-json -s user svpchain-agent '%s'", string(signerJSON))
-	line2 := fmt.Sprintf("claude mcp add-json -s user svpchain-remote '%s'", string(remoteJSON))
-	return line1 + "\n\n" + line2 + "\n", nil
+	return line1 + "\n", nil
 }
 
 func mcpServersConfig(chainID, signerBinaryPath string) (string, error) {
@@ -78,10 +67,6 @@ func mcpServersConfig(chainID, signerBinaryPath string) (string, error) {
 			"svpchain-agent": {
 				Command: signerBinaryPath,
 				Args:    []string{"--chain-id", chainID},
-			},
-			"svpchain-remote": {
-				Type: "http",
-				URL:  RemoteMCPURL,
 			},
 		},
 	}

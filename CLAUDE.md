@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 A local-key on-chain agent for svpchain (Cosmos SDK + EVM) that also **discovers remote agents from the chain and delegates tasks to them**. The defining constraint is a **three-party trust separation**: the signing key never leaves the local machine, the remote service builds and broadcasts but never holds a key, and an LLM assistant orchestrates the two.
 
 - **`svpchain-mcp`** — stdio MCP signing service. Holds the key (OS credential store), signs only payloads/challenges that pass strict cross-checks.
-- **Remote MCP** (`https://mcp-testnet.svpchain.org/`, HTTP) — builds unsigned txs, serves market data, broadcasts signed txs. Not in this repo.
+- **Agent Hub / A2A** — chain REST discovery and delegated task execution. The assistant no longer connects to a remote MCP.
 - **`svpchain-gui`** — Wails app (Go + embedded Vue) with a built-in LLM tool-calling assistant that runs the signer in-process.
 
 ## Agent discovery & delegation (what makes this project distinct)
@@ -53,7 +53,7 @@ Auth: a `svpchain-mcp-auth-v1:` challenge is signed locally and exchanged for a 
 
 - `cmd/svpchain-mcp/` — CLI: `serve` (default), `import`/`list`/`delete` (key mgmt).
 - `cmd/svpchain-gui/` — Go entry + `frontend/` (Vue 3 + naive-ui, vue-i18n en/zh). `wailsjs/` is generated bindings.
-- `internal/agent/` — the LLM tool-calling loop (`runner.go` `Run`, `dispatchTool`). Holds a remote MCP client + in-process `LocalSigner` (`local.go`). Local-only tools (`signer_whoami`, `evm_to_bech32`, `http_fetch`, `x402_*`, `a2a_send_message`) live here and are **not** exposed by the stdio server.
+- `internal/agent/` — the LLM tool-calling loop (`runner.go` `Run`, `dispatchTool`). Uses an in-process local signer plus Agent Hub/A2A delegation tools.
   - `skills/bundled/*/SKILL.md` — the system prompt is **assembled from modular skills**, not hardcoded. `base` is always on; others gate on available tools and `disabled_skills`. Bulky detail lives in `bundled/<name>/references/*.md`, loaded on demand by the LLM via the local `read_skill_reference` tool (`skills/references.go`).
   - `guard/gate.go` — assistant pre-flight transfer gate (see below).
   - `memory.go` — session memory caching `whoami`/`signer_whoami` to `agent_memory.json`.
@@ -78,7 +78,7 @@ The standalone `svpchain-mcp` signer reads the same `prefs.json` but does **not*
 ## Keys & config
 
 - Keys: OS credential store (Keychain / Cred Manager / Secret Service), service `svpchain-agent`, account = chain id. **One key per chain.** No `--key-hex` flag by design (would leak into process args). Headless fallback: `SIGNER_KEY_HEX`.
-- Config: `prefs.json` in the app config dir (`~/Library/Application Support/com.svpchain.agent/` on macOS, `%AppData%` on Windows). Holds LLM settings, remote MCP URL, whitelist, `disabled_skills`. `agent_memory.json` sits alongside it.
+- Config: `prefs.json` in the app config dir (`~/Library/Application Support/com.svpchain.agent/` on macOS, `%AppData%` on Windows). Holds LLM settings, Agent Hub URL, whitelist, `disabled_skills`. `agent_memory.json` sits alongside it.
 - EVM chain id: parsed from `--chain-id` (`svp_2517-1` → `2517`) unless `--evm-chain-id` overrides. No chain number + no flag = EVM signing disabled, Cosmos unaffected.
 
 ## Conventions for code changes

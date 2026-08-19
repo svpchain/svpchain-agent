@@ -10,7 +10,6 @@ import (
 	"time"
 
 	localsigner "github.com/svpchain/svpchain-agent/internal/agent/local"
-	remotemcp "github.com/svpchain/svpchain-agent/internal/agent/remote"
 	"github.com/svpchain/svpchain-agent/internal/agent/step"
 	"github.com/svpchain/svpchain-agent/internal/prefs"
 )
@@ -24,13 +23,11 @@ func SetPathOverride(path string) {
 	memoryPathOverride = path
 }
 
-// Session holds cached signer_whoami and remote whoami results for a chain/session.
+// Session holds cached signer identity for a chain/session.
 type Session struct {
 	ChainID      string    `json:"chain_id"`
-	RemoteURL    string    `json:"remote_url"`
 	LocalOwner   string    `json:"local_owner"`
 	SignerWhoami string    `json:"signer_whoami"`
-	RemoteWhoami string    `json:"remote_whoami"`
 	UpdatedAt    time.Time `json:"updated_at"`
 }
 
@@ -49,11 +46,11 @@ func memoryFilePath() string {
 	return filepath.Join(filepath.Dir(p), memoryFileName)
 }
 
-func memoryKey(chainID, remoteURL string) string {
-	return strings.TrimSpace(chainID) + "\x00" + strings.TrimSpace(remoteURL)
+func memoryKey(chainID string) string {
+	return strings.TrimSpace(chainID)
 }
 
-func loadSessionMemory(chainID, remoteURL, localOwner string) (Session, bool) {
+func loadSessionMemory(chainID, localOwner string) (Session, bool) {
 	path := memoryFilePath()
 	if path == "" {
 		return Session{}, false
@@ -66,14 +63,14 @@ func loadSessionMemory(chainID, remoteURL, localOwner string) (Session, bool) {
 	if err := json.Unmarshal(data, &store); err != nil || store.Entries == nil {
 		return Session{}, false
 	}
-	mem, ok := store.Entries[memoryKey(chainID, remoteURL)]
+	mem, ok := store.Entries[memoryKey(chainID)]
 	if !ok {
 		return Session{}, false
 	}
-	if !mem.validFor(chainID, remoteURL, localOwner) {
+	if !mem.validFor(chainID, localOwner) {
 		return Session{}, false
 	}
-	if strings.TrimSpace(mem.SignerWhoami) == "" || strings.TrimSpace(mem.RemoteWhoami) == "" {
+	if strings.TrimSpace(mem.SignerWhoami) == "" {
 		return Session{}, false
 	}
 	return mem, true
@@ -92,7 +89,7 @@ func Save(mem Session) error {
 		store.Entries = make(map[string]Session)
 	}
 	mem.UpdatedAt = time.Now().UTC()
-	store.Entries[memoryKey(mem.ChainID, mem.RemoteURL)] = mem
+	store.Entries[memoryKey(mem.ChainID)] = mem
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err
 	}
@@ -103,9 +100,8 @@ func Save(mem Session) error {
 	return os.WriteFile(path, data, 0o600)
 }
 
-func (m Session) validFor(chainID, remoteURL, localOwner string) bool {
+func (m Session) validFor(chainID, localOwner string) bool {
 	return strings.TrimSpace(m.ChainID) == strings.TrimSpace(chainID) &&
-		strings.TrimSpace(m.RemoteURL) == strings.TrimSpace(remoteURL) &&
 		strings.TrimSpace(m.LocalOwner) == strings.TrimSpace(localOwner)
 }
 
@@ -113,10 +109,6 @@ func (m Session) ToolResult(name string) (string, bool) {
 	switch name {
 	case "signer_whoami":
 		if s := strings.TrimSpace(m.SignerWhoami); s != "" {
-			return s, true
-		}
-	case "whoami":
-		if s := strings.TrimSpace(m.RemoteWhoami); s != "" {
 			return s, true
 		}
 	}
@@ -131,34 +123,21 @@ func (m *Session) SetToolResult(name, result string) {
 	switch name {
 	case "signer_whoami":
 		m.SignerWhoami = result
-	case "whoami":
-		m.RemoteWhoami = result
 	default:
 		return
 	}
 	m.UpdatedAt = time.Now().UTC()
 }
 
-func refreshSessionMemory(ctx context.Context, chainID, remoteURL, localOwner string, local *localsigner.Signer, remote *remotemcp.Client) (Session, error) {
+func refreshSessionMemory(ctx context.Context, chainID, localOwner string, local *localsigner.Signer) (Session, error) {
 	signerJSON, err := local.CallTool(ctx, "signer_whoami", nil)
 	if err != nil {
 		return Session{}, fmt.Errorf("signer_whoami: %w", err)
 	}
-	// The remote is optional: with it switched off there is no tenant to
-	// describe, and the local signer's identity is the whole session context.
-	var remoteJSON string
-	if remote != nil {
-		remoteJSON, err = remote.CallTool(ctx, "whoami", nil)
-		if err != nil {
-			return Session{}, fmt.Errorf("whoami: %w", err)
-		}
-	}
 	mem := Session{
 		ChainID:      chainID,
-		RemoteURL:    remoteURL,
 		LocalOwner:   localOwner,
 		SignerWhoami: signerJSON,
-		RemoteWhoami: remoteJSON,
 	}
 	if err := Save(mem); err != nil {
 		return mem, err
@@ -166,30 +145,25 @@ func refreshSessionMemory(ctx context.Context, chainID, remoteURL, localOwner st
 	return mem, nil
 }
 
-func Resolve(ctx context.Context, chainID, remoteURL, localOwner string, local *localsigner.Signer, remote *remotemcp.Client, emit func(step.Step)) (Session, error) {
-	if mem, ok := loadSessionMemory(chainID, remoteURL, localOwner); ok {
+func Resolve(ctx context.Context, chainID, localOwner string, local *localsigner.Signer, emit func(step.Step)) (Session, error) {
+	if mem, ok := loadSessionMemory(chainID, localOwner); ok {
 		return mem, nil
 	}
 	emit(step.Step{Kind: step.Think, Title: "Loading session context…"})
-	return refreshSessionMemory(ctx, chainID, remoteURL, localOwner, local, remote)
+	return refreshSessionMemory(ctx, chainID, localOwner, local)
 }
 
 func Prompt(mem Session) string {
-	if strings.TrimSpace(mem.SignerWhoami) == "" && strings.TrimSpace(mem.RemoteWhoami) == "" {
+	if strings.TrimSpace(mem.SignerWhoami) == "" {
 		return ""
 	}
 	var b strings.Builder
 	b.WriteString("## Cached session context\n\n")
-	b.WriteString("The following identity and tenant data is cached for this chain and key. ")
-	b.WriteString("Do NOT call signer_whoami or whoami at the start of the conversation — use this directly.\n")
+	b.WriteString("The following signer identity is cached for this chain and key. ")
+	b.WriteString("Do NOT call signer_whoami at the start of the conversation — use this directly.\n")
 	if mem.SignerWhoami != "" {
 		b.WriteString("\nLocal signer (signer_whoami):\n")
 		b.WriteString(mem.SignerWhoami)
-		b.WriteByte('\n')
-	}
-	if mem.RemoteWhoami != "" {
-		b.WriteString("\nRemote tenant (whoami):\n")
-		b.WriteString(mem.RemoteWhoami)
 		b.WriteByte('\n')
 	}
 	return strings.TrimSpace(b.String())

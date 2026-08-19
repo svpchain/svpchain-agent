@@ -163,8 +163,6 @@ func localizeExact(msg string) (string, bool) {
 		return t.WhitelistExists, true
 	case "whitelist entry not found":
 		return t.WhitelistNotFound, true
-	case "remote mcp not connected":
-		return t.RemoteMCPNotConn, true
 	case "update info is nil":
 		return t.UpdateInfoNil, true
 	case "release missing tag_name":
@@ -192,8 +190,6 @@ func localizePrefixes(msg string) (string, bool) {
 		{"store key: ", func(r string) string { return fmt.Sprintf(t.StoreKeyFmt, r) }},
 		{"list keys: ", func(r string) string { return fmt.Sprintf(t.ListKeysFmt, r) }},
 		{"parse key: ", func(r string) string { return fmt.Sprintf(t.ParseKeyFmt, r) }},
-		{"remote mcp: ", func(r string) string { return fmt.Sprintf(t.RemoteMCPFmt, LocalizeDetail(r)) }},
-		{"connect remote mcp: ", func(r string) string { return fmt.Sprintf(t.ConnectRemoteMCPFmt, r) }},
 		{"load agent skills: ", func(r string) string { return fmt.Sprintf(t.LoadAgentSkillsFmt, r) }},
 		{"signer_whoami: ", func(r string) string { return fmt.Sprintf(t.SignerWhoamiFmt, r) }},
 		{"whoami: ", func(r string) string { return fmt.Sprintf(t.WhoamiFmt, r) }},
@@ -218,14 +214,6 @@ func localizePrefixes(msg string) (string, bool) {
 			return t.SessionContextFailed, true
 		}
 		return fmt.Sprintf(t.SessionContextFmt, LocalizeDetail(rest)), true
-	}
-
-	if i := strings.Index(msg, " (reconnect: "); i > 0 {
-		base := msg[:i]
-		rest := msg[i+len(" (reconnect: "):]
-		rest = strings.TrimSuffix(rest, ")")
-		inner := Localize(errors.New(base))
-		return fmt.Sprintf("%s (%s)", inner, fmt.Sprintf(t.RemoteMCPReconnect, rest)), true
 	}
 
 	return "", false

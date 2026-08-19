@@ -186,7 +186,7 @@ var catalog = map[Lang]Strings{
 		AboutMarkdown: "**" + brand.AppDisplayName + "**\n\n" + `A local-key on-chain assistant for svpchain (Cosmos/EVM). Private keys live in the OS credential store (macOS Keychain, etc.) — never in config files and never sent to remote services.
 
 **What it does**
-- **AI assistant** — Drive on-chain actions in natural language. A remote MCP builds transactions and serves market data; signing stays local. Flow: build → sign → broadcast.
+- **AI assistant** — Drive local signing, chain queries, and delegated A2A actions in natural language. Keys remain local; delegation credentials are signed locally before requests are sent to registered agents.
 - **Key management** — Import, view, rotate, and delete keys per Chain ID; see derived Cosmos (svp1…) and EVM addresses.
 - **MCP export** — Generate stdio JSON for Cursor and other MCP clients to call the local signer.
 

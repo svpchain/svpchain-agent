@@ -14,7 +14,6 @@ import (
 	"github.com/svpchain/svpchain-agent/internal/agent/runlog"
 	"github.com/svpchain/svpchain-agent/internal/agent/skills"
 	"github.com/svpchain/svpchain-agent/internal/i18n"
-	"github.com/svpchain/svpchain-agent/internal/manage"
 	"github.com/svpchain/svpchain-agent/internal/prefs"
 )
 
@@ -29,9 +28,7 @@ type AgentSettings struct {
 	LLMModel            string   `json:"llm_model"`
 	LLMProvider         string   `json:"llm_provider"`
 	LLMContextWindow    int      `json:"llm_context_window"`
-	RemoteMCPURL        string   `json:"remote_mcp_url"`
 	AgentHubURL         string   `json:"agent_hub_url"`
-	RemoteMCPDisabled   bool     `json:"remote_mcp_disabled"`
 	DisabledSkills      []string `json:"disabled_skills"`
 	SkillsConfigBase    string   `json:"skills_config_base"`
 	ShowToolSteps       bool     `json:"show_tool_steps"`
@@ -48,9 +45,7 @@ func (a *App) AgentGetSettings() AgentSettings {
 		LLMModel:            s.LLMModel,
 		LLMProvider:         s.LLMProvider,
 		LLMContextWindow:    s.LLMContextWindow,
-		RemoteMCPURL:        s.RemoteMCPURL,
 		AgentHubURL:         s.AgentHubURL,
-		RemoteMCPDisabled:   s.RemoteMCPDisabled,
 		DisabledSkills:      s.DisabledSkills,
 		SkillsConfigBase:    s.SkillsConfigBase,
 		ShowToolSteps:       s.ShowToolSteps,
@@ -77,35 +72,13 @@ func (a *App) AgentSetSettings(s AgentSettings) {
 		LLMModel:            s.LLMModel,
 		LLMProvider:         s.LLMProvider,
 		LLMContextWindow:    s.LLMContextWindow,
-		RemoteMCPURL:        s.RemoteMCPURL,
 		AgentHubURL:         s.AgentHubURL,
-		RemoteMCPDisabled:   s.RemoteMCPDisabled,
 		DisabledSkills:      s.DisabledSkills,
 		SkillsConfigBase:    s.SkillsConfigBase,
 		ShowToolSteps:       s.ShowToolSteps,
 		AgentRunLogDisabled: s.AgentRunLogDisabled,
 	})
 	skills.ApplySkillsConfigBase(s.SkillsConfigBase)
-}
-
-// AgentDefaultRemoteURL returns the production remote MCP endpoint.
-func (a *App) AgentDefaultRemoteURL() string {
-	return manage.RemoteMCPURL
-}
-
-// resolveRemoteURL turns the saved settings into the URL the runner should
-// use, where empty means "do not connect at all".
-//
-// The disable flag exists because an empty URL field already means "use the
-// default endpoint" — without it there is no way to express "none" in the UI.
-func resolveRemoteURL(s AgentSettings) string {
-	if s.RemoteMCPDisabled {
-		return ""
-	}
-	if strings.TrimSpace(s.RemoteMCPURL) == "" {
-		return manage.RemoteMCPURL
-	}
-	return s.RemoteMCPURL
 }
 
 var agentMu sync.Mutex
@@ -157,8 +130,6 @@ func (a *App) AgentSend(chainID, message string) error {
 		return localized(i18n.ErrLLMKeyRequired)
 	}
 
-	remoteURL := resolveRemoteURL(settings)
-
 	agentMu.Lock()
 	ctx, cancel := context.WithCancel(a.ctx)
 	agentCancel = cancel
@@ -190,7 +161,6 @@ func (a *App) AgentSend(chainID, message string) error {
 
 		answer, err := agent.Run(ctx, agent.Config{
 			ChainID:     chainID,
-			RemoteURL:   remoteURL,
 			AgentHubURL: settings.AgentHubURL,
 			Confirm:     a.confirmHook,
 			RunLog:      runlog.New(!settings.AgentRunLogDisabled),

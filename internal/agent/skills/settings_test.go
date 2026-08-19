@@ -25,7 +25,7 @@ func TestComposeSystemPrompt_respectsDisabledSkills(t *testing.T) {
 	require.NoError(t, err)
 	require.NotContains(t, got, "x402 paid HTTP")
 	require.NotContains(t, got, "ERC20/ERC721 contract calls")
-	require.Contains(t, got, "Workflow for on-chain writes")
+	require.Contains(t, got, "local svpchain assistant")
 }
 
 func TestListSettings_lockedSkillAlwaysEnabled(t *testing.T) {

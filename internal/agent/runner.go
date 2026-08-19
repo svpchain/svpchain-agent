@@ -17,7 +17,6 @@ import (
 	"github.com/svpchain/svpchain-agent/internal/agent/llm"
 	localsigner "github.com/svpchain/svpchain-agent/internal/agent/local"
 	"github.com/svpchain/svpchain-agent/internal/agent/memory"
-	remotemcp "github.com/svpchain/svpchain-agent/internal/agent/remote"
 	"github.com/svpchain/svpchain-agent/internal/agent/runlog"
 	"github.com/svpchain/svpchain-agent/internal/agent/skills"
 	"github.com/svpchain/svpchain-agent/internal/agent/step"
@@ -27,10 +26,6 @@ import (
 	"github.com/svpchain/svpchain-agent/internal/registry"
 	"github.com/svpchain/svpchain-agent/internal/signer"
 )
-
-// ShutdownRemotePool closes pooled remote MCP sessions. Kept here so external callers
-// (desktop) keep using agent.ShutdownRemotePool unchanged.
-func ShutdownRemotePool() { remotemcp.Shutdown() }
 
 // LLMConfig is the assistant's LLM settings. Aliased to llm.Config so external
 // callers (desktop) keep using agent.LLMConfig unchanged.
@@ -53,8 +48,7 @@ const (
 
 // Config drives a single agent run.
 type Config struct {
-	ChainID   string
-	RemoteURL string
+	ChainID string
 	// AgentHubURL is the chain's REST (grpc-gateway) endpoint, enabling the
 	// agent-discovery and delegation tools. Empty disables them.
 	AgentHubURL string
@@ -85,7 +79,6 @@ func Run(ctx context.Context, cfg Config, userMessage string) (answer string, er
 	if cfg.RunLog != nil && cfg.RunLog.Enabled() {
 		trace = cfg.RunLog.Begin(runlog.Meta{
 			ChainID:     cfg.ChainID,
-			RemoteURL:   cfg.RemoteURL,
 			Model:       cfg.LLM.Model,
 			Provider:    cfg.LLM.Provider,
 			UserMessage: userMessage,
@@ -126,21 +119,7 @@ func Run(ctx context.Context, cfg Config, userMessage string) (answer string, er
 	local := localsigner.NewSigner(priv, chainID, evmID)
 	owner := local.Owner()
 
-	// An empty RemoteURL switches the remote MCP off entirely — no connection,
-	// no authentication, no remote tools offered to the model. Useful for
-	// working against the chain alone, and the only way to be certain nothing
-	// leaves the machine except what the delegation tools send.
-	var remote *remotemcp.Client
-	if strings.TrimSpace(cfg.RemoteURL) != "" {
-		remote, err = remotemcp.Acquire(ctx, chainID, cfg.RemoteURL, owner, local.SignChallenge, emit)
-		if err != nil {
-			return "", fmt.Errorf("remote mcp: %w", err)
-		}
-	} else {
-		emit(Step{Kind: StepThink, Title: "Remote MCP is disabled — running with local tools only"})
-	}
-
-	sessionMem, err := memory.Resolve(ctx, chainID, cfg.RemoteURL, owner, local, remote, emit)
+	sessionMem, err := memory.Resolve(ctx, chainID, owner, local, emit)
 	if err != nil {
 		emit(Step{Kind: StepError, Title: "Session context failed", Detail: err.Error()})
 		return "", err
@@ -153,7 +132,7 @@ func Run(ctx context.Context, cfg Config, userMessage string) (answer string, er
 		deleg.Lifecycle = &delegation.Lifecycle{Registry: reg, Priv: priv, ChainID: chainID}
 	}
 
-	tools, err := buildToolList(ctx, remote, deleg)
+	tools, err := buildToolList(deleg)
 	if err != nil {
 		return "", err
 	}
@@ -243,7 +222,7 @@ func Run(ctx context.Context, cfg Config, userMessage string) (answer string, er
 				finish = func(bool, string, string) {}
 			}
 
-			result, callErr := dispatchTool(ctx, chainID, remote, local, deleg, name, args, &sessionMem)
+			result, callErr := dispatchTool(ctx, chainID, local, deleg, name, args, &sessionMem)
 			if callErr != nil {
 				finish(false, "", callErr.Error())
 				var rej *guard.Rejection

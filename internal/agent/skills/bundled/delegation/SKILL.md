@@ -28,7 +28,7 @@ A delegated task executes **on the user's account, spending the user's funds**
 All the tools in this skill run **locally, in this app**. They read the chain
 directly over the REST endpoint configured in Settings → Agent Hub URL, which
 every `discover_agents` result reports back as `agent_hub_url`. They do **not**
-go through the remote MCP server, and their chain endpoint is **not** part of
+go through an MCP server, and their chain endpoint is **not** part of
 any MCP client configuration. If the user asks which chain endpoint is in use,
 read it from a tool result or tell them to check Settings — never speculate
 about server-side configuration.

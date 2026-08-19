@@ -22,7 +22,7 @@ type guardedTool struct {
 
 // transferGuardedTools maps remote build_* tool names to the argument carrying
 // the third-party recipient/spender. Any tool here has its destination checked
-// against the whitelist BEFORE the call is forwarded to the remote MCP, so a
+// against the whitelist BEFORE any transaction-related tool is called, so a
 // non-whitelisted address is rejected before any build/sign/broadcast happens.
 // Tools absent from this map (queries, swaps that output to self, etc.) are not
 // gated.

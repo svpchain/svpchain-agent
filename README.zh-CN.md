@@ -5,7 +5,7 @@
 面向 svpchain 的本地密钥 **链上 Agent**（Cosmos/EVM），采用严格的信任分离设计：
 
 - **本地签名 MCP 服务**（`svpchain-mcp`）—— 签名密钥仅保存在本机，永不外泄；只对通过严格交叉校验的 payload / challenge 进行签名。
-- **远程构建 + 广播 MCP 服务** —— 构造未签名交易、提供行情数据、广播已签名交易。运行于远端（`https://mcp-testnet.svpchain.org/`）。
+- **本地助手 + 委托执行** —— 使用本地签名工具和 Agent Hub 发现代理、创建 SVP-DT 委托并通过 A2A 执行任务。
 - **内置 LLM 助手**（`svpchain-gui`）—— 支持流式工具调用（OpenAI 兼容 API 或原生 Anthropic），协调上述两者：远端 *构建* 与 *广播*，本地 *签名*。密钥永不离开本机。可选的 **转账白名单**、模块化 **助手 Skills**（大体积细节放在 `references/*.md`，经 `read_skill_reference` 按需加载）、多轮 **对话历史** 与本地 **运行日志**，用于约束转出、提示词与可观测性。
 - **Google A2A（Agent-to-Agent）** —— 通过 `a2a_send_message` 将子任务委托给其他 A2A Agent（仅客户端；本 Agent 不作为网络服务运行）。
 

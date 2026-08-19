@@ -33,7 +33,7 @@ cmd/
   svpchain-mcp/   # stdio signing MCP CLI: serve (default) / import / delete / list
   svpchain-gui/   # Wails GUI: Go entry + embedded Vue frontend
 internal/
-  agent/          # LLM tool-calling loop: remote MCP client + in-process local signer; pre-flight whitelist gate; session memory
+  agent/          # LLM tool-calling loop: in-process local signer + Agent Hub/A2A delegation; session memory
     skills/       # Bundled SKILL.md (+ references/*.md); system prompt + on-demand read_skill_reference
     history/      # Conversation persistence + context management (JSONL sessions, projection, LLM compaction)
     runlog/       # Local JSONL run traces (tools, outcomes, tx hashes, token usage) for debugging & eval

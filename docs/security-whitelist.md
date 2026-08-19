@@ -6,7 +6,7 @@ Whitelist entries live in the GUI preferences file (`prefs.json` under the app c
 
 ## 1. Assistant pre-flight gate (agent layer)
 
-Before the assistant forwards a transfer/approval `build_*` tool call to the remote MCP, the recipient/spender taken straight from the tool arguments is checked against the whitelist. **The whitelist is mandatory here: with no whitelist configured, every transfer/approval is refused** with a prompt to add one in the Security tab first — nothing is built, signed, or broadcast. When a whitelist exists, a non-whitelisted address is likewise rejected with `… is not on the whitelist …`. Because the address comes from the tool arguments (not raw calldata), this also covers **ERC-20/721 contract transfers**. Gated tools:
+Before the assistant handles a transfer/approval tool call, the recipient/spender taken straight from the tool arguments is checked against the whitelist. **The whitelist is mandatory here: with no whitelist configured, every transfer/approval is refused** with a prompt to add one in the Security tab first — nothing is built, signed, or broadcast. When a whitelist exists, a non-whitelisted address is likewise rejected with `… is not on the whitelist …`. Because the address comes from the tool arguments (not raw calldata), this also covers **ERC-20/721 contract transfers**. Gated tools:
 
 | Tool | Checked argument | Type |
 |------|------------------|------|

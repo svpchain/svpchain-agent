@@ -29,7 +29,7 @@ func TestLocalized_AgentBusy(t *testing.T) {
 }
 
 func TestLocalized_UnknownPassthrough(t *testing.T) {
-	raw := errors.New("remote mcp: connection refused")
+	raw := errors.New("unknown failure")
 	i18n.SetLang(i18n.Zh)
-	require.Contains(t, localized(raw).Error(), "远程 MCP")
+	require.Equal(t, raw.Error(), localized(raw).Error())
 }

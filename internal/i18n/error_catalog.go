@@ -19,15 +19,11 @@ type ErrorTexts struct {
 	SignerPathRequired string
 	UnknownAgentFmt    string
 
-	RemoteMCPFmt        string
-	RemoteMCPNotConn    string
-	RemoteMCPReconnect  string
-	ConnectRemoteMCPFmt string
-	LoadAgentSkillsFmt  string
-	AgentMaxRoundsFmt   string
-	SignerWhoamiFmt     string
-	WhoamiFmt           string
-	SessionContextFmt   string
+	LoadAgentSkillsFmt string
+	AgentMaxRoundsFmt  string
+	SignerWhoamiFmt    string
+	WhoamiFmt          string
+	SessionContextFmt  string
 
 	UnsupportedAddressTypeFmt string
 	AddressRequired           string
@@ -95,15 +91,11 @@ var errorCatalog = map[Lang]ErrorTexts{
 		SignerPathRequired: "请选择签名程序路径",
 		UnknownAgentFmt:    "未知的 AI Agent：%s",
 
-		RemoteMCPFmt:        "远程 MCP 错误：%s",
-		RemoteMCPNotConn:    "远程 MCP 未连接",
-		RemoteMCPReconnect:  "远程 MCP 重连失败：%s",
-		ConnectRemoteMCPFmt: "连接远程 MCP 失败：%s",
-		LoadAgentSkillsFmt:  "加载助手 Skills 失败：%s",
-		AgentMaxRoundsFmt:   "助手已超过 %d 轮工具调用上限",
-		SignerWhoamiFmt:     "获取本地签名者信息失败：%s",
-		WhoamiFmt:           "获取远端账户信息失败：%s",
-		SessionContextFmt:   "会话上下文失败：%s",
+		LoadAgentSkillsFmt: "加载助手 Skills 失败：%s",
+		AgentMaxRoundsFmt:  "助手已超过 %d 轮工具调用上限",
+		SignerWhoamiFmt:    "获取本地签名者信息失败：%s",
+		WhoamiFmt:          "获取远端账户信息失败：%s",
+		SessionContextFmt:  "会话上下文失败：%s",
 
 		UnsupportedAddressTypeFmt: "不支持的地址类型：%s",
 		AddressRequired:           "请输入地址",
@@ -169,15 +161,11 @@ var errorCatalog = map[Lang]ErrorTexts{
 		SignerPathRequired: "Signer binary path is required",
 		UnknownAgentFmt:    "Unknown AI agent: %s",
 
-		RemoteMCPFmt:        "Remote MCP error: %s",
-		RemoteMCPNotConn:    "Remote MCP not connected",
-		RemoteMCPReconnect:  "Remote MCP reconnect failed: %s",
-		ConnectRemoteMCPFmt: "Could not connect to remote MCP: %s",
-		LoadAgentSkillsFmt:  "Could not load agent skills: %s",
-		AgentMaxRoundsFmt:   "Assistant exceeded %d tool-call rounds",
-		SignerWhoamiFmt:     "signer_whoami failed: %s",
-		WhoamiFmt:           "whoami failed: %s",
-		SessionContextFmt:   "Session context failed: %s",
+		LoadAgentSkillsFmt: "Could not load agent skills: %s",
+		AgentMaxRoundsFmt:  "Assistant exceeded %d tool-call rounds",
+		SignerWhoamiFmt:    "signer_whoami failed: %s",
+		WhoamiFmt:          "whoami failed: %s",
+		SessionContextFmt:  "Session context failed: %s",
 
 		UnsupportedAddressTypeFmt: "Unsupported address type %q",
 		AddressRequired:           "Address is required",

@@ -11,7 +11,7 @@ This document describes how to **measure assistant quality**, the **observabilit
 Assistant pipeline:
 
 ```
-User message → LLM tool loop → remote MCP build_* → local sign_* → remote broadcast_*
+User message → LLM tool loop → local signer / Agent Hub → A2A delegated task
 ```
 
 Success is defined by **on-chain outcomes** and **correct orchestration**, not fluent prose alone.

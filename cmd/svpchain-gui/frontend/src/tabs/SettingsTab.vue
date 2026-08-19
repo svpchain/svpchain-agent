@@ -38,9 +38,7 @@ const llmApiKey = ref('')
 const llmProvider = ref('openai')
 const llmBaseURL = ref('')
 const llmModel = ref('')
-const remoteMCPURL = ref('')
 const agentHubURL = ref('')
-const remoteMCPDisabled = ref(false)
 const agentChainId = ref('')
 const skillsConfigBase = ref('')
 const defaultSkillsConfigBase = ref('')
@@ -91,9 +89,7 @@ async function loadAgentSettings() {
       llm_provider?: string
       llm_base_url?: string
       llm_model?: string
-      remote_mcp_url?: string
       agent_hub_url?: string
-      remote_mcp_disabled?: boolean
       skills_config_base?: string
       show_tool_steps?: boolean
       agent_run_log_disabled?: boolean
@@ -104,9 +100,7 @@ async function loadAgentSettings() {
     llmBaseURL.value = s.llm_base_url || ''
     llmModel.value = s.llm_model || ''
     llmContextWindow.value = s.llm_context_window ? String(s.llm_context_window) : ''
-    remoteMCPURL.value = s.remote_mcp_url || ''
     agentHubURL.value = s.agent_hub_url || ''
-    remoteMCPDisabled.value = !!s.remote_mcp_disabled
     agentChainId.value = s.chain_id || ''
     showToolSteps.value = !!s.show_tool_steps
     agentRunLogDisabled.value = !!s.agent_run_log_disabled
@@ -115,9 +109,6 @@ async function loadAgentSettings() {
       defaultSkillsConfigBase.value = await App.AgentDefaultSkillsConfigBase()
     } catch {
       defaultSkillsConfigBase.value = ''
-    }
-    if (!remoteMCPURL.value) {
-      remoteMCPURL.value = await App.AgentDefaultRemoteURL()
     }
     await loadSkillSettings()
   } catch {
@@ -138,9 +129,7 @@ async function saveAgentSettings() {
         llm_base_url: llmBaseURL.value,
         llm_model: llmModel.value,
         llm_context_window: Number.parseInt(llmContextWindow.value, 10) || 0,
-        remote_mcp_url: remoteMCPURL.value,
         agent_hub_url: agentHubURL.value.trim(),
-        remote_mcp_disabled: remoteMCPDisabled.value,
         disabled_skills: disabledSkills,
         skills_config_base: skillsConfigBase.value.trim(),
         show_tool_steps: showToolSteps.value,
@@ -346,32 +335,6 @@ onMounted(init)
               </span>
             </template>
             <n-input v-model:value="llmContextWindow" :placeholder="t('ph.llmContextWindow')" />
-          </n-form-item>
-          <n-form-item :label="t('field.remoteMCPURL')">
-            <n-input
-              v-model:value="remoteMCPURL"
-              :placeholder="t('ph.remoteMCPURL')"
-              :disabled="remoteMCPDisabled"
-            />
-          </n-form-item>
-          <n-form-item>
-            <template #label>
-              <span class="label-with-help">
-                <span>{{ t('field.remoteMCPDisabled') }}</span>
-                <n-popover trigger="hover" placement="top-start" :show-arrow="true">
-                  <template #trigger>
-                    <span
-                      class="help-icon"
-                      tabindex="0"
-                      role="button"
-                      :title="t('hint.remoteMCPDisabled')"
-                    >?</span>
-                  </template>
-                  <div class="help-tooltip-text">{{ t('hint.remoteMCPDisabled') }}</div>
-                </n-popover>
-              </span>
-            </template>
-            <n-switch v-model:value="remoteMCPDisabled" />
           </n-form-item>
           <n-form-item :label="t('field.agentHubURL')">
             <n-input v-model:value="agentHubURL" :placeholder="t('ph.agentHubURL')" />

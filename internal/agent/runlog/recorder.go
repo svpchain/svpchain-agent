@@ -84,7 +84,6 @@ type Run struct {
 	StartedAt   time.Time  `json:"started_at"`
 	FinishedAt  time.Time  `json:"finished_at,omitempty"`
 	ChainID     string     `json:"chain_id"`
-	RemoteURL   string     `json:"remote_url"`
 	Model       string     `json:"model,omitempty"`
 	Provider    string     `json:"provider,omitempty"`
 	UserMessage string     `json:"user_message"`
@@ -101,7 +100,6 @@ type Run struct {
 // Meta describes a run before execution starts.
 type Meta struct {
 	ChainID     string
-	RemoteURL   string
 	Model       string
 	Provider    string
 	UserMessage string
@@ -134,7 +132,6 @@ func (r *Recorder) Begin(meta Meta) *Session {
 			RunID:       uuid.NewString(),
 			StartedAt:   time.Now().UTC(),
 			ChainID:     strings.TrimSpace(meta.ChainID),
-			RemoteURL:   strings.TrimSpace(meta.RemoteURL),
 			Model:       strings.TrimSpace(meta.Model),
 			Provider:    strings.TrimSpace(meta.Provider),
 			UserMessage: Redact(meta.UserMessage),

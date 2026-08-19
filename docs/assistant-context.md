@@ -8,8 +8,8 @@ Every assistant run used to start with the LLM calling `signer_whoami` (local ke
 
 **How it works:**
 
-1. After remote MCP auth, the agent loads `agent_memory.json` (same config directory as `prefs.json`).
-2. If a valid entry exists for the current **chain id + remote MCP URL + local owner**, its JSON is appended to the system prompt as **Cached session context** — the LLM is instructed not to call `signer_whoami` or `whoami` again.
+1. The agent loads `agent_memory.json` from the same config directory as `prefs.json`.
+2. If a valid entry exists for the current **chain id + local owner**, its JSON is appended to the system prompt as **Cached session context** — the LLM is instructed not to call `signer_whoami` again.
 3. If missing or stale, the agent fetches both once (UI step: `Loading session context…`), saves to disk, then injects the prompt.
 4. If the LLM still calls either tool, `dispatchTool` returns the cached JSON without a network/local repeat.
 

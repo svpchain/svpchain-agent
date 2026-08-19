@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"strings"
 
-	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
-
 	"github.com/svpchain/svpchain-agent/internal/agent/a2acall"
 	"github.com/svpchain/svpchain-agent/internal/agent/delegatecall"
 	"github.com/svpchain/svpchain-agent/internal/agent/guard"
@@ -14,48 +12,20 @@ import (
 	"github.com/svpchain/svpchain-agent/internal/agent/llm"
 	localsigner "github.com/svpchain/svpchain-agent/internal/agent/local"
 	"github.com/svpchain/svpchain-agent/internal/agent/memory"
-	remotemcp "github.com/svpchain/svpchain-agent/internal/agent/remote"
 	"github.com/svpchain/svpchain-agent/internal/agent/skills"
 	"github.com/svpchain/svpchain-agent/internal/agent/x402"
 )
 
-// buildToolList merges remote MCP tool schemas with the local-only tool defs.
-// A nil remote means the remote MCP is switched off: the assistant then has
-// only the local tools, and the skills that gate on remote tool names drop out
-// of the system prompt on their own.
-func buildToolList(ctx context.Context, remote *remotemcp.Client, deleg *delegatecall.Service) ([]llm.Tool, error) {
-	var remoteTools []*mcpsdk.Tool // schemas the remote advertises; nil when off
-	if remote != nil {
-		var err error
-		remoteTools, err = remote.ListTools(ctx)
-		if err != nil {
-			return nil, err
-		}
-	}
-	out := make([]llm.Tool, 0, len(remoteTools)+len(localsigner.ToolDefs()))
-	for _, t := range remoteTools {
-		if t == nil {
-			continue
-		}
-		// Local sign_challenge is routed locally; remote auth tools stay on remote.
-		out = append(out, llm.Tool{
-			Type: "function",
-			Function: llm.Function{
-				Name:        t.Name,
-				Description: t.Description,
-				Parameters:  t.InputSchema,
-			},
-		})
-	}
+// buildToolList returns local signer and Agent Hub/A2A tool definitions.
+func buildToolList(deleg *delegatecall.Service) ([]llm.Tool, error) {
+	out := make([]llm.Tool, 0, len(localsigner.ToolDefs()))
 	out = append(out, localsigner.ToolDefs()...)
 	out = append(out, deleg.ToolDefs()...)
 	return out, nil
 }
 
-// dispatchTool routes one tool call to its handler. It is the trust-boundary hop:
-// the whitelist gate runs first (before any build_* is forwarded), then cached
-// whoami short-circuits, then local/x402/http/a2a handlers, finally the remote MCP.
-func dispatchTool(ctx context.Context, chainID string, remote *remotemcp.Client, local *localsigner.Signer, deleg *delegatecall.Service, name string, args map[string]any, mem *memory.Session) (string, error) {
+// dispatchTool routes one local or delegated tool call to its handler.
+func dispatchTool(ctx context.Context, chainID string, local *localsigner.Signer, deleg *delegatecall.Service, name string, args map[string]any, mem *memory.Session) (string, error) {
 	// Whitelist gate: reject a transfer/approval to a non-whitelisted recipient
 	// before the build_* call is forwarded — no build, sign, or broadcast happens.
 	if err := guard.Check(chainID, name, args); err != nil {
@@ -96,21 +66,7 @@ func dispatchTool(ctx context.Context, chainID string, remote *remotemcp.Client,
 		}
 		return result, err
 	}
-	if remote == nil {
-		// Everything not handled above is a remote tool, and with the remote
-		// switched off it does not exist. Say so plainly: the model should
-		// pick a different approach, not retry.
-		return "", fmt.Errorf(
-			"%q is a remote MCP tool and the remote MCP is disabled in Settings — "+
-				"it is unavailable for this conversation", name,
-		)
-	}
-	result, err := remote.CallTool(ctx, name, args)
-	if err == nil && mem != nil && name == "whoami" {
-		mem.SetToolResult(name, result)
-		_ = memory.Save(*mem)
-	}
-	return result, err
+	return "", fmt.Errorf("unknown tool %q", name)
 }
 
 // toolNames lists the tool names available this run (used to gate skills).

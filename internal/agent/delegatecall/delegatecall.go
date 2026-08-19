@@ -208,7 +208,7 @@ func (s *Service) ToolDefs() []llm.Tool {
 				Description: "List ACTIVE agents registered on the svpchain x/agent registry. " +
 					"Runs LOCALLY on the user's machine and reads the chain directly over the " +
 					"REST endpoint configured in Settings (reported as agent_hub_url in the " +
-					"result) — it does not go through the remote MCP server. " +
+					"result) — it is sent directly to the registered A2A agent. " +
 					"Optionally filter by one exact capability tag (e.g. \"trading\"). " +
 					"Returns agent DIDs, A2A endpoints, capability tags, pricing and bond. " +
 					"Results are cached briefly; pass refresh=true after a chain restart or " +

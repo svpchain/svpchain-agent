@@ -7,10 +7,12 @@ import {desktop} from '../wailsjs/go/models'
 import {EventsOn} from '../wailsjs/runtime/runtime'
 import {renderMarkdown} from './markdown'
 import {useAppTheme} from './composables/useAppTheme'
+import {useChainLabel} from './composables/useChainLabel'
 import type {Entry} from './types'
 
 const {t, tm} = useI18n()
 const {sidebarCollapsed} = useAppTheme()
+const {chainSelectOptions} = useChainLabel()
 
 // Rendered markdown links must not navigate the webview; only http(s) URLs
 // are handed to the system browser.
@@ -46,13 +48,8 @@ const promptChips = computed(() => {
 })
 
 const chainOptions = computed(() =>
-    props.entries.map((e) => ({label: chainLabel(e.ChainID), value: e.ChainID})),
+    chainSelectOptions(props.entries.map((e) => e.ChainID)),
 )
-
-function chainLabel(id: string) {
-  if (id === 'svp-2517-1') return t('assistant.chain.testnet', {id})
-  return id
-}
 
 function focusAssistant() {
   emit('focus-assistant')

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import {onMounted, ref, watch} from 'vue'
+import {onMounted, ref, watch, computed} from 'vue'
 import {useI18n} from 'vue-i18n'
 import {
   NButton,
@@ -20,6 +20,7 @@ import {setLocale} from '../i18n'
 import * as App from '../../wailsjs/go/desktop/App'
 import {desktop} from '../../wailsjs/go/models'
 import type {Entry, SkillSetting} from '../types'
+import {useChainLabel} from '../composables/useChainLabel'
 
 const props = defineProps<{
   entries: Entry[]
@@ -31,6 +32,7 @@ const emit = defineEmits<{
 }>()
 
 const {t} = useI18n()
+const {chainSelectOptions} = useChainLabel()
 const message = useMessage()
 
 const language = ref('en')
@@ -42,6 +44,9 @@ const remoteMCPURL = ref('')
 const agentHubURL = ref('')
 const remoteMCPDisabled = ref(false)
 const agentChainId = ref('')
+const chainOptions = computed(() =>
+    chainSelectOptions(props.entries.map((e) => e.ChainID)),
+)
 const skillsConfigBase = ref('')
 const defaultSkillsConfigBase = ref('')
 const skillSettings = ref<SkillSetting[]>([])
@@ -218,7 +223,7 @@ onMounted(init)
             <n-select
                 v-model:value="agentChainId"
                 :placeholder="t('ph.chainConfig')"
-                :options="entries.map((e) => ({ label: e.ChainID, value: e.ChainID }))"
+                :options="chainOptions"
             />
           </n-form-item>
           <n-form-item>

@@ -18,6 +18,7 @@ import {
 } from 'naive-ui'
 import * as App from '../../wailsjs/go/desktop/App'
 import {useAddressCell} from '../composables/useAddressCell'
+import {useChainLabel} from '../composables/useChainLabel'
 import type {Entry} from '../types'
 
 const props = defineProps<{
@@ -31,6 +32,7 @@ const emit = defineEmits<{
 }>()
 
 const {t} = useI18n()
+const {formatChain, chainSelectOptions} = useChainLabel()
 const message = useMessage()
 const dialog = useDialog()
 const {addressCell} = useAddressCell((msg) => emit('status', msg))
@@ -44,7 +46,12 @@ function setStatus(msg: string) {
 }
 
 const keyColumns: DataTableColumns<Entry> = [
-  {title: () => t('col.chainId'), key: 'ChainID', width: 140},
+  {
+    title: () => t('col.chainId'),
+    key: 'ChainID',
+    width: 200,
+    render: (row) => formatChain(row.ChainID),
+  },
   {
     title: () => t('col.cosmos'),
     key: 'Owner',
@@ -86,14 +93,14 @@ function deleteSelected() {
   }
   dialog.warning({
     title: t('dialog.confirmDeleteTitle'),
-    content: t('dialog.confirmDeleteBody', {id}),
+    content: t('dialog.confirmDeleteBody', {id: formatChain(id)}),
     positiveText: t('dialog.confirm'),
     negativeText: t('dialog.cancel'),
     onPositiveClick: async () => {
       try {
         await App.DeleteKey(id)
         await refreshKeys()
-        setStatus(t('status.deleted', {id}))
+        setStatus(t('status.deleted', {id: formatChain(id)}))
       } catch (err) {
         message.error(String(err))
       }
@@ -129,9 +136,9 @@ async function doImport() {
     }
     importKey.value = ''
     await refreshKeys()
-    let msg = t('status.savedKey', {owner: res.Owner, evm: res.EVMAddr, chain: chainID})
+    let msg = t('status.savedKey', {owner: res.Owner, evm: res.EVMAddr, chain: formatChain(chainID)})
     if (res.Conflicts && res.Conflicts.length > 0) {
-      msg += t('status.conflictSuffix', {ids: res.Conflicts.join(', ')})
+      msg += t('status.conflictSuffix', {ids: res.Conflicts.map(formatChain).join(', ')})
       dialog.warning({
         title: t('dialog.conflictTitle'),
         content: msg,
@@ -159,10 +166,8 @@ onMounted(init)
       <n-form-item :label="t('field.chainId')">
         <n-select
             v-model:value="importChainId"
-            filterable
-            tag
             :placeholder="t('ph.chainId')"
-            :options="defaultChainIds.map((c) => ({ label: c, value: c }))"
+            :options="chainSelectOptions(defaultChainIds)"
         />
       </n-form-item>
       <n-form-item :label="t('field.privateKey')">

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import {onMounted, ref, watch} from 'vue'
+import {onMounted, ref, watch, computed} from 'vue'
 import {useI18n} from 'vue-i18n'
 import {
   NButton,
@@ -15,13 +15,18 @@ import {
 } from 'naive-ui'
 import * as App from '../../wailsjs/go/desktop/App'
 import type {Entry} from '../types'
+import {useChainLabel} from '../composables/useChainLabel'
 
 const props = defineProps<{ entries: Entry[] }>()
 const emit = defineEmits<{ status: [msg: string] }>()
 
 const {t} = useI18n()
+const {chainSelectOptions} = useChainLabel()
 
 const selectedChainId = ref<string | null>(null)
+const chainOptions = computed(() =>
+    chainSelectOptions(props.entries.map((e) => e.ChainID)),
+)
 const agents = ref<string[]>([])
 const agent = ref('')
 const signerPath = ref('')
@@ -94,7 +99,7 @@ async function browseSigner() {
         <n-select
             v-model:value="selectedChainId"
             :placeholder="t('ph.chainConfig')"
-            :options="entries.map((e) => ({ label: e.ChainID, value: e.ChainID }))"
+            :options="chainOptions"
         />
       </n-form-item>
       <n-form-item :label="t('field.signerPath')">

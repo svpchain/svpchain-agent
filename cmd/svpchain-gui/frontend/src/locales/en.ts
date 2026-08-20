@@ -13,6 +13,10 @@ export default {
         settings: 'Settings',
         about: 'About',
     },
+    chain: {
+        testnet: 'Testnet ({id})',
+        mainnet: 'Production mainnet ({id})',
+    },
     col: {
         chainId: 'Chain ID',
         cosmos: 'SVP Cosmos Address',
@@ -57,7 +61,7 @@ export default {
         llmContextWindow: 'Context window (tokens)',
     },
     ph: {
-        chainId: 'Pick from list or type your own',
+        chainId: 'Select a chain ID',
         key: '32-byte private key (hex, optional 0x prefix)',
         chainConfig: 'Chain id matching an imported key',
         binary: 'Absolute path to svpchain-mcp',
@@ -125,9 +129,6 @@ export default {
         session: {
             placeholder: 'Conversations',
             untitled: 'New conversation',
-        },
-        chain: {
-            testnet: 'Testnet ({id})',
         },
         status: {
             label: 'Status',

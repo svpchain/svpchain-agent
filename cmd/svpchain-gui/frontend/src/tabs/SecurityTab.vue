@@ -17,12 +17,14 @@ import {
 } from 'naive-ui'
 import * as App from '../../wailsjs/go/desktop/App'
 import {useAddressCell} from '../composables/useAddressCell'
+import {useChainLabel} from '../composables/useChainLabel'
 import type {WhitelistEntry} from '../types'
 
 const props = defineProps<{ defaultChainIds: string[] }>()
 const emit = defineEmits<{ status: [msg: string] }>()
 
 const {t} = useI18n()
+const {formatChain, chainSelectOptions} = useChainLabel()
 const message = useMessage()
 const dialog = useDialog()
 const {addressCell} = useAddressCell((msg) => emit('status', msg))
@@ -67,7 +69,12 @@ function addressTypeLabel(type: string) {
 
 const whitelistColumns: DataTableColumns<WhitelistEntry> = [
   {title: () => t('col.alias'), key: 'Alias', width: 140},
-  {title: () => t('col.chainId'), key: 'ChainID', width: 140},
+  {
+    title: () => t('col.chainId'),
+    key: 'ChainID',
+    width: 200,
+    render: (row) => formatChain(row.ChainID),
+  },
   {
     title: () => t('col.addressType'),
     key: 'AddressType',
@@ -127,7 +134,7 @@ async function saveWhitelist() {
     whitelistAddress.value = ''
     whitelistAlias.value = ''
     await refreshWhitelist()
-    setStatus(t('status.savedWhitelist', {address: saved.Address, chain: saved.ChainID}))
+    setStatus(t('status.savedWhitelist', {address: saved.Address, chain: formatChain(saved.ChainID)}))
   } catch (err) {
     message.error(String(err))
   }
@@ -142,7 +149,7 @@ function deleteSelectedWhitelist() {
   dialog.warning({
     title: t('dialog.confirmDeleteWhitelistTitle'),
     content: t('dialog.confirmDeleteWhitelistBody', {
-      chain: row.ChainID,
+      chain: formatChain(row.ChainID),
       type: addressTypeLabel(row.AddressType),
       address: row.Address,
     }),
@@ -175,10 +182,8 @@ onMounted(init)
       <n-form-item :label="t('field.chainId')">
         <n-select
             v-model:value="whitelistChainId"
-            filterable
-            tag
             :placeholder="t('ph.chainId')"
-            :options="defaultChainIds.map((c) => ({ label: c, value: c }))"
+            :options="chainSelectOptions(defaultChainIds)"
         />
       </n-form-item>
       <n-form-item :label="t('field.addressType')">

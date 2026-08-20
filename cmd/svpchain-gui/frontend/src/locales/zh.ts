@@ -13,6 +13,10 @@ export default {
         settings: '设置',
         about: '说明',
     },
+    chain: {
+        testnet: '测试网 ({id})',
+        mainnet: '生产主网 ({id})',
+    },
     col: {
         chainId: 'Chain ID',
         cosmos: 'SVP Cosmos 地址',
@@ -57,7 +61,7 @@ export default {
         llmContextWindow: '上下文窗口（tokens）',
     },
     ph: {
-        chainId: '可从列表选择或自行输入',
+        chainId: '选择 Chain ID',
         key: '32 字节私钥（hex，可带 0x 前缀）',
         chainConfig: '与已导入密钥对应的 chain id',
         binary: 'svpchain-mcp 可执行文件的绝对路径',
@@ -125,9 +129,6 @@ export default {
         session: {
             placeholder: '历史对话',
             untitled: '新对话',
-        },
-        chain: {
-            testnet: '测试网 ({id})',
         },
         status: {
             label: '执行状态',

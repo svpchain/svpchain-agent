@@ -237,8 +237,48 @@ export default {
     },
     about: {
         title: 'SVPChain Agent',
-        body: 'A local-key on-chain agent for svpchain (Cosmos/EVM). Your private key lives in the OS credential store (macOS Keychain / Windows Credential Manager / Linux Secret Service) — never written to config files, never leaves your machine. Remote services only build and broadcast transactions; they can never touch your key.\n\nCore features:\n\n• AI assistant — Trade, swap, transfer, bridge, and query on-chain state in natural language. The assistant orchestrates the full remote-build → local-sign → remote-broadcast flow, and stops the moment any step fails.\n\n• Perpetuals trading — Limit / market (IOC) / stop-loss & take-profit orders, single and batch cancel; live order book, trades, candles, funding rates, and oracle price.\n\n• Subaccounts & funds — Deposit / withdraw / transfer USDC between subaccounts; inspect margin, positions, PnL, fills, and funding payments.\n\n• Wallet & tokens — Native SVP/USDC sends, ERC-20 / ERC-721 transfers and approvals, UniswapV2 swaps, cross-chain bridge deposits, and a testnet faucet.\n\n• Transfer whitelist — Allow-list recipients (SVP Cosmos and EVM addresses, with optional aliases). The assistant requires a whitelist before any transfer: unconfigured or off-list recipients are refused and the run stops without broadcasting.\n\n• x402 payments — Auto-respond to HTTP 402 and sign the payment locally (EIP-3009 / Permit2).\n\n• Key management — Import a private key per Chain ID and view its Cosmos (svp1…) and EVM (0x…) addresses.\n\n• MCP integration — Generate stdio signer config for Cursor and other MCP clients in one click.\n\nTrust model — Signing happens only on your machine over stdio (no network port). The remote side is gated by a signed challenge and never holds your key.\n\nGet started — Import a key → set your LLM API key in Settings → add a whitelist entry in Security → use the Assistant tab for on-chain actions; or export the MCP config into Cursor.',
         version: 'Version {v}',
+        lead: 'A local-key on-chain assistant for svpchain (Cosmos + EVM). Your private key stays on this machine. The assistant can discover agents registered on chain and hand them a one-shot, short-lived credential so they act on your account — they never hold your key. When needed, it can also run the full remote-build → local-sign → remote-broadcast path itself.',
+        trust: {
+            title: 'Three-party trust',
+            localTitle: 'Local signing.',
+            local: 'The key lives in the OS credential store (macOS Keychain, Windows Credential Manager, Linux Secret Service). Only payloads and auth challenges that pass cross-checks are signed. The key is never written to config and never leaves the machine. Signing is stdio-only — no network port.',
+            remoteTitle: 'Remote MCP.',
+            remote: 'Builds unsigned transactions, serves market data, and broadcasts already-signed transactions. It never holds a key. Access is gated by a locally signed challenge exchanged for a token.',
+            assistantTitle: 'Built-in assistant.',
+            assistant: 'Orchestrates tool calls and delegation. It cannot sign for you, and it cannot override the whitelist or the confirmation dialog.',
+        },
+        canDo: {
+            title: 'What you can do',
+            orchestrateTitle: 'Discover and delegate.',
+            orchestrate:
+                'Browse registered agents with verified cards in Agents. Create a root grant (actions, spend caps, expiry) in Delegations, or pause, resume, and revoke. For each task the assistant mints a short-lived credential, sends it over A2A, and the remote agent executes on your account. Pause is the emergency stop: it invalidates every outstanding credential under that grant at once.',
+            directTitle: 'Act on chain yourself.',
+            direct:
+                'Query balances and positions, transfer, swap, bridge, move ERC-20/721, trade perpetuals and subaccounts, or pay x402 content — in natural language. On-chain writes always follow remote build → local sign → remote broadcast; signed fields pass through verbatim, and any failed step stops the run.',
+            keysTitle: 'Keys.',
+            keys: 'Import one key per Chain ID and view its svp1… and 0x addresses. Importing again under the same Chain ID overwrites the previous key.',
+            securityTitle: 'Security.',
+            security: 'Allow-list recipients and spenders. With an empty whitelist the assistant refuses every transfer and approval.',
+            mcpTitle: 'MCP.',
+            mcp: 'Export local signer config for Cursor and other clients, which start the signer on demand.',
+        },
+        safety: {
+            title: 'Safety',
+            whitelist:
+                'The whitelist runs before the confirmation dialog: confirming cannot override a whitelist refusal. Empty whitelist in the assistant = refuse all transfers; empty whitelist in the standalone signer = unrestricted (backward compatible).',
+            confirm: 'Every grant and every local signature (except the MCP auth challenge) needs an explicit approve in a dialog. Decline, timeout, or no one present all deny.',
+            a2a: 'This app is an A2A client only. It never runs as a network service.',
+        },
+        start: {
+            title: 'Get started',
+            steps: [
+                'Import a private key into the OS credential store on the Keys tab.',
+                'In Settings, enter an LLM API key, pick a network, and set an Agent Hub URL if needed.',
+                'Add at least one whitelist entry in Security, or the assistant will refuse transfers.',
+                'Pick a network in the sidebar, then talk in Assistant — or manage remote agents in Agents and Delegations.',
+            ],
+        },
     },
     status: {
         readKeysFailed: 'Failed to read keys: {err}',

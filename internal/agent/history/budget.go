@@ -5,7 +5,7 @@ import (
 )
 
 // DefaultContextWindow is assumed when the user has not configured one.
-const DefaultContextWindow = 64000
+const DefaultContextWindow = 128000
 
 // ContextBudgetTokens converts a model context window into the token budget
 // reserved for conversation history (the rest is left for the system prompt,

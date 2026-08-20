@@ -74,7 +74,7 @@ export default {
         whitelistAddress: 'svp1… 或 0x…',
         whitelistAlias: '可选，例如 团队金库',
         skillsConfigBase: '留空使用系统默认配置目录',
-        llmContextWindow: '默认 64000',
+        llmContextWindow: '默认 128000',
     },
     addressType: {
         cosmos: 'SVP Cosmos',

@@ -49,7 +49,7 @@ restores the current conversation. Sending a message on a different chain id aut
 (context from another chain would be misleading).
 
 **Context management** — three mechanisms keep long conversations inside the model's context window (configurable under
-**Settings → LLM → Context window**, default 64000 tokens; history is budgeted at ~70% of it):
+**Settings → LLM → Context window**, default 128000 tokens; history is budgeted at ~70% of it):
 
 1. **Projection** — tool results larger than 4 KB are archived to `sessions/blobs/` and truncated in the transcript. The
    live run always saw the full result; only later turns get the truncated view.

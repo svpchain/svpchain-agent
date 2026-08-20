@@ -74,7 +74,7 @@ export default {
         whitelistAddress: 'svp1… or 0x…',
         whitelistAlias: 'Optional, e.g. Team Treasury',
         skillsConfigBase: 'Leave empty for the OS default config directory',
-        llmContextWindow: 'Default 64000',
+        llmContextWindow: 'Default 128000',
     },
     addressType: {
         cosmos: 'SVP Cosmos',

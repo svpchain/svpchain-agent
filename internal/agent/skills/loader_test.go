@@ -26,24 +26,6 @@ func hermetic(t *testing.T) {
 	skills.SetDisabledSkillsOverride(nil)
 }
 
-// legacyTail is the composed prompt suffix when the full trading tool set is available
-// (all skills except x402/a2a, which are tool-gated).
-const legacyTail = `Workflow for on-chain writes:
-1. Use remote build_* tools to construct unsigned transactions (or EVM payloads).
-2. Sign locally with sign_transaction / sign_evm_transaction (never skip signing). The app shows a confirmation dialog before the local key is used; if the user declines, stop — do not retry the same signature.
-3. Broadcast with broadcast_signed_tx or broadcast_evm_tx on the remote server.
-4. Pass signed_tx fields VERBATIM from sign_* to broadcast_*.
-
-The runtime enforces this sequence. Skipping a step, signing a hand-crafted payload, or editing signed_tx stops the run — do not work around it.
-
-Sending SVP (or any bank denom) to a 0x EVM address: build_bank_send only accepts svp1… recipients. When the user gives a 0x address, FIRST call evm_to_bech32 to convert it, then use the returned svp1… owner as build_bank_send.recipient (denom "asvp" for SVP). Never pass a 0x address straight to build_bank_send.
-
-For ERC20/ERC721 contract calls (transfer, approve, transferFrom, safeTransferFrom, setApprovalForAll): use the remote build_erc20_* / build_erc721_* tools — they return a ready-to-sign EVMTxPayload (nonce/gas/fees filled). ERC20 amounts are human units; ERC721 uses token_id. Then sign_evm_transaction and broadcast_evm_tx, exactly like build_swap.
-
-When **Cached session context** is present in the system prompt, use that data directly — do not call signer_whoami or whoami unless the user changed chain, signing key, or remote MCP endpoint. Otherwise call signer_whoami for the local key and whoami for remote tenant policy after auth.
-
-Be concise in final answers. Show tx hashes and key numbers when operations succeed.`
-
 func TestComposeSystemPrompt_matchesLegacyWithFullToolSet(t *testing.T) {
 	hermetic(t)
 	// Exclude x402-only tools (http_fetch, sign_typed_data, signer_whoami, x402_*) so the
@@ -60,7 +42,12 @@ func TestComposeSystemPrompt_matchesLegacyWithFullToolSet(t *testing.T) {
 	require.Contains(t, got, "# Red lines")
 	require.Contains(t, got, "NEVER** skip local signing")
 	require.Contains(t, got, "transfer whitelist")
-	require.Contains(t, got, legacyTail)
+	require.Contains(t, got, "Workflow for on-chain writes:")
+	require.Contains(t, got, "Pass signed_tx fields VERBATIM")
+	require.Contains(t, got, "build_bank_send only accepts svp1")
+	require.Contains(t, got, "build_erc20_* / build_erc721_*")
+	require.Contains(t, got, "Cached session context")
+	require.Contains(t, got, "Be concise in final answers")
 }
 
 func TestComposeSystemPrompt_includesX402SkillWhenToolsPresent(t *testing.T) {

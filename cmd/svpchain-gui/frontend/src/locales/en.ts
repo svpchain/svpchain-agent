@@ -212,6 +212,8 @@ export default {
     shell: {
         collapseSidebar: 'Collapse sidebar',
         expandSidebar: 'Expand sidebar',
+        collapseMenu: 'Collapse menu',
+        expandMenu: 'Expand menu',
         themeDark: 'Dark mode',
         themeLight: 'Light mode',
     },

@@ -212,6 +212,8 @@ export default {
     shell: {
         collapseSidebar: '收起侧栏',
         expandSidebar: '展开侧栏',
+        collapseMenu: '收起菜单',
+        expandMenu: '展开菜单',
         themeDark: '深色模式',
         themeLight: '浅色模式',
     },

@@ -4,6 +4,7 @@ export type ThemeMode = 'light' | 'dark'
 
 const THEME_KEY = 'svpchain-gui-theme'
 const SIDEBAR_KEY = 'svpchain-gui-sidebar-collapsed'
+const NAV_KEY = 'svpchain-gui-nav-expanded'
 
 function loadTheme(): ThemeMode {
     try {
@@ -23,8 +24,17 @@ function loadSidebarCollapsed(): boolean {
     }
 }
 
+function loadNavExpanded(): boolean {
+    try {
+        return localStorage.getItem(NAV_KEY) === '1'
+    } catch {
+        return false
+    }
+}
+
 const mode = ref<ThemeMode>(loadTheme())
 const sidebarCollapsed = ref(loadSidebarCollapsed())
+const navExpanded = ref(loadNavExpanded())
 
 watch(
     mode,
@@ -48,6 +58,14 @@ watch(sidebarCollapsed, (v) => {
     }
 })
 
+watch(navExpanded, (v) => {
+    try {
+        localStorage.setItem(NAV_KEY, v ? '1' : '0')
+    } catch {
+        /* ignore */
+    }
+})
+
 export function useAppTheme() {
     const isDark = computed(() => mode.value === 'dark')
 
@@ -63,12 +81,18 @@ export function useAppTheme() {
         sidebarCollapsed.value = !sidebarCollapsed.value
     }
 
+    function toggleNav() {
+        navExpanded.value = !navExpanded.value
+    }
+
     return {
         mode,
         isDark,
         sidebarCollapsed,
+        navExpanded,
         toggleTheme,
         setTheme,
         toggleSidebar,
+        toggleNav,
     }
 }

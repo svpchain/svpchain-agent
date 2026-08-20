@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import {onMounted, ref, watch} from 'vue'
+import {computed, onMounted, ref, watch} from 'vue'
 import {useI18n} from 'vue-i18n'
 import {setLocale} from './i18n'
 import {useAppTheme} from './composables/useAppTheme'
@@ -19,7 +19,7 @@ import OnboardingTour from './OnboardingTour.vue'
 import type {Entry} from './types'
 
 const {t} = useI18n()
-const {isDark, sidebarCollapsed, toggleTheme, toggleSidebar} = useAppTheme()
+const {isDark, sidebarCollapsed, navExpanded, toggleTheme, toggleSidebar, toggleNav} = useAppTheme()
 
 const isMac = /Mac|iPhone|iPad|iPod/i.test(navigator.userAgent)
 
@@ -51,16 +51,22 @@ function setStatus(msg: string) {
 }
 
 function onTourStepChange(payload: { tab: TabId; expandSettings?: string[] }) {
+  navExpanded.value = true
   activeTab.value = payload.tab
   tourSettingsExpand.value = payload.expandSettings ?? []
 }
 
-function ensureSidebarExpanded() {
-  if (sidebarCollapsed.value) sidebarCollapsed.value = false
-}
+const visibleNavItems = computed(() =>
+    navExpanded.value ? navItems : navItems.filter((item) => item.id === 'assistant'),
+)
 
 function restartOnboarding() {
   onboardingRef.value?.restart()
+}
+
+function ensureSidebarExpanded() {
+  sidebarCollapsed.value = false
+  navExpanded.value = true
 }
 
 watch(activeTab, () => {
@@ -106,6 +112,19 @@ onMounted(async () => {
             <button
                 type="button"
                 class="header-btn"
+                :title="navExpanded ? t('shell.collapseMenu') : t('shell.expandMenu')"
+                @click="toggleNav"
+            >
+              <svg v-if="navExpanded" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
+                <path d="M6 15l6-6 6 6" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
+                <path d="M6 9l6 6 6-6" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
+            <button
+                type="button"
+                class="header-btn"
                 :title="isDark ? t('shell.themeLight') : t('shell.themeDark')"
                 @click="toggleTheme"
             >
@@ -134,7 +153,7 @@ onMounted(async () => {
         </div>
         <nav class="sidebar-nav">
           <button
-              v-for="item in navItems"
+              v-for="item in visibleNavItems"
               :key="item.id"
               type="button"
               class="nav-item"
@@ -305,6 +324,7 @@ onMounted(async () => {
   flex-direction: column;
   gap: 2px;
   flex-shrink: 0;
+  margin-bottom: 14px;
 }
 
 .sidebar-header {

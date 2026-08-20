@@ -366,7 +366,6 @@ onUnmounted(() => {
           data-tour="assistant-chain"
           :placeholder="t('assistant.ph.chainId')"
           :options="chainOptions"
-          size="small"
           class="chain-select"
           :disabled="running"
           :consistent-menu-width="true"
@@ -553,6 +552,7 @@ onUnmounted(() => {
 .chain-select {
   width: 100%;
   flex-shrink: 0;
+  height: 36px;
 }
 
 .session-rail--collapsed .chain-select {
@@ -562,6 +562,13 @@ onUnmounted(() => {
 .session-rail :deep(.n-base-selection) {
   --n-color: var(--bg-hover) !important;
   --n-color-active: var(--bg-hover) !important;
+  --n-height: 36px !important;
+  height: 36px;
+  min-height: 36px;
+}
+
+.session-rail :deep(.n-base-selection-label) {
+  height: 36px;
 }
 
 .new-chat-btn {
@@ -570,7 +577,9 @@ onUnmounted(() => {
   justify-content: center;
   gap: 8px;
   width: 100%;
-  padding: 8px 10px;
+  height: 36px;
+  box-sizing: border-box;
+  padding: 0 10px;
   border: 1px solid var(--border-default);
   border-radius: var(--radius-sm);
   background: var(--bg-elevated);

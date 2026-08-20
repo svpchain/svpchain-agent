@@ -81,6 +81,9 @@ type Config struct {
 
 const maxAgentIterations = 25
 
+// *runlog.Session is the shipped ToolObserver; an OTel wrapper would satisfy the same interface.
+var _ ToolObserver = (*runlog.Session)(nil)
+
 // Run executes one user message through the agent loop.
 func Run(ctx context.Context, cfg Config, userMessage string) (answer string, err error) {
 	var trace *runlog.Session
@@ -172,6 +175,9 @@ func Run(ctx context.Context, cfg Config, userMessage string) (answer string, er
 		writes:  writes,
 		mem:     &sessionMem,
 	}
+	if trace != nil {
+		env.observe = trace
+	}
 
 	tools, err := buildToolList(ctx, remote, deleg)
 	if err != nil {
@@ -256,16 +262,8 @@ func Run(ctx context.Context, cfg Config, userMessage string) (answer string, er
 			}
 			emit(Step{Kind: StepTool, Title: "Calling " + name, Detail: truncate(tc.Function.Arguments, 4000)})
 
-			var finish func(bool, string, string)
-			if trace != nil {
-				finish = trace.RecordTool(name, tc.Function.Arguments)
-			} else {
-				finish = func(bool, string, string) {}
-			}
-
 			result, callErr := env.dispatch(ctx, name, args)
 			if callErr != nil {
-				finish(false, "", callErr.Error())
 				var denied *hitl.Denied
 				var rej *guard.Rejection
 				var broken *writepath.Violation
@@ -282,7 +280,6 @@ func Run(ctx context.Context, cfg Config, userMessage string) (answer string, er
 				emit(Step{Kind: StepAnswer, Title: "Stopped", Detail: answer})
 				return answer, nil
 			}
-			finish(true, result, "")
 			emit(Step{Kind: StepTool, Title: name + " ok", Detail: truncate(result, 4000)})
 			messages = append(messages, llm.Message{
 				Role:       "tool",

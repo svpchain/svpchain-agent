@@ -49,7 +49,8 @@ func buildToolList(ctx context.Context, remote *remotemcp.Client, deleg *delegat
 	return out, nil
 }
 
-// dispatchTool is the test-facing entry: whitelist → write-path graph → cache → route.
+// dispatchTool is the test-facing entry onto the middleware chain
+// (observe → guard → writepath → cache → protocol mux).
 func dispatchTool(ctx context.Context, chainID string, remote *remotemcp.Client, local *localsigner.Signer, deleg *delegatecall.Service, confirm hitl.Func, writes *writepath.Tracker, name string, args map[string]any, mem *memory.Session) (string, error) {
 	return dispatchEnv{
 		chainID: chainID,
@@ -71,6 +72,10 @@ func errRemoteDisabled(name string) error {
 
 func errUnknownX402(name string) error {
 	return fmt.Errorf("unknown x402 tool %q", name)
+}
+
+func errUnknownTool(name string) error {
+	return fmt.Errorf("unknown tool %q", name)
 }
 
 // toolNames lists the tool names available this run (used to gate skills).

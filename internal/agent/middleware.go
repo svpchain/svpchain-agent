@@ -2,23 +2,20 @@ package agent
 
 import (
 	"context"
+	"encoding/json"
 
-	"github.com/svpchain/svpchain-agent/internal/agent/a2acall"
 	"github.com/svpchain/svpchain-agent/internal/agent/delegatecall"
 	"github.com/svpchain/svpchain-agent/internal/agent/guard"
 	"github.com/svpchain/svpchain-agent/internal/agent/hitl"
-	"github.com/svpchain/svpchain-agent/internal/agent/httpfetch"
 	localsigner "github.com/svpchain/svpchain-agent/internal/agent/local"
 	"github.com/svpchain/svpchain-agent/internal/agent/memory"
 	remotemcp "github.com/svpchain/svpchain-agent/internal/agent/remote"
-	"github.com/svpchain/svpchain-agent/internal/agent/skills"
 	"github.com/svpchain/svpchain-agent/internal/agent/writepath"
-	"github.com/svpchain/svpchain-agent/internal/agent/x402"
 )
 
 // toolFunc handles one tool call. Middleware wraps this the way Eino/Genkit
 // wrap handlers: each layer can refuse before the next runs, and observe the
-// result after.
+// result after. Middleware never executes a tool.
 type toolFunc func(ctx context.Context, name string, args map[string]any) (string, error)
 
 type middleware func(toolFunc) toolFunc
@@ -28,6 +25,13 @@ func wrap(h toolFunc, mws ...middleware) toolFunc {
 		h = mws[i](h)
 	}
 	return h
+}
+
+// ToolObserver records one tool invocation. *runlog.Session implements this;
+// an OpenTelemetry span wrapper plugs in here without changing the handler chain.
+// It is telemetry only — it must not execute tools or override guard.Check.
+type ToolObserver interface {
+	RecordTool(name, args string) func(ok bool, result, errDetail string)
 }
 
 // dispatchEnv is everything one tool call needs. Built once per Run so the
@@ -40,18 +44,39 @@ type dispatchEnv struct {
 	confirm hitl.Func
 	writes  *writepath.Tracker
 	mem     *memory.Session
+	observe ToolObserver
 }
 
 func (env dispatchEnv) dispatch(ctx context.Context, name string, args map[string]any) (string, error) {
-	// Outer → inner: whitelist, then write-path graph, then whoami cache, then route.
-	// A dialog (HITL) sits inside route so a whitelist/graph rejection never
-	// asks the user to approve a forbidden action.
-	h := wrap(env.route,
+	// Outer → inner. Observe is telemetry (runlog today; OTel later) and never
+	// executes a tool. Guard is the first layer that can refuse — empty
+	// whitelist still rejects every transfer. HITL sits inside the local-signer
+	// handler so a whitelist/graph rejection never opens a dialog.
+	h := wrap(env.mux,
+		env.withObserve(),
 		env.withGuard(),
 		env.withWritePath(),
 		env.withCache(),
 	)
 	return h(ctx, name, args)
+}
+
+func (env dispatchEnv) withObserve() middleware {
+	return func(next toolFunc) toolFunc {
+		return func(ctx context.Context, name string, args map[string]any) (string, error) {
+			finish := func(bool, string, string) {}
+			if env.observe != nil {
+				finish = env.observe.RecordTool(name, toolArgsJSON(args))
+			}
+			result, err := next(ctx, name, args)
+			if err != nil {
+				finish(false, "", err.Error())
+				return "", err
+			}
+			finish(true, result, "")
+			return result, nil
+		}
+	}
 }
 
 func (env dispatchEnv) withGuard() middleware {
@@ -96,49 +121,13 @@ func (env dispatchEnv) withCache() middleware {
 	}
 }
 
-func (env dispatchEnv) route(ctx context.Context, name string, args map[string]any) (string, error) {
-	if httpfetch.IsTool(name) {
-		return httpfetch.FromArgs(args)
+func toolArgsJSON(args map[string]any) string {
+	if args == nil {
+		return ""
 	}
-	if x402.IsTool(name) {
-		switch name {
-		case "x402_prepare_typed_data":
-			return x402.PrepareFromArgs(args)
-		case "x402_build_payment":
-			return x402.BuildPaymentFromArgs(args)
-		default:
-			return "", errUnknownX402(name)
-		}
+	bz, err := json.Marshal(args)
+	if err != nil {
+		return ""
 	}
-	if a2acall.IsTool(name) {
-		return a2acall.SendFromArgs(ctx, args)
-	}
-	if delegatecall.IsTool(name) {
-		return env.deleg.Call(ctx, name, args)
-	}
-	if name == skills.ReferenceToolName {
-		return skills.ReadReferenceFromArgs(args)
-	}
-	if localsigner.IsLocalTool(name) {
-		if hitl.NeedsConfirm(name) {
-			if err := hitl.Ask(ctx, env.confirm, hitl.SignRequest(name, args)); err != nil {
-				return "", err
-			}
-		}
-		result, err := env.local.CallTool(ctx, name, args)
-		if err == nil && env.mem != nil && name == "signer_whoami" {
-			env.mem.SetToolResult(name, result)
-			_ = memory.Save(*env.mem)
-		}
-		return result, err
-	}
-	if env.remote == nil {
-		return "", errRemoteDisabled(name)
-	}
-	result, err := env.remote.CallTool(ctx, name, args)
-	if err == nil && env.mem != nil && name == "whoami" {
-		env.mem.SetToolResult(name, result)
-		_ = memory.Save(*env.mem)
-	}
-	return result, err
+	return string(bz)
 }

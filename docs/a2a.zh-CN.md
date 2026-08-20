@@ -10,7 +10,9 @@ Agent 的信任形态相悖。
 
 ## 调用其他 Agent（A2A 客户端）
 
-GUI 助手可通过本地工具 `a2a_send_message` 将子任务委托给远端 A2A Agent：
+链上任务走 **`delegate_task`**（A2A 消息上附带 SVP-DT 凭证），见 README 的智能体发现一节。没有内置 **a2a** skill。
+
+GUI 仍保留无凭证本地工具 `a2a_send_message`，用于对一个原始 A2A URL 发纯文本（不会动用户账户）：
 
 | 参数        | 说明                                                                                                       |
 |-------------|------------------------------------------------------------------------------------------------------------|
@@ -18,8 +20,6 @@ GUI 助手可通过本地工具 `a2a_send_message` 将子任务委托给远端 A
 | `message`   | 发送给远端 Agent 的纯文本消息                                                                              |
 
 返回 JSON：`{ "task_id", "context_id", "state", "response" }`。
-
-当 `a2a_send_message` 可用时注入内置 **a2a** skill。可在 **设置 → 助手 Skills** 中开关。
 
 ## 安全说明
 

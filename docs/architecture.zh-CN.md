@@ -27,8 +27,8 @@
 token。若已配置转账白名单，则在助手构建转账前（预检，含合约转账）与本地签名层均会校验 ——
 见 [转账白名单](security-whitelist.zh-CN.md)。
 
-**多 Agent** 场景下，助手可通过 `a2a_send_message` 调用远端 A2A Agent —— 见 [Agent-to-Agent (A2A)](a2a.zh-CN.md)。本 Agent
-仅作为 A2A 客户端，从不作为服务监听。
+**多 Agent** 场景下，助手在链上发现 Agent，用 `delegate_task`（A2A 信封上的 SVP-DT）把任务交给它们。`a2a_send_message`
+是无凭证纯文本兜底 —— 见 [Agent-to-Agent (A2A)](a2a.zh-CN.md)。本 Agent 仅作为 A2A 客户端，从不作为服务监听。
 
 ## 项目结构
 

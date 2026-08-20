@@ -27,8 +27,9 @@ fields verbatim. Authentication uses a signed `svpchain-mcp-auth-v1:` challenge 
 token. When configured, a transfer whitelist is enforced both before the assistant builds a transfer (pre-flight,
 covering contract transfers) and again at the local signer — see [Transfer whitelist](security-whitelist.md).
 
-For **multi-agent** workflows, the assistant can call remote A2A agents with `a2a_send_message` —
-see [Agent-to-Agent (A2A)](a2a.md). The agent is an A2A client only; it never listens as a service.
+For **multi-agent** workflows, the assistant discovers agents on chain and hands them tasks with `delegate_task`
+(SVP-DT on the A2A envelope). `a2a_send_message` is an uncredentialed plain-text fallback — see
+[Agent-to-Agent (A2A)](a2a.md). This agent is an A2A client only; it never listens as a service.
 
 ## Project layout
 

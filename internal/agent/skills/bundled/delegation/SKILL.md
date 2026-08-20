@@ -116,6 +116,9 @@ task on to agent B — set
   immediately — it needs no confirmation and kills every outstanding credential — then tell the user what happened.
 - **Declined means stop.** If the user declines a confirmation dialog, do not retry or rephrase the same grant. Ask what
   they want changed.
+- **Never use `a2a_send_message` for this.** That tool sends plain text with **no** SVP-DT credential and **cannot**
+  spend the user's funds. On-chain work, paid work, and anything that needs the user's account must go through
+  `delegate_task`. Use `a2a_send_message` only if the user names a raw A2A URL for a read-only or advisory chat.
 
 ## Practical notes
 

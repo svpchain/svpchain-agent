@@ -12,7 +12,11 @@ local wallet agent.
 
 ## Call other agents (A2A client)
 
-The GUI assistant can delegate sub-tasks to remote A2A agents with the local tool `a2a_send_message`:
+On-chain work uses **`delegate_task`** (SVP-DT credential on the A2A message). See the README section on agent
+discovery. There is no bundled **a2a** skill.
+
+The GUI still exposes an uncredentialed local tool `a2a_send_message` for a raw A2A URL and a plain-text message (no
+spend on the user's account):
 
 | Argument    | Description                                                                                                                      |
 |-------------|----------------------------------------------------------------------------------------------------------------------------------|
@@ -20,9 +24,6 @@ The GUI assistant can delegate sub-tasks to remote A2A agents with the local too
 | `message`   | Plain-text user message for the remote agent                                                                                     |
 
 Returns JSON: `{ "task_id", "context_id", "state", "response" }`.
-
-The bundled **a2a** skill is injected when `a2a_send_message` is available. Toggle it under **Settings → Assistant
-Skills**.
 
 ## Security notes
 

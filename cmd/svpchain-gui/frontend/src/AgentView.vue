@@ -38,6 +38,12 @@ const lines = ref<ChatLine[]>([])
 const scrollRef = ref<InstanceType<typeof NScrollbar> | null>(null)
 const imeComposing = ref(false)
 
+const composerInputTheme = {
+  color: 'transparent',
+  colorFocus: 'transparent',
+  colorDisabled: 'transparent',
+}
+
 type SessionOption = { id: string; title: string; chain_id: string; messages: number }
 const sessions = ref<SessionOption[]>([])
 const currentSessionId = ref('')
@@ -488,7 +494,8 @@ defineExpose({startDraft})
             type="textarea"
             :autosize="{ minRows: 1, maxRows: 6 }"
             :placeholder="t('assistant.ph.message')"
-            :disabled="running"
+            :readonly="running"
+            :theme-overrides="composerInputTheme"
             class="composer-input"
             :bordered="false"
             @compositionstart="imeComposing = true"
@@ -1023,7 +1030,7 @@ defineExpose({startDraft})
   gap: 4px;
   min-height: 44px;
   padding: 4px 6px 4px 14px;
-  background: var(--bg-input);
+  background: var(--bg-base);
   border: 1px solid var(--border-default);
   border-radius: var(--radius-xl);
   box-shadow: none;
@@ -1036,7 +1043,7 @@ defineExpose({startDraft})
 }
 
 .composer-box--running {
-  opacity: 0.85;
+  background: var(--bg-base);
 }
 
 .composer-box--multiline {
@@ -1064,13 +1071,24 @@ defineExpose({startDraft})
 }
 
 .composer-input :deep(.n-input) {
+  --n-color: transparent;
+  --n-color-disabled: transparent;
   background: transparent !important;
   width: 100%;
 }
 
-.composer-input :deep(.n-input-wrapper) {
+.composer-input :deep(.n-input-wrapper),
+.composer-input :deep(.n-input--disabled),
+.composer-input :deep(.n-input--disabled .n-input-wrapper),
+.composer-input :deep(.n-input__textarea),
+.composer-input :deep(.n-input--readonly),
+.composer-input :deep(.n-input--readonly .n-input-wrapper) {
   background: transparent !important;
+  background-color: transparent !important;
   box-shadow: none !important;
+}
+
+.composer-input :deep(.n-input-wrapper) {
   padding: 0 !important;
   align-items: center !important;
 }
@@ -1080,7 +1098,9 @@ defineExpose({startDraft})
   display: none !important;
 }
 
-.composer-input :deep(.n-input__textarea-el) {
+.composer-input :deep(.n-input__textarea-el),
+.composer-input :deep(.n-input__textarea-el:disabled),
+.composer-input :deep(.n-input__textarea-el:read-only) {
   font-size: 14px;
   line-height: 32px;
   min-height: 32px !important;
@@ -1088,9 +1108,13 @@ defineExpose({startDraft})
   padding: 0 !important;
   margin: 0;
   background: transparent !important;
+  background-color: transparent !important;
   box-shadow: none !important;
+  opacity: 1;
   resize: none;
   vertical-align: middle;
+  -webkit-text-fill-color: inherit;
+  color-scheme: inherit;
 }
 
 .composer-input :deep(.n-input__placeholder) {

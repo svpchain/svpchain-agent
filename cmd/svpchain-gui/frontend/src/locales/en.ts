@@ -123,6 +123,16 @@ export default {
         noSteps: 'No steps recorded',
         showPayload: 'Show args / result',
         hidePayload: 'Hide',
+        btn: {
+            delete: 'Delete',
+            clearAll: 'Clear all',
+        },
+        dialog: {
+            deleteTitle: 'Delete this run?',
+            deleteBody: 'This removes the trace from the local run log. It cannot be undone.',
+            clearTitle: 'Clear all run traces?',
+            clearBody: 'This deletes every record in the local agent_runs.jsonl file. It cannot be undone.',
+        },
         col: {
             round: 'Round',
             latency: 'Latency',
@@ -152,6 +162,10 @@ export default {
             idCopied: 'Run id copied',
             hashCopied: 'Transaction hash copied',
             promptHashCopied: 'Prompt hash copied',
+            deleted: 'Run deleted',
+            cleared: 'All runs cleared',
+            deleteFailed: 'Failed to delete: {err}',
+            clearFailed: 'Failed to clear runs: {err}',
         },
     },
     skill: {

@@ -14,3 +14,13 @@ func (a *App) AgentRunLogPath() string {
 func (a *App) AgentRecentRuns(limit int) ([]runlog.Run, error) {
 	return runlog.ReadRecentNewestFirst(runlog.ClampRecentLimit(limit))
 }
+
+// AgentDeleteRun removes one assistant run trace by id.
+func (a *App) AgentDeleteRun(runID string) error {
+	return runlog.Delete(runID)
+}
+
+// AgentClearRuns deletes every stored assistant run trace.
+func (a *App) AgentClearRuns() error {
+	return runlog.DeleteAll()
+}

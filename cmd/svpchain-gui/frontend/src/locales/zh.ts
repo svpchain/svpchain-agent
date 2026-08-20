@@ -123,6 +123,16 @@ export default {
         noSteps: '没有步骤',
         showPayload: '查看参数 / 结果',
         hidePayload: '收起',
+        btn: {
+            delete: '删除',
+            clearAll: '清空全部',
+        },
+        dialog: {
+            deleteTitle: '删除这条记录？',
+            deleteBody: '将从本机运行日志中删除这条记录，无法恢复。',
+            clearTitle: '清空全部运行记录？',
+            clearBody: '将删除本机 agent_runs.jsonl 中的全部记录，无法恢复。',
+        },
         col: {
             round: '轮次',
             latency: '延迟',
@@ -152,6 +162,10 @@ export default {
             idCopied: '已复制 run id',
             hashCopied: '已复制交易哈希',
             promptHashCopied: '已复制 prompt hash',
+            deleted: '已删除这条运行记录',
+            cleared: '已清空全部运行记录',
+            deleteFailed: '删除失败: {err}',
+            clearFailed: '清空失败: {err}',
         },
     },
     skill: {

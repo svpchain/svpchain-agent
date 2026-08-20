@@ -105,7 +105,7 @@ Disable: Settings UI or `"agent_run_log_disabled": true` in `prefs.json`.
 ### Inspect
 
 **GUI:** sidebar **Runs** — filter by outcome, open a run for the tool timeline, LLM round reply/`tool_calls`, skill
-names, and tx hashes. Settings → Basic → **View runs** jumps there.
+names, and tx hashes. Delete one run or clear the log from this tab. Settings → Basic → **View runs** jumps there.
 
 ```bash
 tail -1 ~/Library/Application\ Support/com.svpchain.agent/agent_runs.jsonl | jq .

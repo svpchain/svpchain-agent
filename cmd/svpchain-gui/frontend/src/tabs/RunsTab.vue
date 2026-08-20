@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import {computed, onMounted, ref, watch} from 'vue'
 import {useI18n} from 'vue-i18n'
-import {NButton, NEmpty, NSelect, NSpin, NTag, NText} from 'naive-ui'
+import {NButton, NEmpty, NSelect, NSpin, NTag, NText, useDialog, useMessage} from 'naive-ui'
 import * as App from '../../wailsjs/go/desktop/App'
 import type {AgentRun, AgentRunOutcome, AgentRunStep} from '../types'
 
@@ -9,6 +9,8 @@ const props = defineProps<{active?: boolean}>()
 const emit = defineEmits<{status: [msg: string]}>()
 
 const {t, locale} = useI18n()
+const dialog = useDialog()
+const message = useMessage()
 
 const loading = ref(false)
 const logPath = ref('')
@@ -17,6 +19,7 @@ const runs = ref<AgentRun[]>([])
 const selectedId = ref('')
 const outcomeFilter = ref<string>('all')
 const expanded = ref<Record<string, boolean>>({})
+const deleting = ref(false)
 
 const outcomes: AgentRunOutcome[] = ['success', 'failed', 'stopped', 'rejected', 'cancelled']
 
@@ -153,6 +156,57 @@ async function refresh() {
   }
 }
 
+function confirmDeleteSelected() {
+  const run = selected.value
+  if (!run) return
+  dialog.warning({
+    title: t('runs.dialog.deleteTitle'),
+    content: t('runs.dialog.deleteBody'),
+    positiveText: t('dialog.confirm'),
+    negativeText: t('dialog.cancel'),
+    onPositiveClick: () => deleteRun(run.run_id),
+  })
+}
+
+function confirmClearAll() {
+  if (!runs.value.length) return
+  dialog.warning({
+    title: t('runs.dialog.clearTitle'),
+    content: t('runs.dialog.clearBody'),
+    positiveText: t('dialog.confirm'),
+    negativeText: t('dialog.cancel'),
+    onPositiveClick: clearAll,
+  })
+}
+
+async function deleteRun(id: string) {
+  deleting.value = true
+  try {
+    await App.AgentDeleteRun(id)
+    if (selectedId.value === id) selectedId.value = ''
+    await refresh()
+    setStatus(t('runs.status.deleted'))
+  } catch (err) {
+    message.error(t('runs.status.deleteFailed', {err: String(err)}))
+  } finally {
+    deleting.value = false
+  }
+}
+
+async function clearAll() {
+  deleting.value = true
+  try {
+    await App.AgentClearRuns()
+    selectedId.value = ''
+    await refresh()
+    setStatus(t('runs.status.cleared'))
+  } catch (err) {
+    message.error(t('runs.status.clearFailed', {err: String(err)}))
+  } finally {
+    deleting.value = false
+  }
+}
+
 onMounted(() => {
   if (props.active) refresh()
 })
@@ -186,6 +240,16 @@ defineExpose({refresh})
           @click="copy(logPath, 'runs.status.pathCopied')"
       >
         {{ t('runs.copyPath') }}
+      </n-button>
+      <n-button
+          class="clear-btn"
+          size="small"
+          quaternary
+          :disabled="!runs.length || deleting"
+          :loading="deleting"
+          @click="confirmClearAll"
+      >
+        {{ t('runs.btn.clearAll') }}
       </n-button>
     </div>
     <n-text v-if="!loggingOn" depth="3" class="logging-hint">{{ t('runs.loggingOff') }}</n-text>
@@ -229,6 +293,17 @@ defineExpose({refresh})
             <span class="detail-id mono" :title="selected.run_id">{{ selected.run_id.slice(0, 8) }}</span>
             <n-button size="tiny" quaternary @click="copy(selected.run_id, 'runs.status.idCopied')">
               {{ t('btn.copyShort') }}
+            </n-button>
+            <n-button
+                class="delete-run"
+                size="tiny"
+                quaternary
+                type="error"
+                :disabled="deleting"
+                :loading="deleting"
+                @click="confirmDeleteSelected"
+            >
+              {{ t('runs.btn.delete') }}
             </n-button>
           </div>
 
@@ -419,6 +494,10 @@ defineExpose({refresh})
   width: 160px;
 }
 
+.clear-btn {
+  margin-left: auto;
+}
+
 .logging-hint {
   display: block;
   margin-bottom: 8px;
@@ -523,6 +602,10 @@ defineExpose({refresh})
   align-items: center;
   gap: 8px;
   margin-bottom: 12px;
+}
+
+.delete-run {
+  margin-left: auto;
 }
 
 .detail-id {

@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -352,10 +353,14 @@ func ClassifyGuardError(err error) Outcome {
 	return OutcomeFailed
 }
 
+var persistMu sync.Mutex
+
 func (r *Recorder) append(run Run) error {
 	if r.path == "" {
 		return nil
 	}
+	persistMu.Lock()
+	defer persistMu.Unlock()
 	if err := os.MkdirAll(filepath.Dir(r.path), 0o755); err != nil {
 		return err
 	}

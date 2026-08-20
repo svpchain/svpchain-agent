@@ -2,6 +2,7 @@ package runlog
 
 import (
 	"encoding/json"
+	"os"
 	"strings"
 	"testing"
 
@@ -137,4 +138,50 @@ func TestReadRecentNewestFirst(t *testing.T) {
 	require.Len(t, newest, 2)
 	require.Equal(t, "third", newest[0].UserMessage)
 	require.Equal(t, "second", newest[1].UserMessage)
+}
+
+func TestDelete_removesOneRun(t *testing.T) {
+	dir := t.TempDir()
+	path := dir + "/agent_runs.jsonl"
+	SetPathOverride(path)
+	t.Cleanup(func() { SetPathOverride("") })
+
+	rec := New(true)
+	var ids []string
+	for _, msg := range []string{"first", "second", "third"} {
+		sess := rec.Begin(Meta{ChainID: "svp-2517-1", UserMessage: msg})
+		ids = append(ids, sess.RunID())
+		sess.Complete(msg, nil)
+	}
+
+	require.NoError(t, Delete(ids[1]))
+	runs, err := ReadAll(path)
+	require.NoError(t, err)
+	require.Len(t, runs, 2)
+	require.Equal(t, "first", runs[0].UserMessage)
+	require.Equal(t, "third", runs[1].UserMessage)
+
+	err = Delete(ids[1])
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "not found")
+	require.Error(t, Delete(""))
+}
+
+func TestDeleteAll_removesFile(t *testing.T) {
+	dir := t.TempDir()
+	path := dir + "/agent_runs.jsonl"
+	SetPathOverride(path)
+	t.Cleanup(func() { SetPathOverride("") })
+
+	rec := New(true)
+	sess := rec.Begin(Meta{ChainID: "svp-2517-1", UserMessage: "hello"})
+	sess.Complete("ok", nil)
+	require.NoError(t, DeleteAll())
+
+	runs, err := ReadAll(path)
+	require.NoError(t, err)
+	require.Empty(t, runs)
+	_, statErr := os.Stat(path)
+	require.True(t, os.IsNotExist(statErr))
+	require.NoError(t, DeleteAll(), "clearing an empty log must succeed")
 }

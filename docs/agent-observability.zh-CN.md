@@ -157,7 +157,7 @@ LangSmith 等 SaaS trace）的前提下，本地调试、回归与持续改进�
 
 ### 3.6 查看
 
-**GUI：** 侧栏 **运行记录** — 按 outcome 筛选，点开一轮查看工具时间线、LLM 回复/`tool_calls`、skill 名与 tx hash。设置 → 基础 → **查看记录** 可跳转。
+**GUI：** 侧栏 **运行记录** — 按 outcome 筛选，点开一轮查看工具时间线、LLM 回复/`tool_calls`、skill 名与 tx hash。可删除单条或清空全部。设置 → 基础 → **查看记录** 可跳转。
 
 ```bash
 # 美化输出最近一条

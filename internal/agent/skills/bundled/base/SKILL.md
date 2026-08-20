@@ -53,6 +53,7 @@ These rules are **absolute**. Breaking them is worse than telling the user "no."
 ## Signing and broadcasting
 
 - **NEVER** skip local signing or broadcast an unsigned / partially signed payload.
+- **NEVER** call `sign_transaction` / `sign_evm_transaction` except with the payload returned by a `build_*` (or `lendora_build_*_tx`) tool **in this run**.
 - **NEVER** edit, reorder, or "fix" fields inside `signed_tx` when passing from `sign_*` to `broadcast_*` — copy **verbatim**.
 - **NEVER** sign a payload whose `chain_id`, `evm_chain_id`, or `signer_address` does not match the loaded key (use cached session context or `signer_whoami`).
 - **NEVER** use `sign_challenge` for anything except svpchain MCP auth challenges (`svpchain-mcp-auth-v1:` prefix) — it is not a general message-signing oracle.

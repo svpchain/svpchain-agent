@@ -19,11 +19,11 @@ func TestDispatchToolUsesCachedWhoami(t *testing.T) {
 		SignerWhoami: `{"owner":"svp1abc","chain_id":"svp-2517-1"}`,
 		RemoteWhoami: `{"tenant_id":"auto-1","owner":"svp1abc"}`,
 	}
-	out, err := dispatchTool(context.Background(), "svp-2517-1", nil, nil, nil, nil, "signer_whoami", nil, mem)
+	out, err := dispatchTool(context.Background(), "svp-2517-1", nil, nil, nil, nil, nil, "signer_whoami", nil, mem)
 	require.NoError(t, err)
 	require.JSONEq(t, mem.SignerWhoami, out)
 
-	out, err = dispatchTool(context.Background(), "svp-2517-1", nil, nil, nil, nil, "whoami", nil, mem)
+	out, err = dispatchTool(context.Background(), "svp-2517-1", nil, nil, nil, nil, nil, "whoami", nil, mem)
 	require.NoError(t, err)
 	require.JSONEq(t, mem.RemoteWhoami, out)
 }

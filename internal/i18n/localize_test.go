@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/svpchain/svpchain-agent/internal/agent/hitl"
+	"github.com/svpchain/svpchain-agent/internal/agent/writepath"
 	"github.com/svpchain/svpchain-agent/internal/manage"
 )
 
@@ -63,6 +64,17 @@ func TestLocalizeAgentAnswer(t *testing.T) {
 	grant := LocalizeAgentAnswer(`Declined — the user did not approve "Delegate task". No further action was taken.`)
 	require.Contains(t, grant, "已拒绝")
 	require.Contains(t, grant, "Delegate task")
+
+	path := LocalizeAgentAnswer(`Write path rejected — signed_tx was altered; pass it verbatim from sign_*. No transaction was signed or broadcast.`)
+	require.Contains(t, path, "写入路径被拒绝")
+	require.Contains(t, path, "signed_tx")
+}
+
+func TestLocalize_WritePathViolation(t *testing.T) {
+	SetLang(Zh)
+	msg := Localize(&writepath.Violation{Reason: "payload does not match the last build_* result; pass it verbatim"})
+	require.Contains(t, msg, "写入路径被拒绝")
+	require.Contains(t, msg, "原样传递")
 }
 
 func TestLocalize_Denied(t *testing.T) {

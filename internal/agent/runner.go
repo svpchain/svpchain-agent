@@ -22,6 +22,7 @@ import (
 	"github.com/svpchain/svpchain-agent/internal/agent/runlog"
 	"github.com/svpchain/svpchain-agent/internal/agent/skills"
 	"github.com/svpchain/svpchain-agent/internal/agent/step"
+	"github.com/svpchain/svpchain-agent/internal/agent/writepath"
 	"github.com/svpchain/svpchain-agent/internal/delegation"
 	"github.com/svpchain/svpchain-agent/internal/keystore"
 	"github.com/svpchain/svpchain-agent/internal/manage"
@@ -161,6 +162,16 @@ func Run(ctx context.Context, cfg Config, userMessage string) (answer string, er
 		deleg.Registry = reg
 		deleg.Lifecycle = &delegation.Lifecycle{Registry: reg, Priv: priv, ChainID: chainID}
 	}
+	writes := writepath.New()
+	env := dispatchEnv{
+		chainID: chainID,
+		remote:  remote,
+		local:   local,
+		deleg:   deleg,
+		confirm: confirm,
+		writes:  writes,
+		mem:     &sessionMem,
+	}
 
 	tools, err := buildToolList(ctx, remote, deleg)
 	if err != nil {
@@ -252,15 +263,18 @@ func Run(ctx context.Context, cfg Config, userMessage string) (answer string, er
 				finish = func(bool, string, string) {}
 			}
 
-			result, callErr := dispatchTool(ctx, chainID, remote, local, deleg, confirm, name, args, &sessionMem)
+			result, callErr := env.dispatch(ctx, name, args)
 			if callErr != nil {
 				finish(false, "", callErr.Error())
 				var denied *hitl.Denied
 				var rej *guard.Rejection
+				var broken *writepath.Violation
 				if errors.As(callErr, &denied) {
 					answer = denied.StopMessage()
 				} else if errors.As(callErr, &rej) {
 					answer = fmt.Sprintf("Transfer rejected — %s. No transaction was built, signed, or broadcast.", rej.Error())
+				} else if errors.As(callErr, &broken) {
+					answer = broken.StopMessage()
 				} else {
 					answer = fmt.Sprintf("%s failed — %s. Stopped without further action.", name, callErr.Error())
 				}

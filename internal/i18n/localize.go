@@ -10,35 +10,37 @@ import (
 
 	"github.com/svpchain/svpchain-agent/internal/agent/guard"
 	"github.com/svpchain/svpchain-agent/internal/agent/hitl"
+	"github.com/svpchain/svpchain-agent/internal/agent/writepath"
 	"github.com/svpchain/svpchain-agent/internal/manage"
 )
 
 var (
-	reDeleteKey        = regexp.MustCompile(`^delete key "(.+?)": (.+)$`)
-	reReadKey          = regexp.MustCompile(`^read key "(.+?)" from OS credential store: (.+)$`)
-	reUnknownAgent     = regexp.MustCompile(`^unknown ai agent: "(.+?)"$`)
-	reAgentRounds      = regexp.MustCompile(`^agent exceeded (\d+) tool rounds$`)
-	reThinking         = regexp.MustCompile(`^Thinking… \(round (\d+)\)$`)
-	reCalling          = regexp.MustCompile(`^Calling (.+)$`)
-	reToolFailed       = regexp.MustCompile(`^(.+?) failed$`)
-	reToolOk           = regexp.MustCompile(`^(.+?) ok$`)
-	reUnsupportedAddr  = regexp.MustCompile(`^unsupported address type "(.+?)"$`)
-	reCosmosPrefix     = regexp.MustCompile(`^address must use the (.+?) bech32 prefix$`)
-	reWhitelistCosmos  = regexp.MustCompile(`^recipient "(.+?)" is not on the whitelist for chain "(.+?)" \(SVP Cosmos\)$`)
-	reWhitelistEVM     = regexp.MustCompile(`^recipient "(.+?)" is not on the whitelist for chain "(.+?)" \(EVM\)$`)
-	reNoWhitelist      = regexp.MustCompile(`^no whitelist configured for chain "(.+?)" — add a recipient in the Security tab before transferring$`)
-	reUpdateAsset      = regexp.MustCompile(`^release asset "(.+?)" not found$`)
-	reUpdateChecksum   = regexp.MustCompile(`^SHA256SUMS has no entry for "(.+?)"$`)
-	reUpdateNotSup     = regexp.MustCompile(`^in-app update not supported on (.+?)$`)
-	reUpdateDownload   = regexp.MustCompile(`^download (.+?): (.+)$`)
-	reUpdateHTTP       = regexp.MustCompile(`^download (.+?): HTTP (\d+): (.+)$`)
-	reUpdateZip        = regexp.MustCompile(`^invalid zip entry: (.+)$`)
-	reInternal         = regexp.MustCompile(`^internal error: (.+)$`)
-	reTransferRejected = regexp.MustCompile(`^Transfer rejected — (.+?)\. No transaction was built, signed, or broadcast\.$`)
-	reSigningDeclined  = regexp.MustCompile(`^Signing declined — the user did not approve "(.+?)"\. No transaction was signed or broadcast\.$`)
-	reGrantDeclined    = regexp.MustCompile(`^Declined — the user did not approve "(.+?)"\. No further action was taken\.$`)
-	reUserDeclined     = regexp.MustCompile(`^the user declined "(.+?)"$`)
-	reToolStopped      = regexp.MustCompile(`^(.+?) failed — (.+?)\. Stopped without further action\.$`)
+	reDeleteKey         = regexp.MustCompile(`^delete key "(.+?)": (.+)$`)
+	reReadKey           = regexp.MustCompile(`^read key "(.+?)" from OS credential store: (.+)$`)
+	reUnknownAgent      = regexp.MustCompile(`^unknown ai agent: "(.+?)"$`)
+	reAgentRounds       = regexp.MustCompile(`^agent exceeded (\d+) tool rounds$`)
+	reThinking          = regexp.MustCompile(`^Thinking… \(round (\d+)\)$`)
+	reCalling           = regexp.MustCompile(`^Calling (.+)$`)
+	reToolFailed        = regexp.MustCompile(`^(.+?) failed$`)
+	reToolOk            = regexp.MustCompile(`^(.+?) ok$`)
+	reUnsupportedAddr   = regexp.MustCompile(`^unsupported address type "(.+?)"$`)
+	reCosmosPrefix      = regexp.MustCompile(`^address must use the (.+?) bech32 prefix$`)
+	reWhitelistCosmos   = regexp.MustCompile(`^recipient "(.+?)" is not on the whitelist for chain "(.+?)" \(SVP Cosmos\)$`)
+	reWhitelistEVM      = regexp.MustCompile(`^recipient "(.+?)" is not on the whitelist for chain "(.+?)" \(EVM\)$`)
+	reNoWhitelist       = regexp.MustCompile(`^no whitelist configured for chain "(.+?)" — add a recipient in the Security tab before transferring$`)
+	reUpdateAsset       = regexp.MustCompile(`^release asset "(.+?)" not found$`)
+	reUpdateChecksum    = regexp.MustCompile(`^SHA256SUMS has no entry for "(.+?)"$`)
+	reUpdateNotSup      = regexp.MustCompile(`^in-app update not supported on (.+?)$`)
+	reUpdateDownload    = regexp.MustCompile(`^download (.+?): (.+)$`)
+	reUpdateHTTP        = regexp.MustCompile(`^download (.+?): HTTP (\d+): (.+)$`)
+	reUpdateZip         = regexp.MustCompile(`^invalid zip entry: (.+)$`)
+	reInternal          = regexp.MustCompile(`^internal error: (.+)$`)
+	reTransferRejected  = regexp.MustCompile(`^Transfer rejected — (.+?)\. No transaction was built, signed, or broadcast\.$`)
+	reWritePathRejected = regexp.MustCompile(`^Write path rejected — (.+?)\. No transaction was signed or broadcast\.$`)
+	reSigningDeclined   = regexp.MustCompile(`^Signing declined — the user did not approve "(.+?)"\. No transaction was signed or broadcast\.$`)
+	reGrantDeclined     = regexp.MustCompile(`^Declined — the user did not approve "(.+?)"\. No further action was taken\.$`)
+	reUserDeclined      = regexp.MustCompile(`^the user declined "(.+?)"$`)
+	reToolStopped       = regexp.MustCompile(`^(.+?) failed — (.+?)\. Stopped without further action\.$`)
 )
 
 // Localize maps a backend error to the active GUI language.
@@ -68,6 +70,11 @@ func Localize(err error) string {
 			title = strings.TrimSpace(denied.Kind)
 		}
 		return fmt.Sprintf(t.UserDeclinedFmt, title)
+	}
+
+	var broken *writepath.Violation
+	if errors.As(err, &broken) {
+		return fmt.Sprintf(t.WritePathRejectedFmt, localizeWritePathReason(broken.Reason))
 	}
 
 	var rej *guard.Rejection
@@ -144,6 +151,9 @@ func LocalizeAgentAnswer(text string) string {
 	t := ErrT()
 	if m := reTransferRejected.FindStringSubmatch(text); len(m) == 2 {
 		return fmt.Sprintf(t.TransferRejectedFmt, LocalizeDetail(m[1]))
+	}
+	if m := reWritePathRejected.FindStringSubmatch(text); len(m) == 2 {
+		return fmt.Sprintf(t.WritePathRejectedFmt, localizeWritePathReason(m[1]))
 	}
 	if m := reSigningDeclined.FindStringSubmatch(text); len(m) == 2 {
 		return fmt.Sprintf(t.SigningDeclinedFmt, m[1])
@@ -309,4 +319,20 @@ func localizeRegex(msg string) (string, bool) {
 		return fmt.Sprintf(t.UserDeclinedFmt, m[1]), true
 	}
 	return "", false
+}
+
+func localizeWritePathReason(reason string) string {
+	t := ErrT()
+	switch {
+	case strings.Contains(reason, "requires a payload from a matching build_*"):
+		return t.WritePathNeedBuild
+	case strings.Contains(reason, "payload does not match"):
+		return t.WritePathPayloadDiff
+	case strings.Contains(reason, "requires the signed_tx"):
+		return t.WritePathNeedSign
+	case strings.Contains(reason, "signed_tx was altered"):
+		return t.WritePathTxAltered
+	default:
+		return reason
+	}
 }

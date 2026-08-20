@@ -278,6 +278,7 @@ func classifyOutcome(answer string, err error) Outcome {
 	lower := strings.ToLower(answer)
 	if strings.Contains(lower, "transfer rejected") ||
 		strings.Contains(lower, "signing declined") ||
+		strings.Contains(lower, "write path rejected") ||
 		strings.HasPrefix(answer, "Declined —") {
 		return OutcomeRejected
 	}

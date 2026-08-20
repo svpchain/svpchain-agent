@@ -7,17 +7,13 @@ import (
 
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
 
-	"github.com/svpchain/svpchain-agent/internal/agent/a2acall"
 	"github.com/svpchain/svpchain-agent/internal/agent/delegatecall"
-	"github.com/svpchain/svpchain-agent/internal/agent/guard"
 	"github.com/svpchain/svpchain-agent/internal/agent/hitl"
-	"github.com/svpchain/svpchain-agent/internal/agent/httpfetch"
 	"github.com/svpchain/svpchain-agent/internal/agent/llm"
 	localsigner "github.com/svpchain/svpchain-agent/internal/agent/local"
 	"github.com/svpchain/svpchain-agent/internal/agent/memory"
 	remotemcp "github.com/svpchain/svpchain-agent/internal/agent/remote"
-	"github.com/svpchain/svpchain-agent/internal/agent/skills"
-	"github.com/svpchain/svpchain-agent/internal/agent/x402"
+	"github.com/svpchain/svpchain-agent/internal/agent/writepath"
 )
 
 // buildToolList merges remote MCP tool schemas with the local-only tool defs.
@@ -53,71 +49,28 @@ func buildToolList(ctx context.Context, remote *remotemcp.Client, deleg *delegat
 	return out, nil
 }
 
-// dispatchTool routes one tool call to its handler. It is the trust-boundary hop:
-// the whitelist gate runs first (before any build_* is forwarded and before any
-// sign dialog), then cached whoami short-circuits, then local/x402/http/a2a
-// handlers, finally the remote MCP. HITL cannot override a whitelist rejection.
-func dispatchTool(ctx context.Context, chainID string, remote *remotemcp.Client, local *localsigner.Signer, deleg *delegatecall.Service, confirm hitl.Func, name string, args map[string]any, mem *memory.Session) (string, error) {
-	// Whitelist gate: reject a transfer/approval to a non-whitelisted recipient
-	// before the build_* call is forwarded — no build, sign, or broadcast happens.
-	if err := guard.Check(chainID, name, args); err != nil {
-		return "", err
-	}
-	if mem != nil {
-		if cached, ok := mem.ToolResult(name); ok {
-			return cached, nil
-		}
-	}
-	if httpfetch.IsTool(name) {
-		return httpfetch.FromArgs(args)
-	}
-	if x402.IsTool(name) {
-		switch name {
-		case "x402_prepare_typed_data":
-			return x402.PrepareFromArgs(args)
-		case "x402_build_payment":
-			return x402.BuildPaymentFromArgs(args)
-		default:
-			return "", fmt.Errorf("unknown x402 tool %q", name)
-		}
-	}
-	if a2acall.IsTool(name) {
-		return a2acall.SendFromArgs(ctx, args)
-	}
-	if delegatecall.IsTool(name) {
-		return deleg.Call(ctx, name, args)
-	}
-	if name == skills.ReferenceToolName {
-		return skills.ReadReferenceFromArgs(args)
-	}
-	if localsigner.IsLocalTool(name) {
-		if hitl.NeedsConfirm(name) {
-			if err := hitl.Ask(ctx, confirm, hitl.SignRequest(name, args)); err != nil {
-				return "", err
-			}
-		}
-		result, err := local.CallTool(ctx, name, args)
-		if err == nil && mem != nil && name == "signer_whoami" {
-			mem.SetToolResult(name, result)
-			_ = memory.Save(*mem)
-		}
-		return result, err
-	}
-	if remote == nil {
-		// Everything not handled above is a remote tool, and with the remote
-		// switched off it does not exist. Say so plainly: the model should
-		// pick a different approach, not retry.
-		return "", fmt.Errorf(
-			"%q is a remote MCP tool and the remote MCP is disabled in Settings — "+
-				"it is unavailable for this conversation", name,
-		)
-	}
-	result, err := remote.CallTool(ctx, name, args)
-	if err == nil && mem != nil && name == "whoami" {
-		mem.SetToolResult(name, result)
-		_ = memory.Save(*mem)
-	}
-	return result, err
+// dispatchTool is the test-facing entry: whitelist → write-path graph → cache → route.
+func dispatchTool(ctx context.Context, chainID string, remote *remotemcp.Client, local *localsigner.Signer, deleg *delegatecall.Service, confirm hitl.Func, writes *writepath.Tracker, name string, args map[string]any, mem *memory.Session) (string, error) {
+	return dispatchEnv{
+		chainID: chainID,
+		remote:  remote,
+		local:   local,
+		deleg:   deleg,
+		confirm: confirm,
+		writes:  writes,
+		mem:     mem,
+	}.dispatch(ctx, name, args)
+}
+
+func errRemoteDisabled(name string) error {
+	return fmt.Errorf(
+		"%q is a remote MCP tool and the remote MCP is disabled in Settings — "+
+			"it is unavailable for this conversation", name,
+	)
+}
+
+func errUnknownX402(name string) error {
+	return fmt.Errorf("unknown x402 tool %q", name)
 }
 
 // toolNames lists the tool names available this run (used to gate skills).

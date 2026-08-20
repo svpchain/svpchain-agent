@@ -34,6 +34,8 @@ const legacyTail = `Workflow for on-chain writes:
 3. Broadcast with broadcast_signed_tx or broadcast_evm_tx on the remote server.
 4. Pass signed_tx fields VERBATIM from sign_* to broadcast_*.
 
+The runtime enforces this sequence. Skipping a step, signing a hand-crafted payload, or editing signed_tx stops the run — do not work around it.
+
 Sending SVP (or any bank denom) to a 0x EVM address: build_bank_send only accepts svp1… recipients. When the user gives a 0x address, FIRST call evm_to_bech32 to convert it, then use the returned svp1… owner as build_bank_send.recipient (denom "asvp" for SVP). Never pass a 0x address straight to build_bank_send.
 
 For ERC20/ERC721 contract calls (transfer, approve, transferFrom, safeTransferFrom, setApprovalForAll): use the remote build_erc20_* / build_erc721_* tools — they return a ready-to-sign EVMTxPayload (nonce/gas/fees filled). ERC20 amounts are human units; ERC721 uses token_id. Then sign_evm_transaction and broadcast_evm_tx, exactly like build_swap.

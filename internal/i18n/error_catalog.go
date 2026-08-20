@@ -63,6 +63,11 @@ type ErrorTexts struct {
 	ContextDeadline  string
 
 	TransferRejectedFmt  string
+	WritePathRejectedFmt string
+	WritePathNeedBuild   string
+	WritePathPayloadDiff string
+	WritePathNeedSign    string
+	WritePathTxAltered   string
 	SigningDeclinedFmt   string
 	GrantDeclinedFmt     string
 	UserDeclinedFmt      string
@@ -143,6 +148,11 @@ var errorCatalog = map[Lang]ErrorTexts{
 		ContextDeadline:  "操作超时",
 
 		TransferRejectedFmt:  "转账被拒绝 — %s。未构建、签名或广播任何交易。",
+		WritePathRejectedFmt: "写入路径被拒绝 — %s。未签名或广播任何交易。",
+		WritePathNeedBuild:   "sign_* 需要本轮匹配的 build_* 返回的 payload",
+		WritePathPayloadDiff: "payload 与最近一次 build_* 结果不一致，须原样传递",
+		WritePathNeedSign:    "broadcast_* 需要本轮 sign_* 返回的 signed_tx，禁止自行构造或修改",
+		WritePathTxAltered:   "signed_tx 已被改动，须从 sign_* 原样传递",
 		SigningDeclinedFmt:   "签名已拒绝 — 用户未批准 %q。未签名或广播任何交易。",
 		GrantDeclinedFmt:     "已拒绝 — 用户未批准 %q。未进行后续操作。",
 		UserDeclinedFmt:      "用户拒绝了 %q",
@@ -221,6 +231,11 @@ var errorCatalog = map[Lang]ErrorTexts{
 		ContextDeadline:  "Timed out",
 
 		TransferRejectedFmt:  "Transfer rejected — %s. No transaction was built, signed, or broadcast.",
+		WritePathRejectedFmt: "Write path rejected — %s. No transaction was signed or broadcast.",
+		WritePathNeedBuild:   "sign_* requires a payload from a matching build_* tool in this run",
+		WritePathPayloadDiff: "payload does not match the last build_* result; pass it verbatim",
+		WritePathNeedSign:    "broadcast_* requires the signed_tx from sign_* in this run; do not construct or edit it",
+		WritePathTxAltered:   "signed_tx was altered; pass it verbatim from sign_*",
 		SigningDeclinedFmt:   "Signing declined — the user did not approve %q. No transaction was signed or broadcast.",
 		GrantDeclinedFmt:     "Declined — the user did not approve %q. No further action was taken.",
 		UserDeclinedFmt:      "the user declined %q",

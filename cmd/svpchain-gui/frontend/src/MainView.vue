@@ -96,15 +96,39 @@ onMounted(async () => {
         class="titlebar-drag titlebar"
         :class="{ 'titlebar--mac': isMac }"
         @dblclick="toggleMaximise"
-    >
-      <span class="titlebar-brand">
-        <span class="brand-mark">S</span>
-        <span v-show="!sidebarCollapsed" class="titlebar-text">SVPChain Agent</span>
-      </span>
-    </div>
+    />
 
     <div class="app-body">
       <aside class="sidebar" :class="{ 'sidebar--collapsed': sidebarCollapsed }">
+        <div class="sidebar-header">
+          <button
+              type="button"
+              class="header-btn"
+              :title="isDark ? t('shell.themeLight') : t('shell.themeDark')"
+              @click="toggleTheme"
+          >
+            <svg v-if="isDark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
+              <circle cx="12" cy="12" r="4"/>
+              <path
+                  d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"
+                  stroke-linecap="round"/>
+            </svg>
+            <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
+              <path d="M21 14.5A8.5 8.5 0 0 1 9.5 3 7 7 0 1 0 21 14.5z" stroke-linejoin="round"/>
+            </svg>
+          </button>
+          <button
+              type="button"
+              class="header-btn"
+              :title="sidebarCollapsed ? t('shell.expandSidebar') : t('shell.collapseSidebar')"
+              @click="toggleSidebar"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
+              <rect x="3" y="4" width="18" height="16" rx="2"/>
+              <path d="M9 4v16" stroke-linecap="round"/>
+            </svg>
+          </button>
+        </div>
         <nav class="sidebar-nav">
           <button
               v-for="item in navItems"
@@ -168,42 +192,6 @@ onMounted(async () => {
         </nav>
 
         <div id="sidebar-sessions" class="sidebar-sessions"/>
-
-        <div class="sidebar-footer">
-          <button
-              type="button"
-              class="footer-btn"
-              :title="isDark ? t('shell.themeLight') : t('shell.themeDark')"
-              @click="toggleTheme"
-          >
-            <svg v-if="isDark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
-              <circle cx="12" cy="12" r="4"/>
-              <path
-                  d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"
-                  stroke-linecap="round"/>
-            </svg>
-            <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
-              <path d="M21 14.5A8.5 8.5 0 0 1 9.5 3 7 7 0 1 0 21 14.5z" stroke-linejoin="round"/>
-            </svg>
-            <span v-show="!sidebarCollapsed" class="footer-label">
-              {{ isDark ? t('shell.themeLight') : t('shell.themeDark') }}
-            </span>
-          </button>
-          <button
-              type="button"
-              class="footer-btn"
-              :title="sidebarCollapsed ? t('shell.expandSidebar') : t('shell.collapseSidebar')"
-              @click="toggleSidebar"
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
-              <path v-if="sidebarCollapsed" d="M9 6l6 6-6 6" stroke-linecap="round" stroke-linejoin="round"/>
-              <path v-else d="M15 6l-6 6 6 6" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-            <span v-show="!sidebarCollapsed" class="footer-label">
-              {{ t('shell.collapseSidebar') }}
-            </span>
-          </button>
-        </div>
       </aside>
 
       <main class="main-content">
@@ -284,34 +272,6 @@ onMounted(async () => {
   padding-left: 78px;
 }
 
-.titlebar-brand {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-weight: 600;
-  font-size: 13px;
-  color: var(--text-secondary);
-  letter-spacing: -0.01em;
-}
-
-.titlebar-text {
-  transition: opacity 0.2s ease;
-}
-
-.brand-mark {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 20px;
-  height: 20px;
-  border-radius: 6px;
-  background: linear-gradient(135deg, var(--accent) 0%, #0d8c6d 100%);
-  color: #fff;
-  font-size: 11px;
-  font-weight: 700;
-  flex-shrink: 0;
-}
-
 .app-body {
   flex: 1;
   min-height: 0;
@@ -342,6 +302,46 @@ onMounted(async () => {
   flex-direction: column;
   gap: 2px;
   flex-shrink: 0;
+}
+
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+  gap: 4px;
+  margin: -2px 0 8px;
+}
+
+.sidebar--collapsed .sidebar-header {
+  flex-direction: column-reverse;
+  justify-content: flex-start;
+}
+
+.header-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.header-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.header-btn svg {
+  width: 18px;
+  height: 18px;
 }
 
 .nav-item {
@@ -410,54 +410,6 @@ onMounted(async () => {
   overflow: hidden;
   display: flex;
   flex-direction: column;
-}
-
-.sidebar-footer {
-  flex-shrink: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding-top: 8px;
-  border-top: 1px solid var(--border-subtle);
-  margin-top: 8px;
-}
-
-.footer-btn {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  padding: 9px 12px;
-  border: none;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--text-muted);
-  font-family: inherit;
-  font-size: 12px;
-  cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease;
-}
-
-.sidebar--collapsed .footer-btn {
-  justify-content: center;
-  padding: 9px 8px;
-}
-
-.footer-btn:hover {
-  background: var(--bg-hover);
-  color: var(--text-secondary);
-}
-
-.footer-btn svg {
-  width: 16px;
-  height: 16px;
-  flex-shrink: 0;
-}
-
-.footer-label {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .main-content {

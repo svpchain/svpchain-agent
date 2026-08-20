@@ -55,6 +55,50 @@ with `refresh: true`; never answer from an earlier result in the conversation, b
 4. **Delegate** — `delegate_task` mints a short-lived credential (user approves each one in a dialog), attaches it to
    the A2A message metadata under `svp.delegation/v1`, and sends `{skill, tool, args}` to the agent's A2A endpoint.
 
+## Native SVP transfer through an EVM agent
+
+For an EVM agent card advertising `svpchain-execution` /
+`execute_evm_native_transfer`, a native SVP transfer is a value-committing
+delegated write. The remote agent signs the wrapper transaction, but the
+principal's native SVP is transferred, so every limit below is mandatory.
+
+1. The root delegation must include `"evm.native_transfer"`, subaccount `0`,
+   the recipient in `contracts`, and sufficient `asvp` spend limits. The
+   recipient is a lowercase `0x` address. For this action, `contracts` is the
+   native-transfer recipient allowlist, not merely a contract-call allowlist.
+2. The `delegate_task` credential must narrow to the same action, subaccount
+   and recipient. Its `budget` is an array of coins, never one coin object.
+3. `args.transfer.value` and `budget[0].amount` are base-unit `asvp` integer
+   strings. `1 SVP` is `1000000000000000000 asvp`; the task budget must be at
+   least the transfer value. This budget is the principal's spend ceiling, not
+   the agent operator's transaction fee and not `service_budget`.
+
+For a 10 SVP transfer, use this exact `delegate_task` shape after inspecting
+the agent card and finding a compatible root:
+
+```json
+{
+  "skill": "svpchain-execution",
+  "tool": "execute_evm_native_transfer",
+  "args": {
+    "transfer": {
+      "recipient": "0x000000000000000000000000000000000000c07e",
+      "value": "10000000000000000000"
+    }
+  },
+  "actions": ["evm.native_transfer"],
+  "subaccounts": [0],
+  "contracts": ["0x000000000000000000000000000000000000c07e"],
+  "budget": [
+    {"denom": "asvp", "amount": "10000000000000000000"}
+  ]
+}
+```
+
+Do not state a budget only in prose. It must be present in the structured
+`budget` array. If the root cannot cover the action, recipient and amount,
+create a new narrow root delegation and wait for the user's approval.
+
 ## Paying an agent for its work
 
 Pass `service_budget` (one coin) to `delegate_task` when the task is paid work. This opens an on-chain settlement escrow
@@ -107,10 +151,12 @@ task on to agent B — set
 - **Empty grants deny.** Actions and subaccounts must be explicit. The action namespace is defined by the chain:
   `clob.place_order`,
   `clob.cancel_order`, `clob.batch_cancel`, `sending.deposit_to_subaccount`,
-  `settlement.record_spend` (added automatically with `service_budget`), and the read-only `query.account`.
+  `evm.native_transfer`, `settlement.record_spend` (added automatically with `service_budget`), and the read-only
+  `query.account`.
 - **Value-committing actions need a budget.** The chain prices an order and checks it against the credential's own
-  budget, so `clob.place_order` without a `budget` is refused. Size the budget for this order (its notional, in the
-  market's quote denom), not for the delegation's whole allowance. Cancellations commit nothing and need no budget.
+  budget, so `clob.place_order` or `evm.native_transfer` without a `budget` is refused. Size the budget for this order
+  (its notional, in the market's quote denom) or transfer (its exact `asvp` value), not for the delegation's whole
+  allowance. Cancellations commit nothing and need no budget.
 - **On anomalies, pause.** If a remote agent behaves unexpectedly (rejected proofs are fine; unexpected orders are not),
   call `pause_delegation`
   immediately — it needs no confirmation and kills every outstanding credential — then tell the user what happened.

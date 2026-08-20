@@ -59,6 +59,15 @@ func TestComposeSystemPrompt_includesX402SkillWhenToolsPresent(t *testing.T) {
 	require.Contains(t, got, "Never invent the nonce")
 }
 
+func TestComposeSystemPrompt_delegationExplainsNativeTransferBudgetShape(t *testing.T) {
+	hermetic(t)
+	got, err := skills.ComposeSystemPrompt([]string{"delegate_task"})
+	require.NoError(t, err)
+	require.Contains(t, got, "execute_evm_native_transfer")
+	require.Contains(t, got, "\"budget\": [")
+	require.Contains(t, got, "1000000000000000000 asvp")
+}
+
 func TestComposeSystemPrompt_alwaysIncludesBase(t *testing.T) {
 	hermetic(t)
 	got, err := skills.ComposeSystemPrompt([]string{"build_bank_send"})

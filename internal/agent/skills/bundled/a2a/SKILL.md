@@ -12,14 +12,15 @@ This agent can call other agents that speak Google's [A2A protocol](https://goog
 
 ## When to use
 
-Use `a2a_send_message` when a sub-task is better handled by a specialized remote agent (compliance, research, formatting, etc.) rather than local tools.
+Use `a2a_send_message` when a sub-task is better handled by a specialized remote agent (compliance, research,
+formatting, etc.) rather than local tools.
 
 ## Tool: a2a_send_message
 
-| Parameter   | Description |
-|-------------|-------------|
+| Parameter   | Description                                                                                                                     |
+|-------------|---------------------------------------------------------------------------------------------------------------------------------|
 | `agent_url` | Base URL of the remote agent. The client fetches `/.well-known/agent-card.json` from this URL. Example: `http://localhost:9001` |
-| `message`   | Plain-text user message for the remote agent |
+| `message`   | Plain-text user message for the remote agent                                                                                    |
 
 The tool returns JSON: `{ "task_id", "context_id", "state", "response" }`.
 

@@ -1,13 +1,14 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
-import { useI18n } from 'vue-i18n'
-import { NButton, NInput, NSelect, NScrollbar } from 'naive-ui'
+import {computed, nextTick, onMounted, onUnmounted, ref, watch} from 'vue'
+import {useI18n} from 'vue-i18n'
+import {NButton, NInput, NScrollbar, NSelect} from 'naive-ui'
 import * as App from '../wailsjs/go/desktop/App'
-import { desktop } from '../wailsjs/go/models'
-import { EventsOn } from '../wailsjs/runtime/runtime'
-import { renderMarkdown } from './markdown'
+import {desktop} from '../wailsjs/go/models'
+import {EventsOn} from '../wailsjs/runtime/runtime'
+import {renderMarkdown} from './markdown'
+import type {Entry} from './types'
 
-const { t, tm } = useI18n()
+const {t, tm} = useI18n()
 
 // Rendered markdown links must not navigate the webview; only http(s) URLs
 // are handed to the system browser.
@@ -18,8 +19,6 @@ function onBubbleClick(e: MouseEvent) {
   const href = a.getAttribute('href') || ''
   if (/^https?:\/\//i.test(href)) App.OpenURL(href)
 }
-
-import type { Entry } from './types'
 
 type ChatLine = { role: 'user' | 'assistant' | 'step'; text: string; kind?: string }
 
@@ -58,13 +57,13 @@ function report(msg: string) {
 
 function scrollToBottom() {
   nextTick(() => {
-    scrollRef.value?.scrollTo({ top: 9_999_999 })
+    scrollRef.value?.scrollTo({top: 9_999_999})
   })
 }
 
 watch(
-  () => lines.value.length,
-  () => scrollToBottom(),
+    () => lines.value.length,
+    () => scrollToBottom(),
 )
 
 let unsubs: Array<() => void> = []
@@ -83,11 +82,11 @@ function normalizeStep(raw: Record<string, unknown>): { kind: string; title: str
   const title = String(raw.title ?? raw.Title ?? '')
   const detail = String(raw.detail ?? raw.Detail ?? '')
   const kind = String(raw.kind ?? raw.Kind ?? '')
-  return { kind, title, detail }
+  return {kind, title, detail}
 }
 
 function pushStep(raw: Record<string, unknown>) {
-  const { kind, title, detail } = normalizeStep(raw)
+  const {kind, title, detail} = normalizeStep(raw)
   if (!title && !detail) return
   // A step interrupts streaming: close the current bubble so the next delta
   // (e.g. the answer after a tool call) opens a fresh one.
@@ -96,7 +95,7 @@ function pushStep(raw: Record<string, unknown>) {
     return
   }
   const text = detail ? `${title}\n${detail}` : title
-  lines.value.push({ role: 'step', text, kind })
+  lines.value.push({role: 'step', text, kind})
 }
 
 function clearWatchdog() {
@@ -112,7 +111,7 @@ function armWatchdog() {
     if (!running.value) return
     running.value = false
     const msg = t('assistant.status.timeout')
-    lines.value.push({ role: 'step', text: msg, kind: 'error' })
+    lines.value.push({role: 'step', text: msg, kind: 'error'})
     report(msg)
     App.AgentCancel()
   }, 180_000)
@@ -150,7 +149,7 @@ async function persistChainID(id: string) {
   try {
     const s = (await App.AgentGetSettings()) as unknown as Record<string, unknown>
     await App.AgentSetSettings(
-      desktop.AgentSettings.createFrom({ ...s, chain_id: next }),
+        desktop.AgentSettings.createFrom({...s, chain_id: next}),
     )
   } catch {
     /* best-effort sync with Settings → Basic default chain */
@@ -158,10 +157,10 @@ async function persistChainID(id: string) {
 }
 
 watch(
-  () => props.entries.map((e) => e.ChainID).join('\0'),
-  () => {
-    chainId.value = resolveChainID(chainId.value)
-  },
+    () => props.entries.map((e) => e.ChainID).join('\0'),
+    () => {
+      chainId.value = resolveChainID(chainId.value)
+    },
 )
 
 async function refreshSessions() {
@@ -178,8 +177,8 @@ async function loadTranscript(id: string) {
   try {
     const rows = ((await App.AgentTranscript(id)) || []) as Array<{ role: string; text: string }>
     lines.value = rows
-      .filter((r) => r.role === 'user' || r.role === 'assistant')
-      .map((r) => ({ role: r.role as 'user' | 'assistant', text: r.text }))
+        .filter((r) => r.role === 'user' || r.role === 'assistant')
+        .map((r) => ({role: r.role as 'user' | 'assistant', text: r.text}))
     streamingIdx = -1
     scrollToBottom()
   } catch {
@@ -240,7 +239,7 @@ async function send() {
 
   await loadSettings()
 
-  lines.value.push({ role: 'user', text: msg })
+  lines.value.push({role: 'user', text: msg})
   input.value = ''
   running.value = true
   streamingIdx = -1
@@ -253,14 +252,14 @@ async function send() {
     clearWatchdog()
     running.value = false
     const text = String(err)
-    lines.value.push({ role: 'step', text, kind: 'error' })
+    lines.value.push({role: 'step', text, kind: 'error'})
     report(text)
   }
 }
 
 function onStep(raw: Record<string, unknown>) {
   pushStep(raw)
-  const { title } = normalizeStep(raw)
+  const {title} = normalizeStep(raw)
   if (title) runStatus.value = title
 }
 
@@ -268,7 +267,7 @@ function onDelta(e: { text?: string }) {
   const text = e?.text || ''
   if (!text) return
   if (streamingIdx < 0) {
-    lines.value.push({ role: 'assistant', text: '' })
+    lines.value.push({role: 'assistant', text: ''})
     streamingIdx = lines.value.length - 1
   }
   lines.value[streamingIdx].text += text
@@ -283,7 +282,7 @@ function onDone(e: { answer?: string }) {
     if (e.answer) lines.value[streamingIdx].text = e.answer
     streamingIdx = -1
   } else if (e.answer) {
-    lines.value.push({ role: 'assistant', text: e.answer })
+    lines.value.push({role: 'assistant', text: e.answer})
   }
   report(t('assistant.status.done'))
   refreshSessions()
@@ -294,7 +293,7 @@ function onError(e: { error?: string }) {
   running.value = false
   streamingIdx = -1
   const err = e.error || t('assistant.status.failed')
-  lines.value.push({ role: 'step', text: err, kind: 'error' })
+  lines.value.push({role: 'step', text: err, kind: 'error'})
   report(err)
   refreshSessions()
 }
@@ -304,7 +303,7 @@ function cancel() {
   App.AgentCancel()
   running.value = false
   streamingIdx = -1
-  lines.value.push({ role: 'step', text: t('assistant.status.cancelled'), kind: 'error' })
+  lines.value.push({role: 'step', text: t('assistant.status.cancelled'), kind: 'error'})
   report(t('assistant.status.cancelled'))
 }
 
@@ -343,45 +342,46 @@ onUnmounted(() => {
   <div class="assistant-pane">
     <header class="chat-header">
       <n-select
-        :value="chainId || null"
-        data-tour="assistant-chain"
-        :placeholder="t('assistant.ph.chainId')"
-        :options="entries.map((e) => ({ label: e.ChainID, value: e.ChainID }))"
-        size="small"
-        class="chain-select"
-        :disabled="running"
-        @update:value="persistChainID"
+          :value="chainId || null"
+          data-tour="assistant-chain"
+          :placeholder="t('assistant.ph.chainId')"
+          :options="entries.map((e) => ({ label: e.ChainID, value: e.ChainID }))"
+          size="small"
+          class="chain-select"
+          :disabled="running"
+          @update:value="persistChainID"
       />
       <div class="session-controls">
         <n-select
-          v-if="sessions.length > 0"
-          :value="currentSessionId || null"
-          :placeholder="t('assistant.session.placeholder')"
-          :options="sessions.map((s) => ({ label: s.title || t('assistant.session.untitled'), value: s.id }))"
-          size="small"
-          class="session-select"
-          :disabled="running"
-          @update:value="switchSession"
+            v-if="sessions.length > 0"
+            :value="currentSessionId || null"
+            :placeholder="t('assistant.session.placeholder')"
+            :options="sessions.map((s) => ({ label: s.title || t('assistant.session.untitled'), value: s.id }))"
+            size="small"
+            class="session-select"
+            :disabled="running"
+            @update:value="switchSession"
         />
         <n-button size="small" quaternary :disabled="running" @click="newSession">
           {{ t('assistant.btn.newChat') }}
         </n-button>
         <n-button
-          v-if="currentSessionId"
-          size="small"
-          quaternary
-          :disabled="running"
-          :aria-label="t('assistant.btn.deleteChat')"
-          :title="t('assistant.btn.deleteChat')"
-          @click="deleteSession"
+            v-if="currentSessionId"
+            size="small"
+            quaternary
+            :disabled="running"
+            :aria-label="t('assistant.btn.deleteChat')"
+            :title="t('assistant.btn.deleteChat')"
+            @click="deleteSession"
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="trash-icon">
-            <path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" stroke-linecap="round" stroke-linejoin="round" />
+            <path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" stroke-linecap="round"
+                  stroke-linejoin="round"/>
           </svg>
         </n-button>
       </div>
       <span v-if="running" class="running-badge">
-        <span class="running-pulse" />
+        <span class="running-pulse"/>
         {{ runStatus || t('assistant.status.running') }}
       </span>
     </header>
@@ -391,7 +391,9 @@ onUnmounted(() => {
         <div v-if="lines.length === 0" class="welcome">
           <div class="welcome-icon">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-              <path d="M12 3c5.523 0 10 3.582 10 8 0 2.4-1.2 4.56-3.12 6.08L21 21l-4.28-1.42C15.56 20.18 13.82 20.5 12 20.5 6.477 20.5 2 16.918 2 11.5S6.477 3 12 3z" stroke-linejoin="round" />
+              <path
+                  d="M12 3c5.523 0 10 3.582 10 8 0 2.4-1.2 4.56-3.12 6.08L21 21l-4.28-1.42C15.56 20.18 13.82 20.5 12 20.5 6.477 20.5 2 16.918 2 11.5S6.477 3 12 3z"
+                  stroke-linejoin="round"/>
             </svg>
           </div>
           <h2 class="welcome-title">SVPChain Agent</h2>
@@ -406,16 +408,18 @@ onUnmounted(() => {
             <div class="assistant-block">
               <div class="assistant-avatar" aria-hidden="true">S</div>
               <div
-                class="bubble assistant-bubble markdown-body"
-                @click="onBubbleClick"
-                v-html="renderMarkdown(line.text)"
+                  class="bubble assistant-bubble markdown-body"
+                  @click="onBubbleClick"
+                  v-html="renderMarkdown(line.text)"
               ></div>
             </div>
           </template>
           <template v-else>
             <div class="step-bubble" :class="stepKindClass(line.kind || '')">
               <span class="step-title">{{ line.text.split('\n')[0] }}</span>
-              <pre v-if="line.text.includes('\n')" class="chat-detail">{{ line.text.slice(line.text.indexOf('\n') + 1) }}</pre>
+              <pre v-if="line.text.includes('\n')" class="chat-detail">{{
+                  line.text.slice(line.text.indexOf('\n') + 1)
+                }}</pre>
             </div>
           </template>
         </div>
@@ -425,51 +429,51 @@ onUnmounted(() => {
     <footer class="composer">
       <div v-if="lines.length === 0 && promptChips.length" class="composer-chips">
         <button
-          v-for="(chip, idx) in promptChips"
-          :key="'c-' + idx"
-          type="button"
-          class="prompt-chip"
-          :disabled="running"
-          @click="applyChip(chip)"
+            v-for="(chip, idx) in promptChips"
+            :key="'c-' + idx"
+            type="button"
+            class="prompt-chip"
+            :disabled="running"
+            @click="applyChip(chip)"
         >
           {{ chip }}
         </button>
       </div>
       <div
-        class="composer-box"
-        :class="{ 'composer-box--running': running, 'composer-box--multiline': isMultilineInput }"
+          class="composer-box"
+          :class="{ 'composer-box--running': running, 'composer-box--multiline': isMultilineInput }"
       >
         <n-input
-          v-model:value="input"
-          type="textarea"
-          :autosize="{ minRows: 1, maxRows: 6 }"
-          :placeholder="t('assistant.ph.message')"
-          :disabled="running"
-          class="composer-input"
-          :bordered="false"
-          @compositionstart="imeComposing = true"
-          @compositionend="imeComposing = false"
-          @keydown="onKeydown"
+            v-model:value="input"
+            type="textarea"
+            :autosize="{ minRows: 1, maxRows: 6 }"
+            :placeholder="t('assistant.ph.message')"
+            :disabled="running"
+            class="composer-input"
+            :bordered="false"
+            @compositionstart="imeComposing = true"
+            @compositionend="imeComposing = false"
+            @keydown="onKeydown"
         />
         <div class="composer-actions">
           <n-button
-            v-if="running"
-            size="small"
-            quaternary
-            class="cancel-btn"
-            @click="cancel"
+              v-if="running"
+              size="small"
+              quaternary
+              class="cancel-btn"
+              @click="cancel"
           >
             {{ t('assistant.btn.cancel') }}
           </n-button>
           <button
-            type="button"
-            class="send-btn"
-            :disabled="running || !input.trim()"
-            :aria-label="t('assistant.btn.send')"
-            @click="send"
+              type="button"
+              class="send-btn"
+              :disabled="running || !input.trim()"
+              :aria-label="t('assistant.btn.send')"
+              @click="send"
           >
             <svg viewBox="0 0 24 24" fill="currentColor">
-              <path d="M3.4 20.4 22 12 3.4 3.6 3 10.8 17.6 12 3 13.2 3.4 20.4z" />
+              <path d="M3.4 20.4 22 12 3.4 3.6 3 10.8 17.6 12 3 13.2 3.4 20.4z"/>
             </svg>
           </button>
         </div>
@@ -676,9 +680,11 @@ onUnmounted(() => {
 .markdown-body :deep(table) {
   margin: 0 0 10px;
 }
+
 .markdown-body :deep(*:last-child) {
   margin-bottom: 0;
 }
+
 .markdown-body :deep(h1),
 .markdown-body :deep(h2),
 .markdown-body :deep(h3),
@@ -688,13 +694,16 @@ onUnmounted(() => {
   font-weight: 700;
   color: var(--text-primary);
 }
+
 .markdown-body :deep(ul),
 .markdown-body :deep(ol) {
   padding-left: 22px;
 }
+
 .markdown-body :deep(li) {
   margin-bottom: 4px;
 }
+
 .markdown-body :deep(code) {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 12.5px;
@@ -704,6 +713,7 @@ onUnmounted(() => {
   padding: 1px 5px;
   word-break: break-all;
 }
+
 .markdown-body :deep(pre) {
   background: var(--bg-elevated);
   border: 1px solid var(--border-subtle);
@@ -711,6 +721,7 @@ onUnmounted(() => {
   padding: 10px 12px;
   overflow-x: auto;
 }
+
 .markdown-body :deep(pre code) {
   background: none;
   border: none;
@@ -718,34 +729,41 @@ onUnmounted(() => {
   word-break: normal;
   white-space: pre;
 }
+
 .markdown-body :deep(blockquote) {
   border-left: 3px solid var(--border-default);
   padding: 2px 12px;
   color: var(--text-secondary);
 }
+
 .markdown-body :deep(a) {
   color: var(--accent);
   text-decoration: none;
 }
+
 .markdown-body :deep(a:hover) {
   text-decoration: underline;
 }
+
 .markdown-body :deep(table) {
   border-collapse: collapse;
   display: block;
   max-width: 100%;
   overflow-x: auto;
 }
+
 .markdown-body :deep(th),
 .markdown-body :deep(td) {
   border: 1px solid var(--border-default);
   padding: 5px 10px;
   text-align: left;
 }
+
 .markdown-body :deep(th) {
   background: var(--bg-chip);
   font-weight: 600;
 }
+
 .markdown-body :deep(hr) {
   border: none;
   border-top: 1px solid var(--border-subtle);

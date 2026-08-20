@@ -1,25 +1,25 @@
 <script setup lang="ts">
-import { onMounted, ref, watch } from 'vue'
-import { useI18n } from 'vue-i18n'
+import {onMounted, ref, watch} from 'vue'
+import {useI18n} from 'vue-i18n'
 import {
   NButton,
-  NInput,
-  NForm,
-  NFormItem,
   NCollapse,
   NCollapseItem,
+  NForm,
+  NFormItem,
+  NInput,
   NPopover,
-  NSwitch,
-  NSelect,
-  NRadioGroup,
   NRadioButton,
+  NRadioGroup,
+  NSelect,
+  NSwitch,
   NText,
   useMessage,
 } from 'naive-ui'
-import { setLocale } from '../i18n'
+import {setLocale} from '../i18n'
 import * as App from '../../wailsjs/go/desktop/App'
-import { desktop } from '../../wailsjs/go/models'
-import type { Entry, SkillSetting } from '../types'
+import {desktop} from '../../wailsjs/go/models'
+import type {Entry, SkillSetting} from '../types'
 
 const props = defineProps<{
   entries: Entry[]
@@ -30,7 +30,7 @@ const emit = defineEmits<{
   'restart-onboarding': []
 }>()
 
-const { t } = useI18n()
+const {t} = useI18n()
 const message = useMessage()
 
 const language = ref('en')
@@ -128,24 +128,24 @@ async function loadAgentSettings() {
 async function saveAgentSettings() {
   try {
     const disabledSkills = skillSettings.value
-      .filter((s) => !s.enabled && !s.locked)
-      .map((s) => s.name)
+        .filter((s) => !s.enabled && !s.locked)
+        .map((s) => s.name)
     await App.AgentSetSettings(
-      desktop.AgentSettings.createFrom({
-        chain_id: agentChainId.value,
-        llm_api_key: llmApiKey.value,
-        llm_provider: llmProvider.value,
-        llm_base_url: llmBaseURL.value,
-        llm_model: llmModel.value,
-        llm_context_window: Number.parseInt(llmContextWindow.value, 10) || 0,
-        remote_mcp_url: remoteMCPURL.value,
-        agent_hub_url: agentHubURL.value.trim(),
-        remote_mcp_disabled: remoteMCPDisabled.value,
-        disabled_skills: disabledSkills,
-        skills_config_base: skillsConfigBase.value.trim(),
-        show_tool_steps: showToolSteps.value,
-        agent_run_log_disabled: agentRunLogDisabled.value,
-      } as Record<string, unknown>),
+        desktop.AgentSettings.createFrom({
+          chain_id: agentChainId.value,
+          llm_api_key: llmApiKey.value,
+          llm_provider: llmProvider.value,
+          llm_base_url: llmBaseURL.value,
+          llm_model: llmModel.value,
+          llm_context_window: Number.parseInt(llmContextWindow.value, 10) || 0,
+          remote_mcp_url: remoteMCPURL.value,
+          agent_hub_url: agentHubURL.value.trim(),
+          remote_mcp_disabled: remoteMCPDisabled.value,
+          disabled_skills: disabledSkills,
+          skills_config_base: skillsConfigBase.value.trim(),
+          show_tool_steps: showToolSteps.value,
+          agent_run_log_disabled: agentRunLogDisabled.value,
+        } as Record<string, unknown>),
     )
     await loadSkillSettings()
     setStatus(t('status.settingsSaved'))
@@ -175,26 +175,26 @@ async function init() {
 }
 
 watch(
-  () => props.entries,
-  (list) => {
-    const ids = new Set(list.map((e) => e.ChainID))
-    if (agentChainId.value && !ids.has(agentChainId.value)) {
-      agentChainId.value = list[0]?.ChainID || ''
-    } else if (!agentChainId.value && list.length > 0) {
-      agentChainId.value = list[0].ChainID
-    }
-  },
-  { immediate: true },
+    () => props.entries,
+    (list) => {
+      const ids = new Set(list.map((e) => e.ChainID))
+      if (agentChainId.value && !ids.has(agentChainId.value)) {
+        agentChainId.value = list[0]?.ChainID || ''
+      } else if (!agentChainId.value && list.length > 0) {
+        agentChainId.value = list[0].ChainID
+      }
+    },
+    {immediate: true},
 )
 
 watch(
-  () => props.tourExpandedSections,
-  (sections) => {
-    if (!sections?.length) return
-    const merged = new Set([...settingsExpandedSections.value, ...sections])
-    settingsExpandedSections.value = [...merged]
-  },
-  { immediate: true },
+    () => props.tourExpandedSections,
+    (sections) => {
+      if (!sections?.length) return
+      const merged = new Set([...settingsExpandedSections.value, ...sections])
+      settingsExpandedSections.value = [...merged]
+    },
+    {immediate: true},
 )
 
 onMounted(init)
@@ -203,8 +203,8 @@ onMounted(init)
 <template>
   <div class="pane-body">
     <n-collapse
-      v-model:expanded-names="settingsExpandedSections"
-      class="settings-collapse"
+        v-model:expanded-names="settingsExpandedSections"
+        class="settings-collapse"
     >
       <n-collapse-item :title="t('settings.section.basic')" name="basic">
         <n-form label-placement="top">
@@ -216,9 +216,9 @@ onMounted(init)
           </n-form-item>
           <n-form-item :label="t('field.chainId')">
             <n-select
-              v-model:value="agentChainId"
-              :placeholder="t('ph.chainConfig')"
-              :options="entries.map((e) => ({ label: e.ChainID, value: e.ChainID }))"
+                v-model:value="agentChainId"
+                :placeholder="t('ph.chainConfig')"
+                :options="entries.map((e) => ({ label: e.ChainID, value: e.ChainID }))"
             />
           </n-form-item>
           <n-form-item>
@@ -228,17 +228,17 @@ onMounted(init)
                 <n-popover trigger="hover" placement="top-start" :show-arrow="true">
                   <template #trigger>
                     <span
-                      class="help-icon"
-                      tabindex="0"
-                      role="button"
-                      :title="t('hint.showToolSteps')"
+                        class="help-icon"
+                        tabindex="0"
+                        role="button"
+                        :title="t('hint.showToolSteps')"
                     >?</span>
                   </template>
                   <div class="help-tooltip-text">{{ t('hint.showToolSteps') }}</div>
                 </n-popover>
               </span>
             </template>
-            <n-switch v-model:value="showToolSteps" />
+            <n-switch v-model:value="showToolSteps"/>
           </n-form-item>
           <n-form-item>
             <template #label>
@@ -247,17 +247,17 @@ onMounted(init)
                 <n-popover trigger="hover" placement="top-start" :show-arrow="true">
                   <template #trigger>
                     <span
-                      class="help-icon"
-                      tabindex="0"
-                      role="button"
-                      :title="t('hint.agentRunLog')"
+                        class="help-icon"
+                        tabindex="0"
+                        role="button"
+                        :title="t('hint.agentRunLog')"
                     >?</span>
                   </template>
                   <div class="help-tooltip-text">{{ t('hint.agentRunLog') }}</div>
                 </n-popover>
               </span>
             </template>
-            <n-switch :value="!agentRunLogDisabled" @update:value="agentRunLogDisabled = !$event" />
+            <n-switch :value="!agentRunLogDisabled" @update:value="agentRunLogDisabled = !$event"/>
           </n-form-item>
           <n-form-item v-if="updateSupported">
             <template #label>
@@ -266,17 +266,17 @@ onMounted(init)
                 <n-popover trigger="hover" placement="top-start" :show-arrow="true">
                   <template #trigger>
                     <span
-                      class="help-icon"
-                      tabindex="0"
-                      role="button"
-                      :title="t('hint.autoUpdate')"
+                        class="help-icon"
+                        tabindex="0"
+                        role="button"
+                        :title="t('hint.autoUpdate')"
                     >?</span>
                   </template>
                   <div class="help-tooltip-text">{{ t('hint.autoUpdate') }}</div>
                 </n-popover>
               </span>
             </template>
-            <n-switch :value="autoUpdate" @update:value="onAutoUpdateChange" />
+            <n-switch :value="autoUpdate" @update:value="onAutoUpdateChange"/>
           </n-form-item>
           <n-form-item>
             <template #label>
@@ -285,10 +285,10 @@ onMounted(init)
                 <n-popover trigger="hover" placement="top-start" :show-arrow="true">
                   <template #trigger>
                     <span
-                      class="help-icon"
-                      tabindex="0"
-                      role="button"
-                      :title="t('hint.skillsConfigBase')"
+                        class="help-icon"
+                        tabindex="0"
+                        role="button"
+                        :title="t('hint.skillsConfigBase')"
                     >?</span>
                   </template>
                   <div class="help-tooltip-text">{{ t('hint.skillsConfigBase') }}</div>
@@ -296,8 +296,8 @@ onMounted(init)
               </span>
             </template>
             <n-input
-              v-model:value="skillsConfigBase"
-              :placeholder="defaultSkillsConfigBase || t('ph.skillsConfigBase')"
+                v-model:value="skillsConfigBase"
+                :placeholder="defaultSkillsConfigBase || t('ph.skillsConfigBase')"
             />
           </n-form-item>
         </n-form>
@@ -307,8 +307,8 @@ onMounted(init)
         <n-form label-placement="top">
           <n-form-item :label="t('field.llmProvider')">
             <n-select
-              v-model:value="llmProvider"
-              :options="[
+                v-model:value="llmProvider"
+                :options="[
                 { label: 'OpenAI-compatible', value: 'openai' },
                 { label: 'Anthropic', value: 'anthropic' },
               ]"
@@ -316,17 +316,17 @@ onMounted(init)
           </n-form-item>
           <n-form-item :label="t('field.llmApiKey')">
             <n-input
-              v-model:value="llmApiKey"
-              type="password"
-              show-password-on="click"
-              :placeholder="t('ph.llmApiKey')"
+                v-model:value="llmApiKey"
+                type="password"
+                show-password-on="click"
+                :placeholder="t('ph.llmApiKey')"
             />
           </n-form-item>
           <n-form-item :label="t('field.llmBaseURL')">
-            <n-input v-model:value="llmBaseURL" :placeholder="t('ph.llmBaseURL')" />
+            <n-input v-model:value="llmBaseURL" :placeholder="t('ph.llmBaseURL')"/>
           </n-form-item>
           <n-form-item :label="t('field.llmModel')">
-            <n-input v-model:value="llmModel" :placeholder="t('ph.llmModel')" />
+            <n-input v-model:value="llmModel" :placeholder="t('ph.llmModel')"/>
           </n-form-item>
           <n-form-item>
             <template #label>
@@ -335,23 +335,23 @@ onMounted(init)
                 <n-popover trigger="hover" placement="top-start" :show-arrow="true">
                   <template #trigger>
                     <span
-                      class="help-icon"
-                      tabindex="0"
-                      role="button"
-                      :title="t('hint.llmContextWindow')"
+                        class="help-icon"
+                        tabindex="0"
+                        role="button"
+                        :title="t('hint.llmContextWindow')"
                     >?</span>
                   </template>
                   <div class="help-tooltip-text">{{ t('hint.llmContextWindow') }}</div>
                 </n-popover>
               </span>
             </template>
-            <n-input v-model:value="llmContextWindow" :placeholder="t('ph.llmContextWindow')" />
+            <n-input v-model:value="llmContextWindow" :placeholder="t('ph.llmContextWindow')"/>
           </n-form-item>
           <n-form-item :label="t('field.remoteMCPURL')">
             <n-input
-              v-model:value="remoteMCPURL"
-              :placeholder="t('ph.remoteMCPURL')"
-              :disabled="remoteMCPDisabled"
+                v-model:value="remoteMCPURL"
+                :placeholder="t('ph.remoteMCPURL')"
+                :disabled="remoteMCPDisabled"
             />
           </n-form-item>
           <n-form-item>
@@ -361,20 +361,20 @@ onMounted(init)
                 <n-popover trigger="hover" placement="top-start" :show-arrow="true">
                   <template #trigger>
                     <span
-                      class="help-icon"
-                      tabindex="0"
-                      role="button"
-                      :title="t('hint.remoteMCPDisabled')"
+                        class="help-icon"
+                        tabindex="0"
+                        role="button"
+                        :title="t('hint.remoteMCPDisabled')"
                     >?</span>
                   </template>
                   <div class="help-tooltip-text">{{ t('hint.remoteMCPDisabled') }}</div>
                 </n-popover>
               </span>
             </template>
-            <n-switch v-model:value="remoteMCPDisabled" />
+            <n-switch v-model:value="remoteMCPDisabled"/>
           </n-form-item>
           <n-form-item :label="t('field.agentHubURL')">
-            <n-input v-model:value="agentHubURL" :placeholder="t('ph.agentHubURL')" />
+            <n-input v-model:value="agentHubURL" :placeholder="t('ph.agentHubURL')"/>
           </n-form-item>
         </n-form>
         <n-text depth="3" class="hint">{{ t('hint.assistantSettings') }}</n-text>
@@ -387,7 +387,7 @@ onMounted(init)
               <n-text strong>{{ skillLabel(skill.name) }}</n-text>
               <n-text depth="3" tag="div" class="skill-desc">{{ skill.description }}</n-text>
             </div>
-            <n-switch v-model:value="skill.enabled" :disabled="skill.locked" />
+            <n-switch v-model:value="skill.enabled" :disabled="skill.locked"/>
           </div>
         </div>
         <n-text v-else depth="3" class="hint">{{ t('skill.empty') }}</n-text>

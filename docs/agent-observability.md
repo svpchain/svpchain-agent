@@ -2,7 +2,8 @@
 
 **English** | [简体中文](agent-observability.zh-CN.md) · [← README](../README.md)
 
-This document describes how to **measure assistant quality**, the **observability design**, and **what is implemented today** for the SVPChain Agent GUI assistant — without relying on cloud tracing SaaS (e.g. LangSmith) by default.
+This document describes how to **measure assistant quality**, the **observability design**, and **what is implemented
+today** for the SVPChain Agent GUI assistant — without relying on cloud tracing SaaS (e.g. LangSmith) by default.
 
 ---
 
@@ -16,14 +17,15 @@ User message → LLM tool loop → remote MCP build_* → local sign_* → remot
 
 Success is defined by **on-chain outcomes** and **correct orchestration**, not fluent prose alone.
 
-| Goal | Description |
-|------|-------------|
-| **Observable** | Full trace per run: tools, failures, tx hashes |
-| **Measurable** | Success rate, rejection rate, rounds, latency |
-| **Regressable** | Offline cases after prompt/skill/guard changes |
+| Goal                   | Description                                     |
+|------------------------|-------------------------------------------------|
+| **Observable**         | Full trace per run: tools, failures, tx hashes  |
+| **Measurable**         | Success rate, rejection rate, rounds, latency   |
+| **Regressable**        | Offline cases after prompt/skill/guard changes  |
 | **Private by default** | Traces stay on disk; no keys or API keys logged |
 
-Compared to LangSmith/Langfuse: those excel at cloud LLM traces and team dashboards. This design fits **local keys + chain outcomes**.
+Compared to LangSmith/Langfuse: those excel at cloud LLM traces and team dashboards. This design fits **local keys +
+chain outcomes**.
 
 ---
 
@@ -31,25 +33,25 @@ Compared to LangSmith/Langfuse: those excel at cloud LLM traces and team dashboa
 
 ### Layer A — Outcome (primary)
 
-- Intent / tx success rate  
-- Parameter correctness (size, market, recipient, …)  
-- Abstain rate when action must be refused (whitelist, insufficient balance, …)  
+- Intent / tx success rate
+- Parameter correctness (size, market, recipient, …)
+- Abstain rate when action must be refused (whitelist, insufficient balance, …)
 
 Ground truth is on-chain: correlate `tx_hashes` in run logs with indexer / query tools.
 
 ### Layer B — Orchestration
 
-- Tool sequence (build → sign → broadcast)  
-- LLM round count (cap: 25)  
-- Fail-fast behavior after tool errors  
+- Tool sequence (build → sign → broadcast)
+- LLM round count (cap: 25)
+- Fail-fast behavior after tool errors
 
 ### Layer C — LLM quality
 
-- Intent classification, slot filling, hallucination rate  
+- Intent classification, slot filling, hallucination rate
 
 ### Layer D — UX & cost
 
-- End-to-end latency, tokens/cost, cancel/timeout rate  
+- End-to-end latency, tokens/cost, cancel/timeout rate
 
 Report **security metrics** (whitelist rejections, signer cross-checks) separately from task success.
 
@@ -59,34 +61,35 @@ Report **security metrics** (whitelist rejections, signer cross-checks) separate
 
 ### Code
 
-| Piece | Path |
-|-------|------|
-| Recorder | `internal/agent/runlog/` |
-| Hook | `internal/agent/runner.go` → `Config.RunLog` |
-| GUI toggle | Settings → Basic → **Save assistant run logs** |
-| Pref | `agent_run_log_disabled` (`false` = enabled, default) |
-| Read API | `AgentRunLogPath()`, `AgentRecentRuns(limit)` |
+| Piece      | Path                                                  |
+|------------|-------------------------------------------------------|
+| Recorder   | `internal/agent/runlog/`                              |
+| Hook       | `internal/agent/runner.go` → `Config.RunLog`          |
+| GUI toggle | Settings → Basic → **Save assistant run logs**        |
+| Pref       | `agent_run_log_disabled` (`false` = enabled, default) |
+| Read API   | `AgentRunLogPath()`, `AgentRecentRuns(limit)`         |
 
 ### Log file
 
 **`agent_runs.jsonl`** next to `prefs.json`:
 
-- macOS: `~/Library/Application Support/com.svpchain.agent/agent_runs.jsonl`  
-- Linux: `$XDG_CONFIG_HOME/com.svpchain.agent/agent_runs.jsonl`  
-- Windows: `%AppData%\com.svpchain.agent\agent_runs.jsonl`  
+- macOS: `~/Library/Application Support/com.svpchain.agent/agent_runs.jsonl`
+- Linux: `$XDG_CONFIG_HOME/com.svpchain.agent/agent_runs.jsonl`
+- Windows: `%AppData%\com.svpchain.agent\agent_runs.jsonl`
 
 ### Record shape (one JSON object per line)
 
-Fields include: `run_id`, timestamps, `chain_id`, `model`, redacted `user_message`, `outcome`, `answer`, `error`, `tx_hashes`, `round_count`, and `steps[]` (think/tool/error with timing).
+Fields include: `run_id`, timestamps, `chain_id`, `model`, redacted `user_message`, `outcome`, `answer`, `error`,
+`tx_hashes`, `round_count`, and `steps[]` (think/tool/error with timing).
 
 ### `outcome` values
 
-| Value | Meaning |
-|-------|---------|
-| `success` | Completed with an answer |
-| `failed` | Error returned |
-| `stopped` | Fail-fast after tool error |
-| `rejected` | Whitelist / transfer gate |
+| Value       | Meaning                        |
+|-------------|--------------------------------|
+| `success`   | Completed with an answer       |
+| `failed`    | Error returned                 |
+| `stopped`   | Fail-fast after tool error     |
+| `rejected`  | Whitelist / transfer gate      |
 | `cancelled` | User cancel or context timeout |
 
 ### Privacy
@@ -124,13 +127,13 @@ Package: `internal/agent/eval/`.
 
 ## 5. LangSmith vs local approach
 
-| Capability | LangSmith | This repo |
-|------------|-----------|-----------|
-| LLM + tool trace | Cloud | `agent_runs.jsonl` |
-| Dataset regression | Yes | `guard_cases.json` (extensible) |
-| On-chain tx link | DIY | `tx_hashes` |
-| Keys stay local | Careful redaction | Default local |
-| Team dashboard | Yes | Optional self-hosted Langfuse |
+| Capability         | LangSmith         | This repo                       |
+|--------------------|-------------------|---------------------------------|
+| LLM + tool trace   | Cloud             | `agent_runs.jsonl`              |
+| Dataset regression | Yes               | `guard_cases.json` (extensible) |
+| On-chain tx link   | DIY               | `tx_hashes`                     |
+| Keys stay local    | Careful redaction | Default local                   |
+| Team dashboard     | Yes               | Optional self-hosted Langfuse   |
 
 **Recommended path:** JSONL + guard eval + weekly failed-run review → later mock MCP + indexer outcome checks.
 
@@ -148,11 +151,11 @@ Package: `internal/agent/eval/`.
 
 ## 7. Roadmap (not yet built)
 
-- Mock MCP replay for CI  
-- LLM eval cases (expected tools/args)  
-- GUI run history viewer  
-- Post-broadcast indexer verification  
-- JSONL aggregation scripts / weekly report  
+- Mock MCP replay for CI
+- LLM eval cases (expected tools/args)
+- GUI run history viewer
+- Post-broadcast indexer verification
+- JSONL aggregation scripts / weekly report
 
 ---
 
@@ -172,6 +175,6 @@ scripts/agent-eval.sh
 
 ## 9. Changelog
 
-| Date | Notes |
-|------|-------|
+| Date    | Notes                                               |
+|---------|-----------------------------------------------------|
 | 2026-06 | Initial: JSONL run log, guard eval, settings toggle |

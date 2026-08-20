@@ -6,7 +6,7 @@ name: CI
 # produces unsigned development artifacts that expire with the default
 # retention. Both build natively per platform — eth_secp256k1 needs CGO and
 # libsecp256k1, so nothing here cross-compiles.
-on:  # yamllint disable-line rule:truthy
+on: # yamllint disable-line rule:truthy
   push:
     branches:
       - main

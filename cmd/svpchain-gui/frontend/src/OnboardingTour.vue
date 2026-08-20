@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
-import { useI18n } from 'vue-i18n'
-import { NButton, NSpace } from 'naive-ui'
+import {computed, nextTick, onMounted, onUnmounted, ref} from 'vue'
+import {useI18n} from 'vue-i18n'
+import {NButton, NSpace} from 'naive-ui'
 import * as App from '../wailsjs/go/desktop/App'
 
 type TabId = 'keys' | 'settings' | 'assistant'
@@ -15,7 +15,7 @@ interface TourStep {
   placement: 'right' | 'bottom'
 }
 
-const { t } = useI18n()
+const {t} = useI18n()
 
 const emit = defineEmits<{
   'step-change': [payload: { tab: TabId; expandSettings?: string[] }]
@@ -49,13 +49,13 @@ const steps: TourStep[] = [
 
 const active = ref(false)
 const stepIndex = ref(0)
-const spotlight = ref({ top: 0, left: 0, width: 0, height: 0 })
-const tooltip = ref({ top: 0, left: 0 })
+const spotlight = ref({top: 0, left: 0, width: 0, height: 0})
+const tooltip = ref({top: 0, left: 0})
 
 const currentStep = computed(() => steps[stepIndex.value])
 const isLastStep = computed(() => stepIndex.value >= steps.length - 1)
 const stepLabel = computed(() =>
-  t('onboarding.stepOf', { current: stepIndex.value + 1, total: steps.length }),
+    t('onboarding.stepOf', {current: stepIndex.value + 1, total: steps.length}),
 )
 
 let resizeObserver: ResizeObserver | null = null
@@ -99,7 +99,7 @@ function positionTooltip(rect: DOMRect, placement: 'right' | 'bottom') {
       left = Math.max(16, rect.left - gap - maxW)
     }
     top = Math.min(Math.max(16, top), vh - 200)
-    tooltip.value = { top, left }
+    tooltip.value = {top, left}
     return
   }
 
@@ -109,7 +109,7 @@ function positionTooltip(rect: DOMRect, placement: 'right' | 'bottom') {
     top = Math.max(16, rect.top - gap - 180)
   }
   left = Math.min(Math.max(16, left), vw - maxW - 16)
-  tooltip.value = { top, left }
+  tooltip.value = {top, left}
 }
 
 function updatePosition(retry = 0) {
@@ -124,7 +124,7 @@ function updatePosition(retry = 0) {
     return
   }
 
-  el.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'instant' })
+  el.scrollIntoView({block: 'nearest', inline: 'nearest', behavior: 'instant'})
   const rect = el.getBoundingClientRect()
   const pad = 6
   spotlight.value = {
@@ -140,7 +140,7 @@ async function applyStep(index: number) {
   stepIndex.value = index
   const step = steps[index]
   emit('ensure-sidebar')
-  emit('step-change', { tab: step.tab, expandSettings: step.expandSettings })
+  emit('step-change', {tab: step.tab, expandSettings: step.expandSettings})
   await nextTick()
   clearRetry()
   retryTimer = setTimeout(() => updatePosition(0), 120)
@@ -205,20 +205,20 @@ onUnmounted(() => {
   clearRetry()
 })
 
-defineExpose({ maybeShow, restart })
+defineExpose({maybeShow, restart})
 </script>
 
 <template>
   <Teleport to="body">
     <div v-if="active" class="tour-root" role="presentation">
-      <div class="tour-backdrop" aria-hidden="true" />
-      <div class="tour-spotlight" :style="spotlightStyle()" aria-hidden="true" />
+      <div class="tour-backdrop" aria-hidden="true"/>
+      <div class="tour-spotlight" :style="spotlightStyle()" aria-hidden="true"/>
       <div
-        class="tour-popover"
-        :style="tooltipStyle()"
-        role="dialog"
-        aria-modal="true"
-        :aria-label="t(currentStep.titleKey)"
+          class="tour-popover"
+          :style="tooltipStyle()"
+          role="dialog"
+          aria-modal="true"
+          :aria-label="t(currentStep.titleKey)"
       >
         <div class="tour-step-label">{{ stepLabel }}</div>
         <div class="tour-title">{{ t(currentStep.titleKey) }}</div>
@@ -260,25 +260,22 @@ defineExpose({ maybeShow, restart })
   border: 2px solid var(--accent);
   pointer-events: none;
   z-index: 10001;
-  transition:
-    top 0.22s ease,
-    left 0.22s ease,
-    width 0.22s ease,
-    height 0.22s ease;
+  transition: top 0.22s ease,
+  left 0.22s ease,
+  width 0.22s ease,
+  height 0.22s ease;
   animation: tour-pulse 2s ease-in-out infinite;
 }
 
 @keyframes tour-pulse {
   0%,
   100% {
-    box-shadow:
-      0 0 0 9999px rgba(0, 0, 0, 0.58),
-      0 0 0 0 rgba(16, 163, 127, 0.35);
+    box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.58),
+    0 0 0 0 rgba(16, 163, 127, 0.35);
   }
   50% {
-    box-shadow:
-      0 0 0 9999px rgba(0, 0, 0, 0.58),
-      0 0 0 6px rgba(16, 163, 127, 0.15);
+    box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.58),
+    0 0 0 6px rgba(16, 163, 127, 0.15);
   }
 }
 
@@ -292,9 +289,8 @@ defineExpose({ maybeShow, restart })
   border: 1px solid var(--border-subtle);
   box-shadow: var(--shadow-lg, 0 12px 40px rgba(0, 0, 0, 0.18));
   pointer-events: auto;
-  transition:
-    top 0.22s ease,
-    left 0.22s ease;
+  transition: top 0.22s ease,
+  left 0.22s ease;
 }
 
 .tour-step-label {

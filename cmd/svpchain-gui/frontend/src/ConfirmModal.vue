@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
-import { useI18n } from 'vue-i18n'
-import { NModal, NCard, NButton, NSpace } from 'naive-ui'
+import {computed, onMounted, onUnmounted, ref} from 'vue'
+import {useI18n} from 'vue-i18n'
+import {NButton, NCard, NModal, NSpace} from 'naive-ui'
 import * as App from '../wailsjs/go/desktop/App'
-import { EventsOn } from '../wailsjs/runtime/runtime'
+import {EventsOn} from '../wailsjs/runtime/runtime'
 
 type ConfirmRequest = {
   id: number
@@ -12,7 +12,7 @@ type ConfirmRequest = {
   lines: string[]
 }
 
-const { t } = useI18n()
+const {t} = useI18n()
 
 const queue = ref<ConfirmRequest[]>([])
 const resolving = ref(false)
@@ -29,7 +29,7 @@ let unsubs: (() => void)[] = []
 function onConfirm(req: ConfirmRequest) {
   if (!req || typeof req.id !== 'number') return
   if (queue.value.some((r) => r.id === req.id)) return
-  queue.value = [...queue.value, { ...req, lines: req.lines || [] }]
+  queue.value = [...queue.value, {...req, lines: req.lines || []}]
 }
 
 function onConfirmExpired(payload: { id: number }) {

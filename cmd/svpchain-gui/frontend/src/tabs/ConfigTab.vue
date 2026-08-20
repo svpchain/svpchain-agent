@@ -1,25 +1,25 @@
 <script setup lang="ts">
-import { onMounted, ref, watch } from 'vue'
-import { useI18n } from 'vue-i18n'
+import {onMounted, ref, watch} from 'vue'
+import {useI18n} from 'vue-i18n'
 import {
   NButton,
-  NInput,
-  NInputGroup,
   NForm,
   NFormItem,
-  NRadioGroup,
+  NInput,
+  NInputGroup,
   NRadioButton,
-  NSpace,
+  NRadioGroup,
   NSelect,
+  NSpace,
   NText,
 } from 'naive-ui'
 import * as App from '../../wailsjs/go/desktop/App'
-import type { Entry } from '../types'
+import type {Entry} from '../types'
 
 const props = defineProps<{ entries: Entry[] }>()
 const emit = defineEmits<{ status: [msg: string] }>()
 
-const { t } = useI18n()
+const {t} = useI18n()
 
 const selectedChainId = ref<string | null>(null)
 const agents = ref<string[]>([])
@@ -38,13 +38,13 @@ async function init() {
 }
 
 watch(
-  () => props.entries,
-  (list) => {
-    if (!selectedChainId.value && list.length > 0) {
-      selectedChainId.value = list[0].ChainID
-    }
-  },
-  { immediate: true },
+    () => props.entries,
+    (list) => {
+      if (!selectedChainId.value && list.length > 0) {
+        selectedChainId.value = list[0].ChainID
+      }
+    },
+    {immediate: true},
 )
 
 onMounted(init)
@@ -92,14 +92,14 @@ async function browseSigner() {
     <n-form label-placement="top">
       <n-form-item :label="t('field.chainId')">
         <n-select
-          v-model:value="selectedChainId"
-          :placeholder="t('ph.chainConfig')"
-          :options="entries.map((e) => ({ label: e.ChainID, value: e.ChainID }))"
+            v-model:value="selectedChainId"
+            :placeholder="t('ph.chainConfig')"
+            :options="entries.map((e) => ({ label: e.ChainID, value: e.ChainID }))"
         />
       </n-form-item>
       <n-form-item :label="t('field.signerPath')">
         <n-input-group>
-          <n-input v-model:value="signerPath" :placeholder="t('ph.binary')" />
+          <n-input v-model:value="signerPath" :placeholder="t('ph.binary')"/>
           <n-button @click="browseSigner">{{ t('btn.browse') }}</n-button>
         </n-input-group>
       </n-form-item>

@@ -1,6 +1,7 @@
 # Lendora Lending — Output Templates
 
-Reference file for the `lendora-lending` skill, loaded on demand via `read_skill_reference`. Contains response templates for each user intent — copy the structure, substitute live data.
+Reference file for the `lendora-lending` skill, loaded on demand via `read_skill_reference`. Contains response templates
+for each user intent — copy the structure, substitute live data.
 
 ---
 

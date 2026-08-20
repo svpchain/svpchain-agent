@@ -1,13 +1,13 @@
 <script setup lang="ts">
-import { ref } from 'vue'
-import { useI18n } from 'vue-i18n'
-import { NButton, NInput, NSpin, NTag, NText } from 'naive-ui'
+import {ref} from 'vue'
+import {useI18n} from 'vue-i18n'
+import {NButton, NInput, NSpin, NTag, NText} from 'naive-ui'
 import * as App from '../../wailsjs/go/desktop/App'
-import type { DiscoveredAgent } from '../types'
+import type {DiscoveredAgent} from '../types'
 
 const emit = defineEmits<{ status: [msg: string] }>()
 
-const { t } = useI18n()
+const {t} = useI18n()
 
 const capability = ref('')
 const agents = ref<DiscoveredAgent[]>([])
@@ -44,12 +44,12 @@ async function discover() {
     const list = (await App.AgentsDiscover(capability.value.trim())) as unknown as DiscoveredAgent[]
     agents.value = list || []
     searched.value = true
-    setStatus(t('agents.status.found', { n: agents.value.length }))
+    setStatus(t('agents.status.found', {n: agents.value.length}))
   } catch (err) {
     agents.value = []
     searched.value = true
     errorMsg.value = String(err)
-    setStatus(t('agents.status.failed', { err: String(err) }))
+    setStatus(t('agents.status.failed', {err: String(err)}))
   } finally {
     loading.value = false
   }
@@ -60,11 +60,11 @@ async function discover() {
   <div class="pane-body">
     <div class="discover-bar">
       <n-input
-        v-model:value="capability"
-        class="capability-input"
-        :placeholder="t('agents.ph.capability')"
-        :disabled="loading"
-        @keyup.enter="discover"
+          v-model:value="capability"
+          class="capability-input"
+          :placeholder="t('agents.ph.capability')"
+          :disabled="loading"
+          @keyup.enter="discover"
       />
       <n-button type="primary" :loading="loading" @click="discover">
         {{ t('agents.btn.discover') }}
@@ -82,23 +82,25 @@ async function discover() {
               {{ t('btn.copyShort') }}
             </n-button>
             <span
-              class="card-badge"
-              :class="`card-badge--${badgeKind(agent)}`"
-              :title="agent.card_error || ''"
+                class="card-badge"
+                :class="`card-badge--${badgeKind(agent)}`"
+                :title="agent.card_error || ''"
             >
-              <svg v-if="badgeKind(agent) === 'verified'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                <path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round" />
+              <svg v-if="badgeKind(agent) === 'verified'" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                   stroke-width="2.5">
+                <path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round"/>
               </svg>
               <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M12 9v4M12 16.5h.01" stroke-linecap="round" />
-                <path d="M10.3 4.2 2.9 17a2 2 0 0 0 1.7 3h14.8a2 2 0 0 0 1.7-3L13.7 4.2a2 2 0 0 0-3.4 0z" stroke-linejoin="round" />
+                <path d="M12 9v4M12 16.5h.01" stroke-linecap="round"/>
+                <path d="M10.3 4.2 2.9 17a2 2 0 0 0 1.7 3h14.8a2 2 0 0 0 1.7-3L13.7 4.2a2 2 0 0 0-3.4 0z"
+                      stroke-linejoin="round"/>
               </svg>
               {{
                 badgeKind(agent) === 'verified'
-                  ? t('agents.cardVerified')
-                  : badgeKind(agent) === 'unreachable'
-                    ? t('agents.cardUnreachable')
-                    : t('agents.cardMismatch')
+                    ? t('agents.cardVerified')
+                    : badgeKind(agent) === 'unreachable'
+                        ? t('agents.cardUnreachable')
+                        : t('agents.cardMismatch')
               }}
             </span>
           </div>
@@ -110,11 +112,11 @@ async function discover() {
             <span class="agent-label">{{ t('agents.capabilities') }}</span>
             <span class="agent-tags">
               <n-tag
-                v-for="cap in agent.capabilities || []"
-                :key="cap"
-                size="small"
-                round
-                :bordered="false"
+                  v-for="cap in agent.capabilities || []"
+                  :key="cap"
+                  size="small"
+                  round
+                  :bordered="false"
               >{{ cap }}</n-tag>
             </span>
           </div>

@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import { ref } from 'vue'
-import { useI18n } from 'vue-i18n'
-import { NModal, NCard, NButton, NSpace, NProgress } from 'naive-ui'
+import {ref} from 'vue'
+import {useI18n} from 'vue-i18n'
+import {NButton, NCard, NModal, NProgress, NSpace} from 'naive-ui'
 import * as App from '../wailsjs/go/desktop/App'
-import { EventsOn, EventsOff } from '../wailsjs/runtime/runtime'
-import type { UpdateInfo } from './types'
+import {EventsOff, EventsOn} from '../wailsjs/runtime/runtime'
+import type {UpdateInfo} from './types'
 
-const { t } = useI18n()
+const {t} = useI18n()
 
 const updateInfo = ref<UpdateInfo | null>(null)
 const showAvailable = ref(false)
@@ -25,7 +25,7 @@ async function maybeCheckUpdate() {
     if (!info || !info.Latest) return
     updateInfo.value = info
     if (await App.UpdateAutoDownload()) {
-      if (await startUpdate({ silent: true })) return
+      if (await startUpdate({silent: true})) return
     }
     showAvailable.value = true
   } catch (err) {
@@ -89,16 +89,16 @@ function onOpenRelease() {
   showFailed.value = false
 }
 
-defineExpose({ maybeCheckUpdate })
+defineExpose({maybeCheckUpdate})
 </script>
 
 <template>
   <n-modal v-model:show="showAvailable" :mask-closable="false">
     <n-card style="width: 440px" :title="t('update.availableTitle')">
-      <p>{{ t('update.availableBody', { current: updateInfo?.Current, latest: updateInfo?.Latest }) }}</p>
+      <p>{{ t('update.availableBody', {current: updateInfo?.Current, latest: updateInfo?.Latest}) }}</p>
       <template #footer>
         <n-space justify="end">
-          <n-button quaternary @click="onSkip">{{ t('update.skip', { tag: updateInfo?.TagName }) }}</n-button>
+          <n-button quaternary @click="onSkip">{{ t('update.skip', {tag: updateInfo?.TagName}) }}</n-button>
           <n-button @click="onLater">{{ t('update.later') }}</n-button>
           <n-button type="primary" @click="onUpgrade">{{ t('update.upgrade') }}</n-button>
         </n-space>
@@ -109,7 +109,7 @@ defineExpose({ maybeCheckUpdate })
   <n-modal v-model:show="showProgress" :mask-closable="false" :closable="false">
     <n-card style="width: 440px" :title="t('update.downloadingTitle')">
       <p>{{ t('update.' + progressStage) }}</p>
-      <n-progress type="line" :percentage="progressPercent" :indicator-placement="'inside'" processing />
+      <n-progress type="line" :percentage="progressPercent" :indicator-placement="'inside'" processing/>
     </n-card>
   </n-modal>
 
@@ -127,7 +127,7 @@ defineExpose({ maybeCheckUpdate })
 
   <n-modal v-model:show="showFailed" :mask-closable="false">
     <n-card style="width: 440px" :title="t('update.failedTitle')">
-      <p class="failed-body">{{ t('update.failedBody', { err: failedErr }) }}</p>
+      <p class="failed-body">{{ t('update.failedBody', {err: failedErr}) }}</p>
       <template #footer>
         <n-space justify="end">
           <n-button @click="showFailed = false">{{ t('update.later') }}</n-button>

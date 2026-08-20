@@ -1,21 +1,13 @@
 <script setup lang="ts">
-import { h, onMounted, ref } from 'vue'
-import { useI18n } from 'vue-i18n'
-import {
-  NButton,
-  NDataTable,
-  NSpace,
-  NTag,
-  NText,
-  useMessage,
-  type DataTableColumns,
-} from 'naive-ui'
+import {h, onMounted, ref} from 'vue'
+import {useI18n} from 'vue-i18n'
+import {type DataTableColumns, NButton, NDataTable, NSpace, NTag, NText, useMessage,} from 'naive-ui'
 import * as App from '../../wailsjs/go/desktop/App'
-import type { DelegationRow } from '../types'
+import type {DelegationRow} from '../types'
 
 const emit = defineEmits<{ status: [msg: string] }>()
 
-const { t, locale } = useI18n()
+const {t, locale} = useI18n()
 const message = useMessage()
 
 const rows = ref<DelegationRow[]>([])
@@ -50,9 +42,9 @@ async function refresh() {
   try {
     const list = (await App.DelegationsList()) as unknown as DelegationRow[]
     rows.value = list || []
-    setStatus(t('delegations.status.count', { n: rows.value.length }))
+    setStatus(t('delegations.status.count', {n: rows.value.length}))
   } catch (err) {
-    setStatus(t('delegations.status.loadFailed', { err: String(err) }))
+    setStatus(t('delegations.status.loadFailed', {err: String(err)}))
   } finally {
     loading.value = false
   }
@@ -66,11 +58,11 @@ async function runOp(row: DelegationRow, op: 'pause' | 'resume' | 'revoke') {
     if (op === 'pause') hash = await App.DelegationPause(row.root_id)
     else if (op === 'resume') hash = await App.DelegationResume(row.root_id)
     else hash = await App.DelegationRevoke(row.root_id)
-    lastTx.value = t('delegations.status.txSubmitted', { op: opLabel, hash })
+    lastTx.value = t('delegations.status.txSubmitted', {op: opLabel, hash})
     setStatus(lastTx.value)
     await refresh()
   } catch (err) {
-    message.error(t('delegations.status.opFailed', { op: opLabel, err: String(err) }))
+    message.error(t('delegations.status.opFailed', {op: opLabel, err: String(err)}))
   } finally {
     busyRootId.value = ''
     revokePendingId.value = ''
@@ -91,30 +83,30 @@ const columns: DataTableColumns<DelegationRow> = [
     key: 'root_id',
     width: 170,
     render: (row) =>
-      h('div', { class: 'addr-cell' }, [
-        h('span', { class: 'addr-text mono', title: row.root_id }, truncateMiddle(row.root_id)),
-        h(
-          NButton,
-          { size: 'tiny', quaternary: true, onClick: () => copyRootId(row.root_id) },
-          { default: () => t('btn.copyShort') },
-        ),
-      ]),
+        h('div', {class: 'addr-cell'}, [
+          h('span', {class: 'addr-text mono', title: row.root_id}, truncateMiddle(row.root_id)),
+          h(
+              NButton,
+              {size: 'tiny', quaternary: true, onClick: () => copyRootId(row.root_id)},
+              {default: () => t('btn.copyShort')},
+          ),
+        ]),
   },
   {
     title: () => t('delegations.col.agent'),
     key: 'agent_id',
     width: 170,
     render: (row) =>
-      h('div', { class: 'agent-cell' }, [
-        h('span', { class: 'addr-text mono', title: row.agent_id }, truncateMiddle(row.agent_id)),
-        row.self_issued
-          ? h(
-              NTag,
-              { size: 'small', round: true, type: 'info', bordered: false },
-              { default: () => t('delegations.self') },
-            )
-          : null,
-      ]),
+        h('div', {class: 'agent-cell'}, [
+          h('span', {class: 'addr-text mono', title: row.agent_id}, truncateMiddle(row.agent_id)),
+          row.self_issued
+              ? h(
+                  NTag,
+                  {size: 'small', round: true, type: 'info', bordered: false},
+                  {default: () => t('delegations.self')},
+              )
+              : null,
+        ]),
   },
   {
     title: () => t('delegations.col.actions'),
@@ -133,10 +125,10 @@ const columns: DataTableColumns<DelegationRow> = [
     key: 'caps',
     width: 180,
     render: (row) =>
-      h('div', { class: 'caps-cell' }, [
-        h('div', {}, `${t('delegations.total')} ${row.total_cap} · ${t('delegations.daily')} ${row.daily_cap}`),
-        h('div', { class: 'caps-spent' }, `${t('delegations.spent')} ${row.spent_total}`),
-      ]),
+        h('div', {class: 'caps-cell'}, [
+          h('div', {}, `${t('delegations.total')} ${row.total_cap} · ${t('delegations.daily')} ${row.daily_cap}`),
+          h('div', {class: 'caps-spent'}, `${t('delegations.spent')} ${row.spent_total}`),
+        ]),
   },
   {
     title: () => t('delegations.col.epoch'),
@@ -148,11 +140,11 @@ const columns: DataTableColumns<DelegationRow> = [
     key: 'paused',
     width: 100,
     render: (row) =>
-      h(
-        NTag,
-        { size: 'small', round: true, bordered: false, type: row.paused ? 'warning' : 'success' },
-        { default: () => (row.paused ? t('delegations.paused') : t('delegations.active')) },
-      ),
+        h(
+            NTag,
+            {size: 'small', round: true, bordered: false, type: row.paused ? 'warning' : 'success'},
+            {default: () => (row.paused ? t('delegations.paused') : t('delegations.active'))},
+        ),
   },
   {
     title: () => t('delegations.col.expires'),
@@ -169,50 +161,60 @@ const columns: DataTableColumns<DelegationRow> = [
       const buttons = []
       if (!row.paused) {
         buttons.push(
-          h(
-            NButton,
-            { size: 'tiny', loading: busy, disabled: !!busyRootId.value && !busy, onClick: () => runOp(row, 'pause') },
-            { default: () => t('delegations.btn.pause') },
-          ),
+            h(
+                NButton,
+                {
+                  size: 'tiny',
+                  loading: busy,
+                  disabled: !!busyRootId.value && !busy,
+                  onClick: () => runOp(row, 'pause')
+                },
+                {default: () => t('delegations.btn.pause')},
+            ),
         )
       } else {
         buttons.push(
-          h(
-            NButton,
-            { size: 'tiny', loading: busy, disabled: !!busyRootId.value && !busy, onClick: () => runOp(row, 'resume') },
-            { default: () => t('delegations.btn.resume') },
-          ),
+            h(
+                NButton,
+                {
+                  size: 'tiny',
+                  loading: busy,
+                  disabled: !!busyRootId.value && !busy,
+                  onClick: () => runOp(row, 'resume')
+                },
+                {default: () => t('delegations.btn.resume')},
+            ),
         )
       }
       buttons.push(
-        h(
-          NButton,
-          {
-            size: 'tiny',
-            type: 'error',
-            ghost: revokePendingId.value !== row.root_id,
-            loading: busy,
-            disabled: !!busyRootId.value && !busy,
-            onClick: () => onRevokeClick(row),
-          },
-          {
-            default: () =>
-              revokePendingId.value === row.root_id
-                ? t('delegations.btn.confirmRevoke')
-                : t('delegations.btn.revoke'),
-          },
-        ),
+          h(
+              NButton,
+              {
+                size: 'tiny',
+                type: 'error',
+                ghost: revokePendingId.value !== row.root_id,
+                loading: busy,
+                disabled: !!busyRootId.value && !busy,
+                onClick: () => onRevokeClick(row),
+              },
+              {
+                default: () =>
+                    revokePendingId.value === row.root_id
+                        ? t('delegations.btn.confirmRevoke')
+                        : t('delegations.btn.revoke'),
+              },
+          ),
       )
       if (revokePendingId.value === row.root_id && !busy) {
         buttons.push(
-          h(
-            NButton,
-            { size: 'tiny', quaternary: true, onClick: () => (revokePendingId.value = '') },
-            { default: () => t('dialog.cancel') },
-          ),
+            h(
+                NButton,
+                {size: 'tiny', quaternary: true, onClick: () => (revokePendingId.value = '')},
+                {default: () => t('dialog.cancel')},
+            ),
         )
       }
-      return h('div', { class: 'ops-cell' }, buttons)
+      return h('div', {class: 'ops-cell'}, buttons)
     },
   },
 ]
@@ -227,13 +229,13 @@ onMounted(refresh)
       <n-text v-if="lastTx" depth="3" class="tx-line">{{ lastTx }}</n-text>
     </n-space>
     <n-data-table
-      :columns="columns"
-      :data="rows"
-      :loading="loading"
-      :row-key="(row: DelegationRow) => row.root_id"
-      :scroll-x="1320"
-      size="small"
-      :max-height="520"
+        :columns="columns"
+        :data="rows"
+        :loading="loading"
+        :row-key="(row: DelegationRow) => row.root_id"
+        :scroll-x="1320"
+        size="small"
+        :max-height="520"
     />
     <n-text v-if="!loading && rows.length === 0" depth="3" class="hint">
       {{ t('delegations.empty') }}

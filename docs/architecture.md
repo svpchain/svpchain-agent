@@ -22,9 +22,13 @@
                               (Keychain / Cred Mgr / Secret Service)
 ```
 
-On-chain write flow the assistant follows: remote `build_*` → local `sign_*` → remote `broadcast_*`, passing `signed_tx` fields verbatim. Authentication uses a signed `svpchain-mcp-auth-v1:` challenge (signed locally), exchanged for a bearer token. When configured, a transfer whitelist is enforced both before the assistant builds a transfer (pre-flight, covering contract transfers) and again at the local signer — see [Transfer whitelist](security-whitelist.md).
+On-chain write flow the assistant follows: remote `build_*` → local `sign_*` → remote `broadcast_*`, passing `signed_tx`
+fields verbatim. Authentication uses a signed `svpchain-mcp-auth-v1:` challenge (signed locally), exchanged for a bearer
+token. When configured, a transfer whitelist is enforced both before the assistant builds a transfer (pre-flight,
+covering contract transfers) and again at the local signer — see [Transfer whitelist](security-whitelist.md).
 
-For **multi-agent** workflows, the assistant can call remote A2A agents with `a2a_send_message` — see [Agent-to-Agent (A2A)](a2a.md). The agent is an A2A client only; it never listens as a service.
+For **multi-agent** workflows, the assistant can call remote A2A agents with `a2a_send_message` —
+see [Agent-to-Agent (A2A)](a2a.md). The agent is an A2A client only; it never listens as a service.
 
 ## Project layout
 

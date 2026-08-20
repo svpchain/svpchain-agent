@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
-import { useI18n } from 'vue-i18n'
+import {onMounted, ref} from 'vue'
+import {useI18n} from 'vue-i18n'
 import * as App from '../../wailsjs/go/desktop/App'
 
-const { t } = useI18n()
+const {t} = useI18n()
 const version = ref('')
 
 onMounted(async () => {
@@ -18,7 +18,7 @@ onMounted(async () => {
         <span class="about-logo">S</span>
         <div>
           <h2 class="about-title">{{ t('about.title') }}</h2>
-          <p class="about-version">{{ t('about.version', { v: version }) }}</p>
+          <p class="about-version">{{ t('about.version', {v: version}) }}</p>
         </div>
       </div>
       <div class="about-body">{{ t('about.body') }}</div>

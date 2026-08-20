@@ -5,8 +5,8 @@ description: How the shipped svpchain assistant's system prompt is assembled fro
 
 # Authoring bundled agent skills
 
-The runtime assistant's system prompt is **assembled from modular skills**, not hardcoded
-Go strings. Each skill is a directory under `internal/agent/skills/bundled/<name>/` with a
+The runtime assistant's system prompt is **assembled from modular skills**, not hardcoded Go strings. Each skill is a
+directory under `internal/agent/skills/bundled/<name>/` with a
 `SKILL.md`.
 
 > Note: these are the **shipped product's** LLM skills, distinct from the Claude Code
@@ -14,13 +14,13 @@ Go strings. Each skill is a directory under `internal/agent/skills/bundled/<name
 
 ## How assembly works
 
-- `base` is **always on** and `locked: true` — it carries the role, the trust model, and
-  the non-negotiable red lines. Don't move that content out of `base`.
-- Other skills gate on **available tools** and on `disabled_skills` from `prefs.json`. A
-  skill describing `build_swap` should only contribute when the swap tools exist.
-- The loop lives in `internal/agent/runner.go` (`Run`, `dispatchTool`). Local-only tools
-  (`signer_whoami`, `evm_to_bech32`, `http_fetch`, `x402_*`, `a2a_send_message`) are
-  defined in `internal/agent/` and are **not** exposed by the stdio server.
+- `base` is **always on** and `locked: true` — it carries the role, the trust model, and the non-negotiable red lines.
+  Don't move that content out of `base`.
+- Other skills gate on **available tools** and on `disabled_skills` from `prefs.json`. A skill describing `build_swap`
+  should only contribute when the swap tools exist.
+- The loop lives in `internal/agent/runner.go` (`Run`, `dispatchTool`). Local-only tools (`signer_whoami`,
+  `evm_to_bech32`, `http_fetch`, `x402_*`, `a2a_send_message`) are defined in `internal/agent/` and are **not** exposed
+  by the stdio server.
 
 ## Existing skills (for reference / tone)
 
@@ -49,21 +49,19 @@ locked: <optional bool; true only for base>
 
 1. Create `internal/agent/skills/bundled/<name>/SKILL.md`.
 2. Gate it on the tools it documents — don't emit guidance for tools that aren't present.
-3. If it touches transfers/signing, cross-reference the trust rules in `base`; never
-   restate red lines loosely in a way that could contradict `base`.
+3. If it touches transfers/signing, cross-reference the trust rules in `base`; never restate red lines loosely in a way
+   that could contradict `base`.
 4. `make test` — skill assembly is covered by the agent package tests.
 
 ## Progressive disclosure (reference files)
 
-Keep SKILL.md lean — it is injected into every matching system prompt. Bulky material
-(output templates, error-response catalogs, long examples) goes into
-`bundled/<name>/references/*.md` (lowercase-kebab names). The runtime LLM loads them on
-demand via the local tool `read_skill_reference(skill, file)`; tell it when to read which
-file in a short "References" table inside SKILL.md (see `lendora-lending` for the
-pattern). User skills can override a reference at
+Keep SKILL.md lean — it is injected into every matching system prompt. Bulky material (output templates, error-response
+catalogs, long examples) goes into
+`bundled/<name>/references/*.md` (lowercase-kebab names). The runtime LLM loads them on demand via the local tool
+`read_skill_reference(skill, file)`; tell it when to read which file in a short "References" table inside SKILL.md (see
+`lendora-lending` for the pattern). User skills can override a reference at
 `<config-dir>/skills/<name>/references/<file>`. Loading lives in
-`internal/agent/skills/references.go` (embedded via `go:embed`, names strictly
-validated — no path traversal).
+`internal/agent/skills/references.go` (embedded via `go:embed`, names strictly validated — no path traversal).
 
 ## Don'ts
 

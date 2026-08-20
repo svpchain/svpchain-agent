@@ -7,8 +7,7 @@ description: How to build, test, and run the svpchain-agent (Go + Wails). Use wh
 
 ## CGO is mandatory
 
-Every build/test needs `CGO_ENABLED=1` — `eth_secp256k1` links libsecp256k1. A pure-Go
-build will fail to sign.
+Every build/test needs `CGO_ENABLED=1` — `eth_secp256k1` links libsecp256k1. A pure-Go build will fail to sign.
 
 ## Make targets
 
@@ -30,8 +29,8 @@ go test ./internal/signer/ -run TestName -v
 ```
 
 Most security-critical logic has tests in `internal/signer/*_test.go`,
-`internal/whitelist/enforce_test.go`, and `internal/agent/whitelist_gate_test.go`.
-When you change those areas, run the matching package directly first, then `make test`.
+`internal/whitelist/enforce_test.go`, and `internal/agent/whitelist_gate_test.go`. When you change those areas, run the
+matching package directly first, then `make test`.
 
 ## Format and vet before finishing
 
@@ -40,8 +39,8 @@ gofmt -w <edited files>
 go vet ./...
 ```
 
-`goimports` is not assumed present; `gofmt` is. The project's PostToolUse hook
-(`.claude/hooks/go-postedit.sh`) runs `gofmt -w` on saved `.go` files automatically, but
+`goimports` is not assumed present; `gofmt` is. The project's PostToolUse hook (`.claude/hooks/go-postedit.sh`) runs
+`gofmt -w` on saved `.go` files automatically, but
 `go vet` is on you.
 
 ## Frontend (Wails GUI)
@@ -55,5 +54,4 @@ npm run build   # production bundle (embedded by Wails)
 ```
 
 The Wails CLI for `make build-gui`:
-`go install github.com/wailsapp/wails/v2/cmd/wails@latest`. `wailsjs/` holds generated
-bindings — don't hand-edit them.
+`go install github.com/wailsapp/wails/v2/cmd/wails@latest`. `wailsjs/` holds generated bindings — don't hand-edit them.

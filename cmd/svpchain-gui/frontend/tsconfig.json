@@ -9,10 +9,19 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "esModuleInterop": true,
-    "lib": ["ES2021", "DOM", "DOM.Iterable"],
+    "lib": [
+      "ES2021",
+      "DOM",
+      "DOM.Iterable"
+    ],
     "skipLibCheck": true,
     "noEmit": true,
     "allowJs": true
   },
-  "include": ["src/**/*.ts", "src/**/*.vue", "wailsjs/**/*.ts", "wailsjs/**/*.js"]
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.vue",
+    "wailsjs/**/*.ts",
+    "wailsjs/**/*.js"
+  ]
 }

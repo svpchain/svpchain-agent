@@ -3,10 +3,10 @@ package payload
 // EIP712TypedData mirrors eth_signTypedData_v4 / viem signTypedData parameters.
 // x402 "exact" scheme clients build this structure for EIP-3009 TransferWithAuthorization.
 type EIP712TypedData struct {
-	Types       map[string][]EIP712Type  `json:"types"`
-	PrimaryType string                   `json:"primaryType"`
-	Domain      EIP712Domain             `json:"domain"`
-	Message     map[string]interface{}   `json:"message"`
+	Types       map[string][]EIP712Type `json:"types"`
+	PrimaryType string                  `json:"primaryType"`
+	Domain      EIP712Domain            `json:"domain"`
+	Message     map[string]interface{}  `json:"message"`
 }
 
 // EIP712Type is one field in an EIP-712 type definition.

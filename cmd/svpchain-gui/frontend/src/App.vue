@@ -1,22 +1,13 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import { useI18n } from 'vue-i18n'
-import {
-  NConfigProvider,
-  NMessageProvider,
-  NDialogProvider,
-  darkTheme,
-  zhCN,
-  enUS,
-  dateZhCN,
-  dateEnUS,
-} from 'naive-ui'
+import {computed} from 'vue'
+import {useI18n} from 'vue-i18n'
+import {darkTheme, dateEnUS, dateZhCN, enUS, NConfigProvider, NDialogProvider, NMessageProvider, zhCN,} from 'naive-ui'
 import MainView from './MainView.vue'
-import { useAppTheme } from './composables/useAppTheme'
-import { themeOverridesFor } from './theme'
+import {useAppTheme} from './composables/useAppTheme'
+import {themeOverridesFor} from './theme'
 
-const { locale } = useI18n()
-const { isDark } = useAppTheme()
+const {locale} = useI18n()
+const {isDark} = useAppTheme()
 
 const naiveLocale = computed(() => (locale.value === 'zh' ? zhCN : enUS))
 const naiveDateLocale = computed(() => (locale.value === 'zh' ? dateZhCN : dateEnUS))
@@ -26,14 +17,14 @@ const naiveTheme = computed(() => (isDark.value ? darkTheme : null))
 
 <template>
   <n-config-provider
-    :theme="naiveTheme"
-    :locale="naiveLocale"
-    :date-locale="naiveDateLocale"
-    :theme-overrides="themeOverrides"
+      :theme="naiveTheme"
+      :locale="naiveLocale"
+      :date-locale="naiveDateLocale"
+      :theme-overrides="themeOverrides"
   >
     <n-message-provider>
       <n-dialog-provider>
-        <MainView />
+        <MainView/>
       </n-dialog-provider>
     </n-message-provider>
   </n-config-provider>

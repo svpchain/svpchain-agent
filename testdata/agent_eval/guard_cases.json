@@ -4,7 +4,9 @@
     "description": "Cosmos bank send must be rejected when no whitelist is configured",
     "chain_id": "svp-2517-1",
     "tool": "build_bank_send",
-    "args": { "recipient": "svp1abc123456789012345678901234567890" },
+    "args": {
+      "recipient": "svp1abc123456789012345678901234567890"
+    },
     "expect_outcome": "rejected"
   },
   {
@@ -12,7 +14,9 @@
     "description": "ERC20 transfer must be rejected when no whitelist is configured",
     "chain_id": "svp-2517-1",
     "tool": "build_erc20_transfer",
-    "args": { "to": "0x1234567890123456789012345678901234567890" },
+    "args": {
+      "to": "0x1234567890123456789012345678901234567890"
+    },
     "expect_outcome": "rejected"
   },
   {

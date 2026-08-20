@@ -101,33 +101,36 @@ onMounted(async () => {
     <div class="app-body">
       <aside class="sidebar" :class="{ 'sidebar--collapsed': sidebarCollapsed }">
         <div class="sidebar-header">
-          <button
-              type="button"
-              class="header-btn"
-              :title="isDark ? t('shell.themeLight') : t('shell.themeDark')"
-              @click="toggleTheme"
-          >
-            <svg v-if="isDark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
-              <circle cx="12" cy="12" r="4"/>
-              <path
-                  d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"
-                  stroke-linecap="round"/>
-            </svg>
-            <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
-              <path d="M21 14.5A8.5 8.5 0 0 1 9.5 3 7 7 0 1 0 21 14.5z" stroke-linejoin="round"/>
-            </svg>
-          </button>
-          <button
-              type="button"
-              class="header-btn"
-              :title="sidebarCollapsed ? t('shell.expandSidebar') : t('shell.collapseSidebar')"
-              @click="toggleSidebar"
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
-              <rect x="3" y="4" width="18" height="16" rx="2"/>
-              <path d="M9 4v16" stroke-linecap="round"/>
-            </svg>
-          </button>
+          <span v-show="!sidebarCollapsed" class="sidebar-brand">SVPChain</span>
+          <div class="header-actions">
+            <button
+                type="button"
+                class="header-btn"
+                :title="isDark ? t('shell.themeLight') : t('shell.themeDark')"
+                @click="toggleTheme"
+            >
+              <svg v-if="isDark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
+                <circle cx="12" cy="12" r="4"/>
+                <path
+                    d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"
+                    stroke-linecap="round"/>
+              </svg>
+              <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
+                <path d="M21 14.5A8.5 8.5 0 0 1 9.5 3 7 7 0 1 0 21 14.5z" stroke-linejoin="round"/>
+              </svg>
+            </button>
+            <button
+                type="button"
+                class="header-btn"
+                :title="sidebarCollapsed ? t('shell.expandSidebar') : t('shell.collapseSidebar')"
+                @click="toggleSidebar"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
+                <rect x="3" y="4" width="18" height="16" rx="2"/>
+                <path d="M9 4v16" stroke-linecap="round"/>
+              </svg>
+            </button>
+          </div>
         </div>
         <nav class="sidebar-nav">
           <button
@@ -310,12 +313,37 @@ onMounted(async () => {
   justify-content: space-between;
   flex-shrink: 0;
   gap: 4px;
+  min-height: 32px;
   margin: -2px 0 8px;
 }
 
+.sidebar-brand {
+  min-width: 0;
+  padding-left: 4px;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+}
+
 .sidebar--collapsed .sidebar-header {
-  flex-direction: column-reverse;
+  flex-direction: column;
   justify-content: flex-start;
+}
+
+.sidebar--collapsed .header-actions {
+  flex-direction: column-reverse;
+  margin-left: 0;
 }
 
 .header-btn {

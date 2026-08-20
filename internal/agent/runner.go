@@ -184,7 +184,7 @@ func Run(ctx context.Context, cfg Config, userMessage string) (answer string, er
 		return "", err
 	}
 
-	systemPrompt, err := skills.ComposeSystemPrompt(toolNames(tools))
+	systemPrompt, skillNames, err := skills.Compose(toolNames(tools))
 	if err != nil {
 		return "", fmt.Errorf("load agent skills: %w", err)
 	}
@@ -195,6 +195,9 @@ func Run(ctx context.Context, cfg Config, userMessage string) (answer string, er
 	// "transfer to <alias>" without the user typing the raw address.
 	if aliases := guard.AliasPrompt(chainID); aliases != "" {
 		systemPrompt += "\n\n" + aliases
+	}
+	if trace != nil {
+		trace.SetPrompt(runlog.PromptSHA256(systemPrompt), skillNames)
 	}
 
 	client := llm.NewClient(cfg.LLM)

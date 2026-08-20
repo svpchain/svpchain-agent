@@ -81,7 +81,9 @@ Report **security metrics** (whitelist rejections, signer cross-checks) separate
 ### Record shape (one JSON object per line)
 
 Fields include: `run_id`, timestamps, `chain_id`, `model`, redacted `user_message`, `outcome`, `answer`, `error`,
-`tx_hashes`, `round_count`, and `steps[]` (think/tool/error with timing).
+`tx_hashes`, `round_count`, `prompt_sha256` (SHA-256 of the assembled system prompt — the body is never stored),
+`skills` (injected skill names), `llm_rounds[]` (latency, tokens, truncated `reply` + `tool_calls`), and `steps[]`
+(think/tool/error with timing).
 
 ### `outcome` values
 
@@ -95,14 +97,15 @@ Fields include: `run_id`, timestamps, `chain_id`, `model`, redacted `user_messag
 
 ### Privacy
 
-Private keys and LLM API keys are **never** stored. Long fields are truncated; secrets are redacted.
+Private keys, LLM API keys, and `signed_tx` payloads are **never** stored. The system prompt is hashed, not written.
+Long fields are truncated; secrets are redacted.
 
 Disable: Settings UI or `"agent_run_log_disabled": true` in `prefs.json`.
 
 ### Inspect
 
-**GUI:** sidebar **Runs** — filter by outcome, open a run for the tool timeline, LLM round latency/tokens, and tx hashes.
-Settings → Basic → **View runs** jumps there.
+**GUI:** sidebar **Runs** — filter by outcome, open a run for the tool timeline, LLM round reply/`tool_calls`, skill
+names, and tx hashes. Settings → Basic → **View runs** jumps there.
 
 ```bash
 tail -1 ~/Library/Application\ Support/com.svpchain.agent/agent_runs.jsonl | jq .
@@ -181,5 +184,5 @@ scripts/agent-eval.sh
 
 | Date    | Notes                                               |
 |---------|-----------------------------------------------------|
-| 2026-08 | GUI Runs tab: browse JSONL traces in-app            |
+| 2026-08 | GUI Runs tab; LLM generation span (truncated reply/tool_calls, prompt hash) |
 | 2026-06 | Initial: JSONL run log, guard eval, settings toggle |

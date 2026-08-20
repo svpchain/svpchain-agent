@@ -4,8 +4,10 @@
 //
 //	macOS: ~/Library/Application Support/com.svpchain.agent/agent_runs.jsonl
 //
-// Each line is one JSON Run with run_id, steps, llm_rounds, usage totals, outcome
-// (success|failed|stopped|rejected|cancelled), and tx_hashes extracted from broadcast tool results.
+// Each line is one JSON Run with run_id, steps, llm_rounds (latency, tokens, truncated
+// reply + tool_calls), prompt_sha256 + skill names (prompt body is never stored), usage
+// totals, outcome (success|failed|stopped|rejected|cancelled), and tx_hashes extracted
+// from broadcast tool results.
 //
 // Disable via Settings → Basic → "Save assistant run logs" (agent_run_log_disabled in prefs.json).
 //

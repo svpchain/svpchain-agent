@@ -69,6 +69,16 @@ func TestComposeSystemPrompt_alwaysIncludesBase(t *testing.T) {
 	require.NotContains(t, got, "Never invent the nonce")
 }
 
+func TestCompose_listsInjectedSkills(t *testing.T) {
+	hermetic(t)
+	_, names, err := skills.Compose([]string{"build_bank_send"})
+	require.NoError(t, err)
+	require.Contains(t, names, "base")
+	require.Contains(t, names, "bank-send-evm")
+	require.NotContains(t, names, "x402")
+	require.NotContains(t, names, "a2a")
+}
+
 func TestComposeSystemPrompt_userSkillOverridesBundled(t *testing.T) {
 	hermetic(t)
 	dir := t.TempDir()

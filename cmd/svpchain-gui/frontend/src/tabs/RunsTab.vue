@@ -259,7 +259,25 @@ defineExpose({refresh})
                 }}
               </dd>
             </div>
+            <div v-if="selected.prompt_sha256">
+              <dt>{{ t('runs.promptHash') }}</dt>
+              <dd class="hash-row">
+                <code class="mono" :title="selected.prompt_sha256">{{ selected.prompt_sha256.slice(0, 16) }}…</code>
+                <n-button size="tiny" quaternary @click="copy(selected.prompt_sha256, 'runs.status.promptHashCopied')">
+                  {{ t('btn.copyShort') }}
+                </n-button>
+              </dd>
+            </div>
           </dl>
+
+          <section v-if="selected.skills?.length" class="block">
+            <h3>{{ t('runs.skills') }}</h3>
+            <div class="skill-tags">
+              <n-tag v-for="name in selected.skills" :key="name" size="small" round :bordered="false">
+                {{ name }}
+              </n-tag>
+            </div>
+          </section>
 
           <section class="block">
             <h3>{{ t('runs.userMessage') }}</h3>
@@ -290,28 +308,31 @@ defineExpose({refresh})
 
           <section v-if="selected.llm_rounds?.length" class="block">
             <h3>{{ t('runs.llmRounds') }}</h3>
-            <table class="rounds-table">
-              <thead>
-              <tr>
-                <th>{{ t('runs.col.round') }}</th>
-                <th>{{ t('runs.col.latency') }}</th>
-                <th>{{ t('runs.col.tokens') }}</th>
-              </tr>
-              </thead>
-              <tbody>
-              <tr v-for="round in selected.llm_rounds" :key="round.round">
-                <td>{{ round.round }}</td>
-                <td>{{ formatDuration(round.latency_ms) }}</td>
-                <td>
-                  {{
-                    round.total_tokens
-                        ? `${round.prompt_tokens || 0} + ${round.completion_tokens || 0} → ${round.total_tokens}`
-                        : '—'
-                  }}
-                </td>
-              </tr>
-              </tbody>
-            </table>
+            <div class="round-list">
+              <article v-for="round in selected.llm_rounds" :key="round.round" class="round-card">
+                <div class="round-head">
+                  <span class="round-num">R{{ round.round }}</span>
+                  <span>{{ formatDuration(round.latency_ms) }}</span>
+                  <span>
+                    {{
+                      round.total_tokens
+                          ? `${round.prompt_tokens || 0} + ${round.completion_tokens || 0} → ${round.total_tokens}`
+                          : '—'
+                    }}
+                  </span>
+                </div>
+                <p v-if="round.reply" class="block-text">{{ round.reply }}</p>
+                <ul v-if="round.tool_calls?.length" class="call-list">
+                  <li v-for="(call, cidx) in round.tool_calls" :key="call.id || `${call.name}-${cidx}`">
+                    <div class="call-head">
+                      <span class="tl-kind">{{ t('runs.toolCalls') }}</span>
+                      <span class="mono">{{ call.name }}</span>
+                    </div>
+                    <pre v-if="call.args" class="tl-payload">{{ call.args }}</pre>
+                  </li>
+                </ul>
+              </article>
+            </div>
           </section>
 
           <section class="block">
@@ -580,22 +601,49 @@ defineExpose({refresh})
   white-space: nowrap;
 }
 
-.rounds-table {
-  width: 100%;
-  border-collapse: collapse;
+.skill-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.round-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.round-card {
+  padding: 10px 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+}
+
+.round-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
   font-size: 12px;
-}
-
-.rounds-table th,
-.rounds-table td {
-  padding: 6px 8px;
-  text-align: left;
-  border-bottom: 1px solid var(--border-subtle);
-}
-
-.rounds-table th {
   color: var(--text-muted);
-  font-weight: 500;
+}
+
+.round-num {
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.call-list {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.call-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .timeline {

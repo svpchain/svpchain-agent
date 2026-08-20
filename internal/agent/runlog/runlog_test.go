@@ -1,6 +1,7 @@
 package runlog
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 
@@ -15,6 +16,12 @@ func TestRedact_truncateAndKey(t *testing.T) {
 
 	key := "0x" + strings.Repeat("ab", 32)
 	require.Contains(t, Redact("key="+key), "[REDACTED_KEY]")
+
+	raw := `{"signed_tx":"abc123payload","to":"svp1x"}`
+	got := Redact(raw)
+	require.Contains(t, got, `"signed_tx":"[REDACTED]"`)
+	require.Contains(t, got, "svp1x")
+	require.NotContains(t, got, "abc123payload")
 }
 
 func TestExtractTxHashes_json(t *testing.T) {
@@ -42,11 +49,22 @@ func TestSession_RecordLLMRound(t *testing.T) {
 	rec := New(true)
 	sess := rec.Begin(Meta{ChainID: "svp-2517-1", Model: "m", UserMessage: "hi"})
 	sess.RecordLLMRound(1, llm.ChatResult{
-		Message:   llm.Message{Content: "ok"},
+		Message: llm.Message{
+			Content: "I'll check positions.",
+			ToolCalls: []llm.ToolCall{{
+				ID:   "c1",
+				Type: "function",
+				Function: llm.ToolCallFunction{
+					Name:      "broadcast_signed_tx",
+					Arguments: `{"signed_tx":"should-not-leak"}`,
+				},
+			}},
+		},
 		Model:     "m",
 		LatencyMs: 120,
 		Usage:     llm.Usage{PromptTokens: 10, CompletionTokens: 3, TotalTokens: 13},
 	})
+	sess.SetPrompt(PromptSHA256("system body"), []string{"base", "onchain-workflow"})
 	sess.Complete("ok", nil)
 
 	runs, err := ReadAll(dir + "/agent_runs.jsonl")
@@ -56,6 +74,21 @@ func TestSession_RecordLLMRound(t *testing.T) {
 	require.Equal(t, int64(120), runs[0].LLMRounds[0].LatencyMs)
 	require.Equal(t, 10, runs[0].Usage.PromptTokens)
 	require.Equal(t, 13, runs[0].Usage.TotalTokens)
+	require.Equal(t, "I'll check positions.", runs[0].LLMRounds[0].Reply)
+	require.Len(t, runs[0].LLMRounds[0].ToolCalls, 1)
+	require.Equal(t, "broadcast_signed_tx", runs[0].LLMRounds[0].ToolCalls[0].Name)
+	require.Contains(t, runs[0].LLMRounds[0].ToolCalls[0].Args, "[REDACTED]")
+	require.NotContains(t, runs[0].LLMRounds[0].ToolCalls[0].Args, "should-not-leak")
+	require.Equal(t, PromptSHA256("system body"), runs[0].PromptSHA256)
+	require.Equal(t, []string{"base", "onchain-workflow"}, runs[0].Skills)
+	require.NotContains(t, string(mustJSON(t, runs[0])), "system body")
+}
+
+func mustJSON(t *testing.T, v any) []byte {
+	t.Helper()
+	b, err := json.Marshal(v)
+	require.NoError(t, err)
+	return b
 }
 
 func TestRecorder_append(t *testing.T) {

@@ -8,6 +8,7 @@ import (
 var (
 	reHexKey    = regexp.MustCompile(`(?i)(0x)?[0-9a-f]{64}`)
 	reAPIKeyish = regexp.MustCompile(`(?i)(api[_-]?key|authorization|bearer)\s*[:=]\s*\S+`)
+	reSignedTx  = regexp.MustCompile(`(?i)("signed_tx"\s*:\s*")([^"]*)(")`)
 )
 
 const maxFieldLen = 2000
@@ -19,6 +20,7 @@ func Redact(s string) string {
 		return ""
 	}
 	s = reAPIKeyish.ReplaceAllString(s, "$1=[REDACTED]")
+	s = reSignedTx.ReplaceAllString(s, `${1}[REDACTED]${3}`)
 	s = reHexKey.ReplaceAllStringFunc(s, func(m string) string {
 		if len(m) >= 64 {
 			return "[REDACTED_KEY]"

@@ -68,6 +68,8 @@ export type AgentLLMRound = {
     prompt_tokens?: number
     completion_tokens?: number
     total_tokens?: number
+    reply?: string
+    tool_calls?: {id?: string; name: string; args?: string}[]
 }
 
 export type AgentRun = {
@@ -89,6 +91,8 @@ export type AgentRun = {
         completion_tokens?: number
         total_tokens?: number
     }
+    prompt_sha256?: string
+    skills?: string[]
     llm_rounds?: AgentLLMRound[]
     steps: AgentRunStep[]
 }

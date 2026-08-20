@@ -110,6 +110,18 @@ LangSmith 等 SaaS trace）的前提下，本地调试、回归与持续改进�
   "error": "",
   "tx_hashes": ["0x..."],
   "round_count": 2,
+  "prompt_sha256": "…",
+  "skills": ["base", "onchain-workflow"],
+  "llm_rounds": [
+    {
+      "round": 1,
+      "latency_ms": 820,
+      "prompt_tokens": 4100,
+      "completion_tokens": 80,
+      "reply": "",
+      "tool_calls": [{"name": "get_positions", "args": "{}"}]
+    }
+  ],
   "steps": [
     {
       "at": "2026-06-25T12:00:01Z",
@@ -137,15 +149,15 @@ LangSmith 等 SaaS trace）的前提下，本地调试、回归与持续改进�
 
 ### 3.5 隐私与脱敏
 
-- **不记录**：私钥、LLM API Key、完整 32 字节 hex 密钥材料
+- **不记录**：私钥、LLM API Key、完整 32 字节 hex 密钥材料、`signed_tx` 原文、system prompt 正文（只记 SHA-256 与 skill 名）
 - **截断**：过长字段（默认 2000 字符）
-- **用户消息**经 redact 后写入
+- **用户消息**与 LLM `reply` / `tool_calls` 经 redact 后写入
 
 关闭记录：设置页关闭「记录助手运行日志」，或于 `prefs.json` 设 `"agent_run_log_disabled": true`。
 
 ### 3.6 查看
 
-**GUI：** 侧栏 **运行记录** — 按 outcome 筛选，点开一轮查看工具时间线、LLM 延迟/token 与 tx hash。设置 → 基础 → **查看记录** 可跳转。
+**GUI：** 侧栏 **运行记录** — 按 outcome 筛选，点开一轮查看工具时间线、LLM 回复/`tool_calls`、skill 名与 tx hash。设置 → 基础 → **查看记录** 可跳转。
 
 ```bash
 # 美化输出最近一条
@@ -258,5 +270,5 @@ scripts/agent-eval.sh      # 一键跑 eval 测试
 
 | 日期    | 说明                                      |
 |---------|-------------------------------------------|
-| 2026-08 | GUI「运行记录」标签页，应用内浏览 JSONL   |
+| 2026-08 | GUI「运行记录」标签页；LLM generation span（截断回复/`tool_calls`、prompt hash） |
 | 2026-06 | 初版：JSONL run log、guard eval、设置开关 |

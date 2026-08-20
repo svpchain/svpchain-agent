@@ -70,6 +70,7 @@ Desktop bindings: `AgentSessions`, `AgentNewSession`, `AgentSwitchSession`, `Age
 
 Every assistant run appends a JSONL trace to `agent_runs.jsonl` (same config directory): tool calls with timing, outcome
 (`success | failed | stopped | rejected | cancelled`), extracted tx hashes, and **per-round LLM latency + token usage**
-(`llm_rounds`, `usage`). Private keys and API keys are redacted. Toggle under **Settings → Basic → Save assistant run
+(`llm_rounds`, `usage`) including a truncated generation span (`reply`, `tool_calls`). The system prompt is stored as
+`prompt_sha256` plus injected skill names, not the body. Private keys, API keys, and `signed_tx` are redacted. Toggle under **Settings → Basic → Save assistant run
 logs**. Open the **Runs** tab (or Settings → Basic → View runs) to browse recent traces in the app. Offline eval cases live in `testdata/agent_eval/`; run `./scripts/agent-eval.sh`.
 See [Agent observability](agent-observability.md) for the full design.

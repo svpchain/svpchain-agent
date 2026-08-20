@@ -129,9 +129,16 @@ func LoadAll() ([]Skill, error) {
 // at least one pattern matches an available tool. Skills with no tools field
 // are always included.
 func ComposeSystemPrompt(toolNames []string) (string, error) {
+	prompt, _, err := Compose(toolNames)
+	return prompt, err
+}
+
+// Compose is ComposeSystemPrompt plus the names of skills that contributed body
+// text, in injection order. Names are for traces; the prompt text is not stored.
+func Compose(toolNames []string) (string, []string, error) {
 	all, err := LoadAll()
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 	selected := filterByTools(all, toolNames)
 	selected = filterDisabled(selected, disabledSet())
@@ -142,16 +149,19 @@ func ComposeSystemPrompt(toolNames []string) (string, error) {
 		return selected[i].Name < selected[j].Name
 	})
 	parts := make([]string, 0, len(selected))
+	names := make([]string, 0, len(selected))
 	for _, s := range selected {
 		body := strings.TrimSpace(s.Body)
-		if body != "" {
-			parts = append(parts, body)
+		if body == "" {
+			continue
 		}
+		parts = append(parts, body)
+		names = append(names, s.Name)
 	}
 	if len(parts) == 0 {
-		return "", fmt.Errorf("no skill content loaded")
+		return "", nil, fmt.Errorf("no skill content loaded")
 	}
-	return strings.Join(parts, "\n\n"), nil
+	return strings.Join(parts, "\n\n"), names, nil
 }
 
 func loadBundled() ([]Skill, error) {

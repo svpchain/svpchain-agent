@@ -2,6 +2,8 @@ package runlog
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"os"
@@ -61,14 +63,23 @@ type Step struct {
 	ElapsedMs int64     `json:"elapsed_ms,omitempty"`
 }
 
-// LLMRound is token and latency accounting for one LLM iteration inside a run.
+// LoggedToolCall is a redacted snapshot of one model-emitted tool call.
+type LoggedToolCall struct {
+	ID   string `json:"id,omitempty"`
+	Name string `json:"name"`
+	Args string `json:"args,omitempty"`
+}
+
+// LLMRound is one LLM iteration inside a run: accounting plus a truncated generation span.
 type LLMRound struct {
-	Round            int    `json:"round"`
-	LatencyMs        int64  `json:"latency_ms"`
-	Model            string `json:"model,omitempty"`
-	PromptTokens     int    `json:"prompt_tokens,omitempty"`
-	CompletionTokens int    `json:"completion_tokens,omitempty"`
-	TotalTokens      int    `json:"total_tokens,omitempty"`
+	Round            int              `json:"round"`
+	LatencyMs        int64            `json:"latency_ms"`
+	Model            string           `json:"model,omitempty"`
+	PromptTokens     int              `json:"prompt_tokens,omitempty"`
+	CompletionTokens int              `json:"completion_tokens,omitempty"`
+	TotalTokens      int              `json:"total_tokens,omitempty"`
+	Reply            string           `json:"reply,omitempty"`
+	ToolCalls        []LoggedToolCall `json:"tool_calls,omitempty"`
 }
 
 // UsageTotal aggregates token usage across all LLM rounds in a run.
@@ -80,22 +91,24 @@ type UsageTotal struct {
 
 // Run is one assistant execution trace.
 type Run struct {
-	RunID       string     `json:"run_id"`
-	StartedAt   time.Time  `json:"started_at"`
-	FinishedAt  time.Time  `json:"finished_at,omitempty"`
-	ChainID     string     `json:"chain_id"`
-	RemoteURL   string     `json:"remote_url"`
-	Model       string     `json:"model,omitempty"`
-	Provider    string     `json:"provider,omitempty"`
-	UserMessage string     `json:"user_message"`
-	Outcome     Outcome    `json:"outcome"`
-	Answer      string     `json:"answer,omitempty"`
-	Error       string     `json:"error,omitempty"`
-	TxHashes    []string   `json:"tx_hashes,omitempty"`
-	RoundCount  int        `json:"round_count"`
-	Usage       UsageTotal `json:"usage,omitempty"`
-	LLMRounds   []LLMRound `json:"llm_rounds,omitempty"`
-	Steps       []Step     `json:"steps"`
+	RunID        string     `json:"run_id"`
+	StartedAt    time.Time  `json:"started_at"`
+	FinishedAt   time.Time  `json:"finished_at,omitempty"`
+	ChainID      string     `json:"chain_id"`
+	RemoteURL    string     `json:"remote_url"`
+	Model        string     `json:"model,omitempty"`
+	Provider     string     `json:"provider,omitempty"`
+	UserMessage  string     `json:"user_message"`
+	Outcome      Outcome    `json:"outcome"`
+	Answer       string     `json:"answer,omitempty"`
+	Error        string     `json:"error,omitempty"`
+	TxHashes     []string   `json:"tx_hashes,omitempty"`
+	RoundCount   int        `json:"round_count"`
+	Usage        UsageTotal `json:"usage,omitempty"`
+	PromptSHA256 string     `json:"prompt_sha256,omitempty"`
+	Skills       []string   `json:"skills,omitempty"`
+	LLMRounds    []LLMRound `json:"llm_rounds,omitempty"`
+	Steps        []Step     `json:"steps"`
 }
 
 // Meta describes a run before execution starts.
@@ -165,7 +178,29 @@ func (s *Session) SetRound(n int) {
 	s.round = n
 }
 
-// RecordLLMRound logs latency and token usage for one LLM iteration.
+// PromptSHA256 returns the hex SHA-256 of the system prompt. The prompt text
+// itself is not stored in the run log.
+func PromptSHA256(s string) string {
+	sum := sha256.Sum256([]byte(s))
+	return hex.EncodeToString(sum[:])
+}
+
+// SetPrompt records the hash of the assembled system prompt and the skill names
+// that contributed to it. Do not pass the prompt body.
+func (s *Session) SetPrompt(sha256Hex string, skillNames []string) {
+	if s == nil {
+		return
+	}
+	s.run.PromptSHA256 = strings.TrimSpace(sha256Hex)
+	if len(skillNames) == 0 {
+		s.run.Skills = nil
+		return
+	}
+	s.run.Skills = append([]string(nil), skillNames...)
+}
+
+// RecordLLMRound logs latency, token usage, and a redacted generation span
+// (truncated reply + tool_calls) for one LLM iteration.
 func (s *Session) RecordLLMRound(round int, res llm.ChatResult) {
 	if s == nil {
 		return
@@ -181,6 +216,8 @@ func (s *Session) RecordLLMRound(round int, res llm.ChatResult) {
 		PromptTokens:     res.Usage.PromptTokens,
 		CompletionTokens: res.Usage.CompletionTokens,
 		TotalTokens:      res.Usage.TotalTokens,
+		Reply:            Redact(res.Message.Content),
+		ToolCalls:        snapshotToolCalls(res.Message.ToolCalls),
 	}
 	if r.TotalTokens == 0 && (r.PromptTokens > 0 || r.CompletionTokens > 0) {
 		r.TotalTokens = r.PromptTokens + r.CompletionTokens
@@ -191,6 +228,21 @@ func (s *Session) RecordLLMRound(round int, res llm.ChatResult) {
 	if r.TotalTokens > 0 {
 		s.run.Usage.TotalTokens += r.TotalTokens
 	}
+}
+
+func snapshotToolCalls(calls []llm.ToolCall) []LoggedToolCall {
+	if len(calls) == 0 {
+		return nil
+	}
+	out := make([]LoggedToolCall, 0, len(calls))
+	for _, tc := range calls {
+		out = append(out, LoggedToolCall{
+			ID:   strings.TrimSpace(tc.ID),
+			Name: strings.TrimSpace(tc.Function.Name),
+			Args: Redact(tc.Function.Arguments),
+		})
+	}
+	return out
 }
 
 // RecordStep appends a non-tool progress event.

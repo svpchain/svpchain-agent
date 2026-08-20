@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import {onMounted, ref, watch, computed} from 'vue'
+import {onMounted, ref, watch, computed, nextTick} from 'vue'
 import {useI18n} from 'vue-i18n'
 import {
   NButton,
@@ -50,7 +50,7 @@ const chainOptions = computed(() =>
 const skillsConfigBase = ref('')
 const defaultSkillsConfigBase = ref('')
 const skillSettings = ref<SkillSetting[]>([])
-const settingsExpandedSections = ref<string[]>([])
+const settingsExpandedSections = ref<string[]>(['basic'])
 const showToolSteps = ref(false)
 const agentRunLogDisabled = ref(false)
 const updateSupported = ref(false)
@@ -125,38 +125,71 @@ async function loadAgentSettings() {
       remoteMCPURL.value = await App.AgentDefaultRemoteURL()
     }
     await loadSkillSettings()
+    lastSaved = JSON.stringify(settingsPayload())
   } catch {
     /* bindings not generated yet */
   }
 }
 
-async function saveAgentSettings() {
-  try {
-    const disabledSkills = skillSettings.value
+const persistReady = ref(false)
+let lastSaved = ''
+let persistTail = Promise.resolve()
+
+function settingsPayload() {
+  return {
+    chain_id: agentChainId.value,
+    llm_api_key: llmApiKey.value,
+    llm_provider: llmProvider.value,
+    llm_base_url: llmBaseURL.value,
+    llm_model: llmModel.value,
+    llm_context_window: Number.parseInt(llmContextWindow.value, 10) || 0,
+    remote_mcp_url: remoteMCPURL.value,
+    agent_hub_url: agentHubURL.value.trim(),
+    remote_mcp_disabled: remoteMCPDisabled.value,
+    disabled_skills: skillSettings.value
         .filter((s) => !s.enabled && !s.locked)
-        .map((s) => s.name)
+        .map((s) => s.name),
+    skills_config_base: skillsConfigBase.value.trim(),
+    show_tool_steps: showToolSteps.value,
+    agent_run_log_disabled: agentRunLogDisabled.value,
+  }
+}
+
+function persist(reloadSkills = false) {
+  if (!persistReady.value) return persistTail
+  persistTail = persistTail
+      .then(() => nextTick())
+      .then(() => persistNow(reloadSkills))
+      .catch(() => persistNow(reloadSkills))
+  return persistTail
+}
+
+async function persistNow(reloadSkills: boolean) {
+  const snap = JSON.stringify(settingsPayload())
+  if (snap === lastSaved) return
+  try {
     await App.AgentSetSettings(
-        desktop.AgentSettings.createFrom({
-          chain_id: agentChainId.value,
-          llm_api_key: llmApiKey.value,
-          llm_provider: llmProvider.value,
-          llm_base_url: llmBaseURL.value,
-          llm_model: llmModel.value,
-          llm_context_window: Number.parseInt(llmContextWindow.value, 10) || 0,
-          remote_mcp_url: remoteMCPURL.value,
-          agent_hub_url: agentHubURL.value.trim(),
-          remote_mcp_disabled: remoteMCPDisabled.value,
-          disabled_skills: disabledSkills,
-          skills_config_base: skillsConfigBase.value.trim(),
-          show_tool_steps: showToolSteps.value,
-          agent_run_log_disabled: agentRunLogDisabled.value,
-        } as Record<string, unknown>),
+        desktop.AgentSettings.createFrom(settingsPayload() as Record<string, unknown>),
     )
-    await loadSkillSettings()
+    lastSaved = JSON.stringify(settingsPayload())
+    if (reloadSkills) {
+      persistReady.value = false
+      try {
+        await loadSkillSettings()
+      } finally {
+        persistReady.value = true
+        lastSaved = JSON.stringify(settingsPayload())
+      }
+    }
     setStatus(t('status.settingsSaved'))
   } catch (err) {
     message.error(String(err))
   }
+}
+
+async function onRunLogChange(on: boolean) {
+  agentRunLogDisabled.value = !on
+  await persist()
 }
 
 async function onAutoUpdateChange(on: boolean) {
@@ -177,16 +210,22 @@ async function init() {
     updateSupported.value = false
   }
   await loadAgentSettings()
+  persistReady.value = true
 }
 
 watch(
     () => props.entries,
     (list) => {
       const ids = new Set(list.map((e) => e.ChainID))
-      if (agentChainId.value && !ids.has(agentChainId.value)) {
-        agentChainId.value = list[0]?.ChainID || ''
-      } else if (!agentChainId.value && list.length > 0) {
-        agentChainId.value = list[0].ChainID
+      let next = agentChainId.value
+      if (next && !ids.has(next)) {
+        next = list[0]?.ChainID || ''
+      } else if (!next && list.length > 0) {
+        next = list[0].ChainID
+      }
+      if (next !== agentChainId.value) {
+        agentChainId.value = next
+        persist()
       }
     },
     {immediate: true},
@@ -224,6 +263,7 @@ onMounted(init)
                 v-model:value="agentChainId"
                 :placeholder="t('ph.chainConfig')"
                 :options="chainOptions"
+                @update:value="persist()"
             />
           </n-form-item>
           <n-form-item>
@@ -243,7 +283,7 @@ onMounted(init)
                 </n-popover>
               </span>
             </template>
-            <n-switch v-model:value="showToolSteps"/>
+            <n-switch v-model:value="showToolSteps" @update:value="persist()"/>
           </n-form-item>
           <n-form-item>
             <template #label>
@@ -262,7 +302,7 @@ onMounted(init)
                 </n-popover>
               </span>
             </template>
-            <n-switch :value="!agentRunLogDisabled" @update:value="agentRunLogDisabled = !$event"/>
+            <n-switch :value="!agentRunLogDisabled" @update:value="onRunLogChange"/>
           </n-form-item>
           <n-form-item v-if="updateSupported">
             <template #label>
@@ -303,6 +343,7 @@ onMounted(init)
             <n-input
                 v-model:value="skillsConfigBase"
                 :placeholder="defaultSkillsConfigBase || t('ph.skillsConfigBase')"
+                @blur="persist(true)"
             />
           </n-form-item>
         </n-form>
@@ -317,6 +358,7 @@ onMounted(init)
                 { label: 'OpenAI-compatible', value: 'openai' },
                 { label: 'Anthropic', value: 'anthropic' },
               ]"
+                @update:value="persist()"
             />
           </n-form-item>
           <n-form-item :label="t('field.llmApiKey')">
@@ -325,13 +367,14 @@ onMounted(init)
                 type="password"
                 show-password-on="click"
                 :placeholder="t('ph.llmApiKey')"
+                @blur="persist()"
             />
           </n-form-item>
           <n-form-item :label="t('field.llmBaseURL')">
-            <n-input v-model:value="llmBaseURL" :placeholder="t('ph.llmBaseURL')"/>
+            <n-input v-model:value="llmBaseURL" :placeholder="t('ph.llmBaseURL')" @blur="persist()"/>
           </n-form-item>
           <n-form-item :label="t('field.llmModel')">
-            <n-input v-model:value="llmModel" :placeholder="t('ph.llmModel')"/>
+            <n-input v-model:value="llmModel" :placeholder="t('ph.llmModel')" @blur="persist()"/>
           </n-form-item>
           <n-form-item>
             <template #label>
@@ -350,13 +393,14 @@ onMounted(init)
                 </n-popover>
               </span>
             </template>
-            <n-input v-model:value="llmContextWindow" :placeholder="t('ph.llmContextWindow')"/>
+            <n-input v-model:value="llmContextWindow" :placeholder="t('ph.llmContextWindow')" @blur="persist()"/>
           </n-form-item>
           <n-form-item :label="t('field.remoteMCPURL')">
             <n-input
                 v-model:value="remoteMCPURL"
                 :placeholder="t('ph.remoteMCPURL')"
                 :disabled="remoteMCPDisabled"
+                @blur="persist()"
             />
           </n-form-item>
           <n-form-item>
@@ -376,10 +420,10 @@ onMounted(init)
                 </n-popover>
               </span>
             </template>
-            <n-switch v-model:value="remoteMCPDisabled"/>
+            <n-switch v-model:value="remoteMCPDisabled" @update:value="persist()"/>
           </n-form-item>
           <n-form-item :label="t('field.agentHubURL')">
-            <n-input v-model:value="agentHubURL" :placeholder="t('ph.agentHubURL')"/>
+            <n-input v-model:value="agentHubURL" :placeholder="t('ph.agentHubURL')" @blur="persist()"/>
           </n-form-item>
         </n-form>
         <n-text depth="3" class="hint">{{ t('hint.assistantSettings') }}</n-text>
@@ -392,7 +436,7 @@ onMounted(init)
               <n-text strong>{{ skillLabel(skill.name) }}</n-text>
               <n-text depth="3" tag="div" class="skill-desc">{{ skill.description }}</n-text>
             </div>
-            <n-switch v-model:value="skill.enabled" :disabled="skill.locked"/>
+            <n-switch v-model:value="skill.enabled" :disabled="skill.locked" @update:value="persist()"/>
           </div>
         </div>
         <n-text v-else depth="3" class="hint">{{ t('skill.empty') }}</n-text>
@@ -402,7 +446,6 @@ onMounted(init)
 
     <div class="settings-actions">
       <n-button quaternary @click="emit('restart-onboarding')">{{ t('btn.restartOnboarding') }}</n-button>
-      <n-button type="primary" class="settings-save" @click="saveAgentSettings">{{ t('btn.saveSettings') }}</n-button>
     </div>
   </div>
 </template>
@@ -453,13 +496,7 @@ onMounted(init)
 .settings-actions {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
   margin-top: 4px;
-}
-
-.settings-save {
-  flex-shrink: 0;
 }
 
 .skill-list {

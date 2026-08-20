@@ -90,7 +90,7 @@ var errorCatalog = map[Lang]ErrorTexts{
 		NoSigningKey:           "Chain ID %s 没有签名密钥：请打开 SVPChain Agent，进入左侧「密钥」页，选择 Chain ID %s，导入私钥或点击「自动生成」后保存到系统凭据库；无头环境可设置 SIGNER_KEY_HEX",
 		ChainIDRequired:        "请选择 Chain ID — 可在「设置」或「助手」页顶部的下拉框中选择",
 		MessageRequired:        "请输入消息",
-		LLMAPIKeyNotConfigured: "尚未配置 LLM API Key — 请打开「设置」，在「大模型」区块填写 API Key 并点击「保存设置」",
+		LLMAPIKeyNotConfigured: "尚未配置 LLM API Key — 请打开「设置」，在「大模型」区块填写 API Key",
 		AgentBusy:              "助手正在运行中，请等待当前任务完成或先取消",
 
 		OpenKeystoreFmt: "无法打开系统凭据库：%s",
@@ -173,7 +173,7 @@ var errorCatalog = map[Lang]ErrorTexts{
 		NoSigningKey:           "No signing key for %s: open SVPChain Agent, go to the Keys tab, select Chain ID %s, import a private key or use Auto-generate to save it to the OS credential store; for headless use, set SIGNER_KEY_HEX",
 		ChainIDRequired:        "Chain id is required — select one in Settings or the Assistant tab",
 		MessageRequired:        "Message is required",
-		LLMAPIKeyNotConfigured: "LLM API key is not configured — open Settings, enter your key in the LLM section, and click Save Settings",
+		LLMAPIKeyNotConfigured: "LLM API key is not configured — open Settings and enter your key in the LLM section",
 		AgentBusy:              "Assistant is already running",
 
 		OpenKeystoreFmt: "Could not open OS credential store: %s",

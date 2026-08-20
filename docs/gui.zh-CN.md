@@ -13,6 +13,7 @@ GUI 涵盖密钥管理、MCP 导出、安全策略与内置助手。
 | **安全**        | 管理 **转账白名单**（链 ID + Cosmos 或 EVM 地址，可选别名）。GUI 助手转账前须至少有一条白名单；独立 signer 在空列表时不限制（见 [转账白名单](security-whitelist.zh-CN.md)）。                          |
 | **MCP**         | 生成供 Cursor 等客户端使用的 stdio MCP JSON；自动检测捆绑的 `svpchain-mcp` 二进制。                                                                                                                    |
 | **设置**        | 可折叠分区 —— **基本**（语言、默认链 ID、调用过程显示、运行日志）、**LLM**（API Key、Base URL、模型、上下文窗口、远程 MCP URL）、**助手 Skills**（启用/禁用提示词模块）。                              |
+| **运行记录**    | 浏览本机助手 trace：outcome、工具时间线、LLM 轮次延迟/token、tx hash。读取 `agent_runs.jsonl`（见 [Agent 可观测性](agent-observability.zh-CN.md)）。记录开关在设置 → 基础。                                                              |
 | **关于**        | 版本与信任模型摘要。                                                                                                                                                                                   |
 
 ## 助手与 LLM 设置

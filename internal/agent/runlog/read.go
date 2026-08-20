@@ -40,11 +40,41 @@ func ReadAll(path string) ([]Run, error) {
 	return runs, sc.Err()
 }
 
-// ReadRecent returns up to n most recent runs.
+const (
+	defaultRecentLimit = 100
+	maxRecentLimit     = 200
+)
+
+// ClampRecentLimit bounds a GUI request. Zero or negative uses the default;
+// values above maxRecentLimit are capped so a large JSONL cannot flood IPC.
+func ClampRecentLimit(n int) int {
+	if n <= 0 {
+		return defaultRecentLimit
+	}
+	if n > maxRecentLimit {
+		return maxRecentLimit
+	}
+	return n
+}
+
+// ReadRecent returns up to n most recent runs, oldest first (file order).
+// n <= 0 returns every run.
 func ReadRecent(n int) ([]Run, error) {
 	runs, err := ReadAll("")
 	if err != nil || n <= 0 || len(runs) <= n {
 		return runs, err
 	}
 	return runs[len(runs)-n:], nil
+}
+
+// ReadRecentNewestFirst returns up to n most recent runs, newest first.
+func ReadRecentNewestFirst(n int) ([]Run, error) {
+	runs, err := ReadRecent(n)
+	if err != nil {
+		return nil, err
+	}
+	for i, j := 0, len(runs)-1; i < j; i, j = i+1, j-1 {
+		runs[i], runs[j] = runs[j], runs[i]
+	}
+	return runs, nil
 }

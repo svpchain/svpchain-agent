@@ -9,7 +9,8 @@ func (a *App) AgentRunLogPath() string {
 	return runlog.LogPath()
 }
 
-// AgentRecentRuns returns up to limit most recent assistant run traces.
+// AgentRecentRuns returns up to limit most recent assistant run traces,
+// newest first, for the GUI viewer. limit is clamped (default 100, max 200).
 func (a *App) AgentRecentRuns(limit int) ([]runlog.Run, error) {
-	return runlog.ReadRecent(limit)
+	return runlog.ReadRecentNewestFirst(runlog.ClampRecentLimit(limit))
 }

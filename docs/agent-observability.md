@@ -66,6 +66,7 @@ Report **security metrics** (whitelist rejections, signer cross-checks) separate
 | Recorder   | `internal/agent/runlog/`                              |
 | Hook       | `internal/agent/runner.go` → `Config.RunLog`          |
 | GUI toggle | Settings → Basic → **Save assistant run logs**        |
+| GUI viewer | **Runs** tab (`AgentRecentRuns`, newest first)        |
 | Pref       | `agent_run_log_disabled` (`false` = enabled, default) |
 | Read API   | `AgentRunLogPath()`, `AgentRecentRuns(limit)`         |
 
@@ -99,6 +100,9 @@ Private keys and LLM API keys are **never** stored. Long fields are truncated; s
 Disable: Settings UI or `"agent_run_log_disabled": true` in `prefs.json`.
 
 ### Inspect
+
+**GUI:** sidebar **Runs** — filter by outcome, open a run for the tool timeline, LLM round latency/tokens, and tx hashes.
+Settings → Basic → **View runs** jumps there.
 
 ```bash
 tail -1 ~/Library/Application\ Support/com.svpchain.agent/agent_runs.jsonl | jq .
@@ -153,7 +157,6 @@ Package: `internal/agent/eval/`.
 
 - Mock MCP replay for CI
 - LLM eval cases (expected tools/args)
-- GUI run history viewer
 - Post-broadcast indexer verification
 - JSONL aggregation scripts / weekly report
 
@@ -167,6 +170,7 @@ internal/agent/eval/
 internal/agent/runner.go
 internal/desktop/agent.go
 internal/desktop/runlog.go
+cmd/svpchain-gui/frontend/src/tabs/RunsTab.vue
 testdata/agent_eval/
 scripts/agent-eval.sh
 ```
@@ -177,4 +181,5 @@ scripts/agent-eval.sh
 
 | Date    | Notes                                               |
 |---------|-----------------------------------------------------|
+| 2026-08 | GUI Runs tab: browse JSONL traces in-app            |
 | 2026-06 | Initial: JSONL run log, guard eval, settings toggle |

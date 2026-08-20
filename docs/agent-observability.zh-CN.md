@@ -79,6 +79,7 @@ LangSmith 等 SaaS trace）的前提下，本地调试、回归与持续改进�
 | 记录器     | `internal/agent/runlog/`                             |
 | 接入点     | `internal/agent/runner.go` → `Config.RunLog`         |
 | GUI 开关   | 设置 → 基础 → **记录助手运行日志**                   |
+| GUI 查看器 | **运行记录** 标签页（`AgentRecentRuns`，最新在前）   |
 | Prefs 字段 | `agent_run_log_disabled`（`false` = 开启，默认开启） |
 | 读取 API   | `AgentRunLogPath()`、`AgentRecentRuns(limit)`        |
 
@@ -142,7 +143,9 @@ LangSmith 等 SaaS trace）的前提下，本地调试、回归与持续改进�
 
 关闭记录：设置页关闭「记录助手运行日志」，或于 `prefs.json` 设 `"agent_run_log_disabled": true`。
 
-### 3.6 查看示例
+### 3.6 查看
+
+**GUI：** 侧栏 **运行记录** — 按 outcome 筛选，点开一轮查看工具时间线、LLM 延迟/token 与 tx hash。设置 → 基础 → **查看记录** 可跳转。
 
 ```bash
 # 美化输出最近一条
@@ -231,7 +234,6 @@ go test ./internal/agent/eval/... ./internal/agent/runlog/... -count=1
 |-------------------|---------------------------------------------------------|
 | Mock MCP replay   | CI 不连真网，录制 tool 响应回放                         |
 | LLM eval 用例     | 自然语言 → 期望 tool 名/参数（需 mock LLM 或固定 seed） |
-| GUI run 历史      | 设置页展示 `AgentRecentRuns`                            |
 | 链上 outcome 校验 | broadcast 成功后自动 query 订单/持仓 delta              |
 | 指标看板          | 本地脚本聚合 JSONL 生成周报                             |
 
@@ -245,6 +247,7 @@ internal/agent/eval/       # 离线回归加载与打分
 internal/agent/runner.go   # RunLog 接入
 internal/desktop/agent.go  # GUI 启用记录
 internal/desktop/runlog.go # AgentRunLogPath / AgentRecentRuns
+cmd/svpchain-gui/frontend/src/tabs/RunsTab.vue
 testdata/agent_eval/       # 回归用例
 scripts/agent-eval.sh      # 一键跑 eval 测试
 ```
@@ -255,4 +258,5 @@ scripts/agent-eval.sh      # 一键跑 eval 测试
 
 | 日期    | 说明                                      |
 |---------|-------------------------------------------|
+| 2026-08 | GUI「运行记录」标签页，应用内浏览 JSONL   |
 | 2026-06 | 初版：JSONL run log、guard eval、设置开关 |

@@ -64,5 +64,6 @@ Desktop bindings：`AgentSessions`、`AgentNewSession`、`AgentSwitchSession`、
 
 每次助手运行会向 `agent_runs.jsonl`（同配置目录）追加一条 JSONL trace：带耗时的工具调用、outcome（
 `success | failed | stopped | rejected | cancelled`）、提取的 tx hash，以及 **每轮 LLM 延迟与 token 用量**（`llm_rounds`、
-`usage`）。私钥与 API Key 均脱敏。开关位于 **设置 → 基础 → 记录助手运行日志**。离线评估用例在 `testdata/agent_eval/`，运行
+`usage`）。私钥与 API Key 均脱敏。开关位于 **设置 → 基础 → 记录助手运行日志**。在 **运行记录** 标签页（或设置 → 基础 → 查看记录）浏览最近
+trace。离线评估用例在 `testdata/agent_eval/`，运行
 `./scripts/agent-eval.sh`。完整设计见 [Agent 可观测性](agent-observability.zh-CN.md)。

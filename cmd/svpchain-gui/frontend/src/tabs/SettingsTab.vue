@@ -29,6 +29,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   status: [msg: string]
   'restart-onboarding': []
+  'open-runs': []
 }>()
 
 const {t} = useI18n()
@@ -302,7 +303,12 @@ onMounted(init)
                 </n-popover>
               </span>
             </template>
-            <n-switch :value="!agentRunLogDisabled" @update:value="onRunLogChange"/>
+            <div class="runlog-controls">
+              <n-switch :value="!agentRunLogDisabled" @update:value="onRunLogChange"/>
+              <n-button quaternary size="small" @click="emit('open-runs')">
+                {{ t('btn.viewRuns') }}
+              </n-button>
+            </div>
           </n-form-item>
           <n-form-item v-if="updateSupported">
             <template #label>
@@ -563,5 +569,11 @@ onMounted(init)
   max-width: 280px;
   white-space: normal;
   line-height: 1.5;
+}
+
+.runlog-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 </style>

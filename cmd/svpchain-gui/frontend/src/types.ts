@@ -46,3 +46,49 @@ export type UpdateInfo = {
     TagName: string
     ReleaseURL: string
 }
+
+export type AgentRunOutcome = 'success' | 'failed' | 'stopped' | 'rejected' | 'cancelled' | string
+
+export type AgentRunStep = {
+    at: string
+    kind: string
+    round?: number
+    tool?: string
+    args?: string
+    ok?: boolean | null
+    detail?: string
+    result?: string
+    elapsed_ms?: number
+}
+
+export type AgentLLMRound = {
+    round: number
+    latency_ms: number
+    model?: string
+    prompt_tokens?: number
+    completion_tokens?: number
+    total_tokens?: number
+}
+
+export type AgentRun = {
+    run_id: string
+    started_at: string
+    finished_at?: string
+    chain_id: string
+    remote_url: string
+    model?: string
+    provider?: string
+    user_message: string
+    outcome: AgentRunOutcome
+    answer?: string
+    error?: string
+    tx_hashes?: string[]
+    round_count: number
+    usage?: {
+        prompt_tokens?: number
+        completion_tokens?: number
+        total_tokens?: number
+    }
+    llm_rounds?: AgentLLMRound[]
+    steps: AgentRunStep[]
+}

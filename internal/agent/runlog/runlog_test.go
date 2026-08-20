@@ -79,3 +79,29 @@ func TestRecorder_append(t *testing.T) {
 	require.Equal(t, "svp-2517-1", runs[0].ChainID)
 	require.Len(t, runs[0].Steps, 1)
 }
+
+func TestClampRecentLimit(t *testing.T) {
+	require.Equal(t, defaultRecentLimit, ClampRecentLimit(0))
+	require.Equal(t, defaultRecentLimit, ClampRecentLimit(-1))
+	require.Equal(t, 3, ClampRecentLimit(3))
+	require.Equal(t, maxRecentLimit, ClampRecentLimit(maxRecentLimit+50))
+}
+
+func TestReadRecentNewestFirst(t *testing.T) {
+	dir := t.TempDir()
+	path := dir + "/agent_runs.jsonl"
+	SetPathOverride(path)
+	t.Cleanup(func() { SetPathOverride("") })
+
+	rec := New(true)
+	for _, msg := range []string{"first", "second", "third"} {
+		sess := rec.Begin(Meta{ChainID: "svp-2517-1", UserMessage: msg})
+		sess.Complete(msg, nil)
+	}
+
+	newest, err := ReadRecentNewestFirst(2)
+	require.NoError(t, err)
+	require.Len(t, newest, 2)
+	require.Equal(t, "third", newest[0].UserMessage)
+	require.Equal(t, "second", newest[1].UserMessage)
+}

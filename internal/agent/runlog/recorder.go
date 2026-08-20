@@ -276,7 +276,9 @@ func classifyOutcome(answer string, err error) Outcome {
 		return OutcomeFailed
 	}
 	lower := strings.ToLower(answer)
-	if strings.Contains(lower, "transfer rejected") {
+	if strings.Contains(lower, "transfer rejected") ||
+		strings.Contains(lower, "signing declined") ||
+		strings.HasPrefix(answer, "Declined —") {
 		return OutcomeRejected
 	}
 	if strings.Contains(lower, "stopped without further action") || strings.Contains(answer, " failed — ") {

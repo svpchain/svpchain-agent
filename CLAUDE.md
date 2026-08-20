@@ -18,7 +18,7 @@ The assistant can find agents registered in the chain's `x/agent` registry and h
 
 Flow: user creates one on-chain root delegation to their own DID (`create_root_delegation`) → per task, a **single-use, short-lived** credential is minted narrowing that grant (`delegate_task`) → the credential rides as `args.proof` in the A2A envelope `{skill, tool, args}` → the remote agent verifies it, wraps the action in `MsgAgentExecDelegated`, and broadcasts.
 
-**Every grant is gated on an explicit user confirmation** (`Config.Confirm` → Wails `agent:confirm` event → `ResolveConfirm`). A nil hook, a decline, or a timeout all deny.
+**Every grant and every local `sign_*` (except `sign_challenge`) is gated on an explicit user confirmation** (`Config.Confirm` → Wails `agent:confirm` event → `ResolveConfirm`). A nil hook, a decline, or a timeout all deny. The whitelist gate still runs first and cannot be overridden by the dialog.
 
 Key packages: `internal/registry` (chain REST reads + broadcast, no SDK client), `internal/delegation` (lifecycle txs + minting), `internal/chainmsgs` (vendored `x/agentwallet` pb.go, wire-locked by golden-byte tests), `internal/agent/delegatecall` (the LLM tool surface).
 
@@ -54,11 +54,12 @@ Auth: a `svpchain-mcp-auth-v1:` challenge is signed locally and exchanged for a 
 - `cmd/svpchain-mcp/` — CLI: `serve` (default), `import`/`list`/`delete` (key mgmt).
 - `cmd/svpchain-gui/` — Go entry + `frontend/` (Vue 3 + naive-ui, vue-i18n en/zh). `wailsjs/` is generated bindings.
 - `internal/agent/` — the LLM tool-calling loop (`runner.go` `Run`, `dispatchTool`). Holds a remote MCP client + in-process `LocalSigner` (`local.go`). Local-only tools (`signer_whoami`, `evm_to_bech32`, `http_fetch`, `x402_*`, `a2a_send_message`) live here and are **not** exposed by the stdio server.
+  - `internal/agent/hitl/` — first-class confirmation gate for grants and local `sign_transaction` / `sign_evm_transaction` / `sign_typed_data`. Nil/decline/timeout deny. Does **not** override the whitelist. `sign_challenge` is excluded (MCP auth handshake).
   - `skills/bundled/*/SKILL.md` — the system prompt is **assembled from modular skills**, not hardcoded. `base` is always on; others gate on available tools and `disabled_skills`. Bulky detail lives in `bundled/<name>/references/*.md`, loaded on demand by the LLM via the local `read_skill_reference` tool (`skills/references.go`).
   - `guard/gate.go` — assistant pre-flight transfer gate (see below).
   - `memory.go` — session memory caching `whoami`/`signer_whoami` to `agent_memory.json`.
- - `history/` — multi-turn conversation persistence (`sessions/*.jsonl` next to `prefs.json`) + context management: tool-result projection to blobs, LLM compaction of old turns, tool-call pairing repair. Wired via `Config.Prior` / `Config.OnTranscript`.
- - `runlog/` — local JSONL run traces (`agent_runs.jsonl`): tools, outcomes, tx hashes, per-round LLM latency + token usage.
+  - `history/` — multi-turn conversation persistence (`sessions/*.jsonl` next to `prefs.json`) + context management: tool-result projection to blobs, LLM compaction of old turns, tool-call pairing repair. Wired via `Config.Prior` / `Config.OnTranscript`.
+  - `runlog/` — local JSONL run traces (`agent_runs.jsonl`): tools, outcomes, tx hashes, per-round LLM latency + token usage.
 - `internal/signer/` — `eth_secp256k1` + `SIGN_MODE_DIRECT` signing, EVM tx signing, EIP-712 typed data, signer-layer whitelist checks. `init()` sets svp bech32 prefixes — import this package rather than blank-importing `internal/config`.
 - `internal/mcp/` — stdio MCP tool handlers (the 5 signing tools + `whoami`).
 - `internal/payload/` — wire types (`TxPayload`, `SignedTx`, `EvmTxPayload`). **Intentionally no I/O** so the signer can be imported without chain/HTTP deps.
@@ -86,7 +87,7 @@ The standalone `svpchain-mcp` signer reads the same `prefs.json` but does **not*
 - **CGO always.** Build/test with `CGO_ENABLED=1` (libsecp256k1). Use `make build` / `make test`; a single test is `go test ./internal/signer/ -run TestName -v`.
 - **Format and vet.** Run `gofmt -w` on every edited `.go` file and `go vet ./...` before considering work done.
 - **Keep `internal/payload/` I/O-free.** It carries wire types only so the signer can be imported without chain/HTTP deps — no `net/http`, file, or chain imports there.
-- **Trust-boundary files need extra care.** Changes under `internal/signer/`, `internal/payload/`, `internal/whitelist/`, `internal/evmcall/`, `internal/mcp/`, `internal/agent/guard/`, or `internal/agent/chainid/` touch the security boundary. Preserve the chain-id binding and `signer_address` cross-checks, the `svpchain-mcp-auth-v1:` challenge prefix guard, and the two-layer whitelist semantics (gate: empty = refuse all; signer: empty = unrestricted). Add or extend tests in the matching `_test.go`.
+- **Trust-boundary files need extra care.** Changes under `internal/signer/`, `internal/payload/`, `internal/whitelist/`, `internal/evmcall/`, `internal/mcp/`, `internal/agent/guard/`, `internal/agent/hitl/`, or `internal/agent/chainid/` touch the security boundary. Preserve the chain-id binding and `signer_address` cross-checks, the `svpchain-mcp-auth-v1:` challenge prefix guard, and the two-layer whitelist semantics (gate: empty = refuse all; signer: empty = unrestricted). HITL must not override a whitelist rejection. Add or extend tests in the matching `_test.go`.
 - **Bundled agent skills are data, not code.** A new runtime skill is a new `internal/agent/skills/bundled/<name>/SKILL.md` with `name`/`description` frontmatter, gated on tool availability — don't hardcode prompt text in Go.
 
 This repo ships Claude Code developer config under `.claude/` (active automatically, no install): `/verify` (build + test + gofmt -l + vet) and `/trust-check` (audit the current diff) commands, a `trust-boundary-auditor` subagent, dev skills (`build-and-test`, `trust-boundary-review`, `authoring-agent-skills`), and a PostToolUse hook (`.claude/hooks/go-postedit.sh`) that runs `gofmt -w` on saved Go files and flags edits to trust-boundary files.

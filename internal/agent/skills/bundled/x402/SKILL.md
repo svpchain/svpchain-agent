@@ -107,8 +107,10 @@ resource you intend to unlock before continuing.
 ### Step 4 — Sign
 
 Call `sign_typed_data`, passing the `typed_data` object from step 2 **verbatim**.
-Returns a 65-byte `0x…` signature (`v` normalized to 27/28). The signer refuses
-any payload whose `domain.chainId` is not its configured chain (2517).
+The app shows a confirmation dialog before the local key is used; if the user
+declines, stop — do not retry. Returns a 65-byte `0x…` signature (`v` normalized
+to 27/28). The signer refuses any payload whose `domain.chainId` is not its
+configured chain (2517).
 
 ### Step 5 — Build the payment header value
 

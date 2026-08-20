@@ -7,11 +7,12 @@ package step
 type Kind string
 
 const (
-	Auth   Kind = "auth"
-	Tool   Kind = "tool"
-	Think  Kind = "think"
-	Answer Kind = "answer"
-	Error  Kind = "error"
+	Auth    Kind = "auth"
+	Tool    Kind = "tool"
+	Think   Kind = "think"
+	Answer  Kind = "answer"
+	Error   Kind = "error"
+	Confirm Kind = "confirm"
 )
 
 // Step is one progress update for the UI.

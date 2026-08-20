@@ -73,7 +73,7 @@ let watchdog: ReturnType<typeof setTimeout> | null = null
 // Any step event closes it, so each round's text lands in its own bubble.
 let streamingIdx = -1
 
-const stepKinds = new Set(['auth', 'tool', 'think', 'answer', 'error'])
+const stepKinds = new Set(['auth', 'tool', 'think', 'answer', 'error', 'confirm'])
 
 function stepKindClass(kind: string) {
   return 'kind-' + (stepKinds.has(kind) ? kind : 'default')
@@ -92,7 +92,7 @@ function pushStep(raw: Record<string, unknown>) {
   // A step interrupts streaming: close the current bubble so the next delta
   // (e.g. the answer after a tool call) opens a fresh one.
   streamingIdx = -1
-  if (!showToolSteps.value && kind !== 'error') {
+  if (!showToolSteps.value && kind !== 'error' && kind !== 'confirm') {
     return
   }
   const text = detail ? `${title}\n${detail}` : title
@@ -792,6 +792,11 @@ onUnmounted(() => {
 .step-bubble.kind-error {
   border-left-color: #e55353;
   background: rgba(229, 83, 83, 0.1);
+}
+
+.step-bubble.kind-confirm {
+  border-left-color: #e6a23c;
+  background: rgba(230, 162, 60, 0.12);
 }
 
 .step-bubble.kind-default {

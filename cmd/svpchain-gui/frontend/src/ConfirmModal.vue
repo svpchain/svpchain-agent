@@ -19,6 +19,10 @@ const resolving = ref(false)
 
 const current = computed(() => queue.value[0] || null)
 const show = computed(() => !!current.value)
+const isSignKind = computed(() => {
+  const kind = current.value?.kind || ''
+  return kind === 'sign_transaction' || kind === 'sign_evm_transaction' || kind === 'sign_typed_data'
+})
 
 let unsubs: (() => void)[] = []
 
@@ -66,6 +70,7 @@ onUnmounted(() => {
       <ul class="confirm-lines">
         <li v-for="(line, i) in current.lines" :key="i">{{ line }}</li>
       </ul>
+      <p v-if="isSignKind" class="confirm-hint">{{ t('confirm.signHint') }}</p>
       <template #footer>
         <n-space justify="end">
           <n-button :disabled="resolving" @click="resolve(false)">
@@ -89,5 +94,12 @@ onUnmounted(() => {
   gap: 6px;
   line-height: 1.5;
   word-break: break-all;
+}
+
+.confirm-hint {
+  margin: 12px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-secondary, #888);
 }
 </style>

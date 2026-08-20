@@ -12,6 +12,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	"github.com/svpchain/svpchain-agent/internal/a2a"
+	"github.com/svpchain/svpchain-agent/internal/agent/hitl"
 	"github.com/svpchain/svpchain-agent/internal/chainmsgs"
 	"github.com/svpchain/svpchain-agent/internal/delegation"
 	"github.com/svpchain/svpchain-agent/internal/registry"
@@ -299,7 +300,7 @@ func (s *Service) createRootDelegation(ctx context.Context, args map[string]any)
 		"Expires: " + time.Unix(expiresAt, 0).UTC().Format(time.RFC3339),
 	}
 	if err := s.confirm(ctx, ConfirmRequest{
-		Kind:  "create_delegation",
+		Kind:  hitl.KindCreateDelegation,
 		Title: "Create root delegation",
 		Lines: lines,
 	}); err != nil {
@@ -344,7 +345,7 @@ func (s *Service) resumeDelegation(ctx context.Context, args map[string]any) (st
 		return "", err
 	}
 	if err := s.confirm(ctx, ConfirmRequest{
-		Kind:  "resume_delegation",
+		Kind:  hitl.KindResumeDelegation,
 		Title: "Resume delegation",
 		Lines: []string{"Root: " + hex.EncodeToString(rootID), "Resuming re-enables delegated spending under this grant."},
 	}); err != nil {
@@ -366,7 +367,7 @@ func (s *Service) revokeDelegation(ctx context.Context, args map[string]any) (st
 		return "", err
 	}
 	if err := s.confirm(ctx, ConfirmRequest{
-		Kind:  "revoke_delegation",
+		Kind:  hitl.KindRevokeDelegation,
 		Title: "Revoke delegation",
 		Lines: []string{"Root: " + hex.EncodeToString(rootID), "Revocation is permanent; a new delegation must be created to delegate again."},
 	}); err != nil {
@@ -529,7 +530,7 @@ func (s *Service) delegateTask(ctx context.Context, args map[string]any) (string
 			serviceBudget.Amount, serviceBudget.Denom, agentID))
 	}
 	if err := s.confirm(ctx, ConfirmRequest{
-		Kind:  "delegate_task",
+		Kind:  hitl.KindDelegateTask,
 		Title: "Delegate task to " + agentID,
 		Lines: lines,
 	}); err != nil {

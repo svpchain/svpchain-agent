@@ -14,6 +14,7 @@ import (
 	"github.com/svpchain/svpchain-agent/internal/agent/delegatecall"
 	"github.com/svpchain/svpchain-agent/internal/agent/guard"
 	"github.com/svpchain/svpchain-agent/internal/agent/history"
+	"github.com/svpchain/svpchain-agent/internal/agent/hitl"
 	"github.com/svpchain/svpchain-agent/internal/agent/llm"
 	localsigner "github.com/svpchain/svpchain-agent/internal/agent/local"
 	"github.com/svpchain/svpchain-agent/internal/agent/memory"
@@ -44,11 +45,12 @@ type (
 )
 
 const (
-	StepAuth   = step.Auth
-	StepTool   = step.Tool
-	StepThink  = step.Think
-	StepAnswer = step.Answer
-	StepError  = step.Error
+	StepAuth    = step.Auth
+	StepTool    = step.Tool
+	StepThink   = step.Think
+	StepAnswer  = step.Answer
+	StepError   = step.Error
+	StepConfirm = step.Confirm
 )
 
 // Config drives a single agent run.
@@ -58,10 +60,9 @@ type Config struct {
 	// AgentHubURL is the chain's REST (grpc-gateway) endpoint, enabling the
 	// agent-discovery and delegation tools. Empty disables them.
 	AgentHubURL string
-	// Confirm gates every delegation grant behind an explicit user approval.
-	// Nil denies all grants, so a headless caller that wants them must
-	// provide one.
-	Confirm delegatecall.ConfirmFunc
+	// Confirm is the HITL hook for grants and local sign_* calls.
+	// Nil, a decline, or a timeout all deny — nothing is signed or granted.
+	Confirm hitl.Func
 	LLM     LLMConfig
 	OnStep  func(Step)
 	// OnDelta, if set, receives assistant text increments as they stream in.
@@ -146,7 +147,15 @@ func Run(ctx context.Context, cfg Config, userMessage string) (answer string, er
 		return "", err
 	}
 
-	deleg := &delegatecall.Service{Confirm: cfg.Confirm}
+	confirm := cfg.Confirm
+	if confirm != nil {
+		orig := confirm
+		confirm = func(ctx context.Context, req hitl.Request) bool {
+			emit(Step{Kind: StepConfirm, Title: "Waiting for confirmation…", Detail: req.Title})
+			return orig(ctx, req)
+		}
+	}
+	deleg := &delegatecall.Service{Confirm: confirm}
 	if restURL := strings.TrimSpace(cfg.AgentHubURL); restURL != "" {
 		reg := registry.New(restURL)
 		deleg.Registry = reg
@@ -243,11 +252,14 @@ func Run(ctx context.Context, cfg Config, userMessage string) (answer string, er
 				finish = func(bool, string, string) {}
 			}
 
-			result, callErr := dispatchTool(ctx, chainID, remote, local, deleg, name, args, &sessionMem)
+			result, callErr := dispatchTool(ctx, chainID, remote, local, deleg, confirm, name, args, &sessionMem)
 			if callErr != nil {
 				finish(false, "", callErr.Error())
+				var denied *hitl.Denied
 				var rej *guard.Rejection
-				if errors.As(callErr, &rej) {
+				if errors.As(callErr, &denied) {
+					answer = denied.StopMessage()
+				} else if errors.As(callErr, &rej) {
 					answer = fmt.Sprintf("Transfer rejected — %s. No transaction was built, signed, or broadcast.", rej.Error())
 				} else {
 					answer = fmt.Sprintf("%s failed — %s. Stopped without further action.", name, callErr.Error())

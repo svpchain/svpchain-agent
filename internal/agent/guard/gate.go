@@ -47,8 +47,9 @@ var transferGuardedTools = map[string]guardedTool{
 // appears ONLY in the call data — the argument-name checks used for build_*
 // tools have nothing to read. A manipulated assistant (say, one that ingested
 // attacker-controlled content) could otherwise call this directly to transfer
-// ERC-20 balances out or grant an unlimited approval, with no human in the loop
-// and the whitelist never consulted.
+// ERC-20 balances out or grant an unlimited approval. HITL later asks the user
+// to confirm the signature, but a dialog must not override this policy — the
+// whitelist still runs first.
 const SignEVMTool = "sign_evm_transaction"
 
 // Rejection marks a tool call refused by the pre-flight whitelist gate.

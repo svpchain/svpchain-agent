@@ -205,6 +205,7 @@ export default {
     approve: '批准',
     decline: '拒绝',
     expired: '该确认请求已超时',
+    signHint: '批准后将使用本地密钥签名。若不是你发起的操作，请拒绝。',
   },
   shell: {
     collapseSidebar: '收起侧栏',

@@ -7,10 +7,10 @@ import (
 
 	wruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 
-	"github.com/svpchain/svpchain-agent/internal/agent/delegatecall"
+	"github.com/svpchain/svpchain-agent/internal/agent/hitl"
 )
 
-// confirmTimeout bounds how long a grant dialog may sit unanswered. A dialog
+// confirmTimeout bounds how long a HITL dialog may sit unanswered. A dialog
 // nobody answers is a denial, never an approval.
 const confirmTimeout = 2 * time.Minute
 
@@ -20,10 +20,10 @@ var (
 	confirmPending = map[int]chan bool{}
 )
 
-// confirmHook bridges the agent's grant requests to the frontend: emits
-// "agent:confirm" with the request and blocks until ResolveConfirm answers,
-// the run is cancelled, or the timeout passes.
-func (a *App) confirmHook(ctx context.Context, req delegatecall.ConfirmRequest) bool {
+// confirmHook bridges HITL requests (grants and local sign_*) to the frontend:
+// emits "agent:confirm" with the request and blocks until ResolveConfirm
+// answers, the run is cancelled, or the timeout passes.
+func (a *App) confirmHook(ctx context.Context, req hitl.Request) bool {
 	confirmMu.Lock()
 	confirmSeq++
 	id := confirmSeq
@@ -55,7 +55,7 @@ func (a *App) confirmHook(ctx context.Context, req delegatecall.ConfirmRequest) 
 	}
 }
 
-// ResolveConfirm answers a pending grant dialog from the frontend.
+// ResolveConfirm answers a pending HITL dialog from the frontend.
 func (a *App) ResolveConfirm(id int, approved bool) {
 	confirmMu.Lock()
 	ch, ok := confirmPending[id]

@@ -75,6 +75,7 @@ These rules are **absolute**. Breaking them is worse than telling the user "no."
 ## Failure handling
 
 - If any tool returns an error, **stop** the workflow and report it. Do not loop with guessed parameters.
+- If the user declines a signing or grant confirmation, **stop**. Do not retry or rephrase the same action.
 - If authentication or signing fails, do not attempt workarounds that weaken security.
 - Prefer **refusal** over an unsafe assumption on irreversible operations.
 

@@ -10,25 +10,18 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/svpchain/svpchain-agent/internal/agent/hitl"
 	"github.com/svpchain/svpchain-agent/internal/agent/llm"
 	"github.com/svpchain/svpchain-agent/internal/delegation"
 	"github.com/svpchain/svpchain-agent/internal/registry"
 )
 
-// ConfirmRequest is what the user is shown before anything is granted.
-type ConfirmRequest struct {
-	// Kind selects the dialog: "create_delegation", "resume_delegation",
-	// "revoke_delegation" or "delegate_task".
-	Kind  string `json:"kind"`
-	Title string `json:"title"`
-	// Lines are the human-readable grant terms, in display order.
-	Lines []string `json:"lines"`
-}
-
-// ConfirmFunc asks the user. A nil hook, a false answer, an error or a timeout
-// all deny — no credential is ever minted and no delegation is ever created
-// without an explicit approval.
-type ConfirmFunc func(ctx context.Context, req ConfirmRequest) bool
+// ConfirmRequest / ConfirmFunc are the HITL types used for grants. Kept as
+// aliases so existing call sites and tests keep compiling.
+type (
+	ConfirmRequest = hitl.Request
+	ConfirmFunc    = hitl.Func
+)
 
 // Service holds what the delegation tools need for one run.
 type Service struct {
@@ -98,12 +91,10 @@ func (s *Service) Call(ctx context.Context, name string, args map[string]any) (s
 	}
 }
 
-// confirm runs the approval gate; denial is an error the LLM sees verbatim.
+// confirm runs the HITL gate. Denial is *hitl.Denied so the agent loop stops
+// instead of letting the model retry the grant.
 func (s *Service) confirm(ctx context.Context, req ConfirmRequest) error {
-	if s.Confirm == nil || !s.Confirm(ctx, req) {
-		return fmt.Errorf("the user declined %q — do not retry without new instructions from the user", req.Title)
-	}
-	return nil
+	return hitl.Ask(ctx, s.Confirm, req)
 }
 
 // agentSummary is the discovery row handed to the LLM: enough to choose an

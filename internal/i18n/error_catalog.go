@@ -63,6 +63,9 @@ type ErrorTexts struct {
 	ContextDeadline  string
 
 	TransferRejectedFmt  string
+	SigningDeclinedFmt   string
+	GrantDeclinedFmt     string
+	UserDeclinedFmt      string
 	ToolFailedFmt        string
 	ToolStoppedDetailFmt string
 
@@ -73,6 +76,7 @@ type ErrorTexts struct {
 	ToolFailedTitleFmt   string
 	ToolOkFmt            string
 	StoppedTitle         string
+	WaitingConfirmation  string
 	SessionContextFailed string
 }
 
@@ -139,6 +143,9 @@ var errorCatalog = map[Lang]ErrorTexts{
 		ContextDeadline:  "操作超时",
 
 		TransferRejectedFmt:  "转账被拒绝 — %s。未构建、签名或广播任何交易。",
+		SigningDeclinedFmt:   "签名已拒绝 — 用户未批准 %q。未签名或广播任何交易。",
+		GrantDeclinedFmt:     "已拒绝 — 用户未批准 %q。未进行后续操作。",
+		UserDeclinedFmt:      "用户拒绝了 %q",
 		ToolFailedFmt:        "%s 执行失败 — %s",
 		ToolStoppedDetailFmt: "%s 失败 — %s。已停止后续操作。",
 
@@ -149,6 +156,7 @@ var errorCatalog = map[Lang]ErrorTexts{
 		ToolFailedTitleFmt:   "%s 失败",
 		ToolOkFmt:            "%s 完成",
 		StoppedTitle:         "已停止",
+		WaitingConfirmation:  "等待确认…",
 		SessionContextFailed: "会话上下文失败",
 	},
 	En: {
@@ -213,6 +221,9 @@ var errorCatalog = map[Lang]ErrorTexts{
 		ContextDeadline:  "Timed out",
 
 		TransferRejectedFmt:  "Transfer rejected — %s. No transaction was built, signed, or broadcast.",
+		SigningDeclinedFmt:   "Signing declined — the user did not approve %q. No transaction was signed or broadcast.",
+		GrantDeclinedFmt:     "Declined — the user did not approve %q. No further action was taken.",
+		UserDeclinedFmt:      "the user declined %q",
 		ToolFailedFmt:        "%s failed — %s",
 		ToolStoppedDetailFmt: "%s failed — %s. Stopped without further action.",
 
@@ -223,6 +234,7 @@ var errorCatalog = map[Lang]ErrorTexts{
 		ToolFailedTitleFmt:   "%s failed",
 		ToolOkFmt:            "%s ok",
 		StoppedTitle:         "Stopped",
+		WaitingConfirmation:  "Waiting for confirmation…",
 		SessionContextFailed: "Session context failed",
 	},
 }

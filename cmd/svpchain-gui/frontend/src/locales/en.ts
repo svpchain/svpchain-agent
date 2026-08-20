@@ -205,6 +205,7 @@ export default {
     approve: 'Approve',
     decline: 'Decline',
     expired: 'This confirmation request expired',
+    signHint: 'Approving signs with the local key. Decline if you did not ask for this.',
   },
   shell: {
     collapseSidebar: 'Collapse sidebar',

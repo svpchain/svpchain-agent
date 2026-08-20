@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/svpchain/svpchain-agent/internal/agent/guard"
+	"github.com/svpchain/svpchain-agent/internal/agent/hitl"
 	"github.com/svpchain/svpchain-agent/internal/manage"
 )
 
@@ -34,6 +35,9 @@ var (
 	reUpdateZip        = regexp.MustCompile(`^invalid zip entry: (.+)$`)
 	reInternal         = regexp.MustCompile(`^internal error: (.+)$`)
 	reTransferRejected = regexp.MustCompile(`^Transfer rejected — (.+?)\. No transaction was built, signed, or broadcast\.$`)
+	reSigningDeclined  = regexp.MustCompile(`^Signing declined — the user did not approve "(.+?)"\. No transaction was signed or broadcast\.$`)
+	reGrantDeclined    = regexp.MustCompile(`^Declined — the user did not approve "(.+?)"\. No further action was taken\.$`)
+	reUserDeclined     = regexp.MustCompile(`^the user declined "(.+?)"$`)
 	reToolStopped      = regexp.MustCompile(`^(.+?) failed — (.+?)\. Stopped without further action\.$`)
 )
 
@@ -55,6 +59,15 @@ func Localize(err error) string {
 	var noKey *manage.NoSigningKeyError
 	if errors.As(err, &noKey) {
 		return FormatNoSigningKey(noKey.ChainID)
+	}
+
+	var denied *hitl.Denied
+	if errors.As(err, &denied) {
+		title := strings.TrimSpace(denied.Title)
+		if title == "" {
+			title = strings.TrimSpace(denied.Kind)
+		}
+		return fmt.Sprintf(t.UserDeclinedFmt, title)
 	}
 
 	var rej *guard.Rejection
@@ -101,6 +114,8 @@ func LocalizeStepTitle(title string) string {
 		return t.LLMErrorTitle
 	case "Stopped":
 		return t.StoppedTitle
+	case "Waiting for confirmation…":
+		return t.WaitingConfirmation
 	case "Session context failed":
 		return t.SessionContextFailed
 	}
@@ -129,6 +144,12 @@ func LocalizeAgentAnswer(text string) string {
 	t := ErrT()
 	if m := reTransferRejected.FindStringSubmatch(text); len(m) == 2 {
 		return fmt.Sprintf(t.TransferRejectedFmt, LocalizeDetail(m[1]))
+	}
+	if m := reSigningDeclined.FindStringSubmatch(text); len(m) == 2 {
+		return fmt.Sprintf(t.SigningDeclinedFmt, m[1])
+	}
+	if m := reGrantDeclined.FindStringSubmatch(text); len(m) == 2 {
+		return fmt.Sprintf(t.GrantDeclinedFmt, m[1])
 	}
 	if m := reToolStopped.FindStringSubmatch(text); len(m) == 3 {
 		return fmt.Sprintf(t.ToolStoppedDetailFmt, m[1], LocalizeDetail(m[2]))
@@ -283,6 +304,9 @@ func localizeRegex(msg string) (string, bool) {
 	}
 	if m := reInternal.FindStringSubmatch(msg); len(m) == 2 {
 		return fmt.Sprintf(t.InternalErrorFmt, m[1]), true
+	}
+	if m := reUserDeclined.FindStringSubmatch(msg); len(m) == 2 {
+		return fmt.Sprintf(t.UserDeclinedFmt, m[1]), true
 	}
 	return "", false
 }

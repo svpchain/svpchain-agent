@@ -10,6 +10,7 @@ import (
 	"github.com/svpchain/svpchain-agent/internal/agent/a2acall"
 	"github.com/svpchain/svpchain-agent/internal/agent/delegatecall"
 	"github.com/svpchain/svpchain-agent/internal/agent/guard"
+	"github.com/svpchain/svpchain-agent/internal/agent/hitl"
 	"github.com/svpchain/svpchain-agent/internal/agent/httpfetch"
 	"github.com/svpchain/svpchain-agent/internal/agent/llm"
 	localsigner "github.com/svpchain/svpchain-agent/internal/agent/local"
@@ -53,9 +54,10 @@ func buildToolList(ctx context.Context, remote *remotemcp.Client, deleg *delegat
 }
 
 // dispatchTool routes one tool call to its handler. It is the trust-boundary hop:
-// the whitelist gate runs first (before any build_* is forwarded), then cached
-// whoami short-circuits, then local/x402/http/a2a handlers, finally the remote MCP.
-func dispatchTool(ctx context.Context, chainID string, remote *remotemcp.Client, local *localsigner.Signer, deleg *delegatecall.Service, name string, args map[string]any, mem *memory.Session) (string, error) {
+// the whitelist gate runs first (before any build_* is forwarded and before any
+// sign dialog), then cached whoami short-circuits, then local/x402/http/a2a
+// handlers, finally the remote MCP. HITL cannot override a whitelist rejection.
+func dispatchTool(ctx context.Context, chainID string, remote *remotemcp.Client, local *localsigner.Signer, deleg *delegatecall.Service, confirm hitl.Func, name string, args map[string]any, mem *memory.Session) (string, error) {
 	// Whitelist gate: reject a transfer/approval to a non-whitelisted recipient
 	// before the build_* call is forwarded — no build, sign, or broadcast happens.
 	if err := guard.Check(chainID, name, args); err != nil {
@@ -89,6 +91,11 @@ func dispatchTool(ctx context.Context, chainID string, remote *remotemcp.Client,
 		return skills.ReadReferenceFromArgs(args)
 	}
 	if localsigner.IsLocalTool(name) {
+		if hitl.NeedsConfirm(name) {
+			if err := hitl.Ask(ctx, confirm, hitl.SignRequest(name, args)); err != nil {
+				return "", err
+			}
+		}
 		result, err := local.CallTool(ctx, name, args)
 		if err == nil && mem != nil && name == "signer_whoami" {
 			mem.SetToolResult(name, result)

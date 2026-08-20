@@ -29,7 +29,7 @@ esac
 
 # Trust-boundary reminder.
 case "$file" in
-  */internal/signer/*|*/internal/payload/*|*/internal/whitelist/*|*/internal/evmcall/*|*/internal/mcp/*|*/internal/agent/guard/*|*/internal/agent/chainid/*)
+  */internal/signer/*|*/internal/payload/*|*/internal/whitelist/*|*/internal/evmcall/*|*/internal/mcp/*|*/internal/agent/guard/*|*/internal/agent/hitl/*|*/internal/agent/chainid/*)
     msg="Trust-boundary file edited ($file). Preserve the chain-id and signer_address cross-checks, the svpchain-mcp-auth-v1: challenge guard, and the two-layer whitelist semantics (gate: empty=refuse all; signer: empty=unrestricted). Keep internal/payload I/O-free. Update the matching _test.go and run go vet. Consider /trust-check."
     if command -v jq >/dev/null 2>&1; then
       jq -nc --arg m "$msg" '{hookSpecificOutput:{hookEventName:"PostToolUse",additionalContext:$m}}'

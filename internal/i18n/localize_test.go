@@ -7,6 +7,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/svpchain/svpchain-agent/internal/agent/hitl"
 	"github.com/svpchain/svpchain-agent/internal/manage"
 )
 
@@ -41,9 +42,11 @@ func TestLocalizeStepTitle(t *testing.T) {
 	SetLang(Zh)
 	require.Equal(t, "正在启动助手…", LocalizeStepTitle("Starting assistant…"))
 	require.Equal(t, "思考中…（第 2 轮）", LocalizeStepTitle("Thinking… (round 2)"))
+	require.Equal(t, "等待确认…", LocalizeStepTitle("Waiting for confirmation…"))
 
 	SetLang(En)
 	require.Equal(t, "Starting assistant…", LocalizeStepTitle("Starting assistant…"))
+	require.Equal(t, "Waiting for confirmation…", LocalizeStepTitle("Waiting for confirmation…"))
 }
 
 func TestLocalizeAgentAnswer(t *testing.T) {
@@ -52,6 +55,21 @@ func TestLocalizeAgentAnswer(t *testing.T) {
 	msg := LocalizeAgentAnswer(raw)
 	require.Contains(t, msg, "转账被拒绝")
 	require.Contains(t, msg, "安全")
+
+	sign := LocalizeAgentAnswer(`Signing declined — the user did not approve "Sign Cosmos transaction". No transaction was signed or broadcast.`)
+	require.Contains(t, sign, "签名已拒绝")
+	require.Contains(t, sign, "Sign Cosmos transaction")
+
+	grant := LocalizeAgentAnswer(`Declined — the user did not approve "Delegate task". No further action was taken.`)
+	require.Contains(t, grant, "已拒绝")
+	require.Contains(t, grant, "Delegate task")
+}
+
+func TestLocalize_Denied(t *testing.T) {
+	SetLang(Zh)
+	msg := Localize(&hitl.Denied{Kind: hitl.KindSignEVM, Title: "Sign EVM transaction"})
+	require.Contains(t, msg, "用户拒绝了")
+	require.Contains(t, msg, "Sign EVM transaction")
 }
 
 func TestLocalize_Context(t *testing.T) {

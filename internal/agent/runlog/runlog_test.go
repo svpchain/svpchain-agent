@@ -27,6 +27,8 @@ func TestExtractTxHashes_json(t *testing.T) {
 
 func TestClassifyOutcome(t *testing.T) {
 	require.Equal(t, OutcomeRejected, classifyOutcome("Transfer rejected — x", nil))
+	require.Equal(t, OutcomeRejected, classifyOutcome(`Signing declined — the user did not approve "Sign Cosmos transaction". No transaction was signed or broadcast.`, nil))
+	require.Equal(t, OutcomeRejected, classifyOutcome(`Declined — the user did not approve "Delegate task". No further action was taken.`, nil))
 	require.Equal(t, OutcomeStopped, classifyOutcome("tool failed — err. Stopped without further action.", nil))
 	require.Equal(t, OutcomeSuccess, classifyOutcome("done", nil))
 }

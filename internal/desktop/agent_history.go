@@ -25,6 +25,8 @@ func (a *App) AgentCurrentSessionID() string {
 }
 
 // AgentNewSession starts a fresh conversation and makes it current.
+// Called when the user sends the first message of a draft, not when opening
+// the Assistant tab — empty drafts are not persisted.
 func (a *App) AgentNewSession(chainID string) (history.SessionInfo, error) {
 	return history.Shared().Create(chainID)
 }

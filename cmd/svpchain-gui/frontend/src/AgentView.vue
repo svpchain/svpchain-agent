@@ -175,6 +175,19 @@ watch(
     },
 )
 
+async function startDraft() {
+  if (running.value) return
+  try {
+    await App.AgentSwitchSession('')
+  } catch {
+    /* history bindings unavailable */
+  }
+  lines.value = []
+  streamingIdx = -1
+  currentSessionId.value = ''
+  input.value = ''
+}
+
 async function refreshSessions() {
   try {
     const rows = ((await App.AgentSessions()) || []) as SessionOption[]
@@ -217,19 +230,6 @@ async function switchSession(id: string) {
   }
 }
 
-async function newSession() {
-  if (running.value) return
-  try {
-    await App.AgentNewSession(chainId.value)
-    lines.value = []
-    streamingIdx = -1
-    await refreshSessions()
-    focusAssistant()
-  } catch (err) {
-    report(String(err))
-  }
-}
-
 async function deleteSession(id: string) {
   if (running.value || !id) return
   const wasCurrent = id === currentSessionId.value
@@ -258,6 +258,15 @@ async function send() {
   if (running.value) return
 
   await loadSettings()
+
+  if (!currentSessionId.value) {
+    try {
+      await App.AgentNewSession(chainId.value)
+      await refreshSessions()
+    } catch {
+      /* history unavailable — still send */
+    }
+  }
 
   lines.value.push({role: 'user', text: msg})
   input.value = ''
@@ -339,10 +348,8 @@ function onKeydown(e: KeyboardEvent) {
 
 onMounted(async () => {
   await loadSettings()
+  await startDraft()
   await refreshSessions()
-  if (currentSessionId.value) {
-    await loadTranscript(currentSessionId.value)
-  }
   unsubs = [
     EventsOn('agent:step', onStep),
     EventsOn('agent:delta', onDelta),
@@ -356,6 +363,8 @@ onUnmounted(() => {
   unsubs.forEach((u) => u())
   unsubs = []
 })
+
+defineExpose({startDraft})
 </script>
 
 <template>
@@ -371,18 +380,6 @@ onUnmounted(() => {
           :consistent-menu-width="true"
           @update:value="persistChainID"
       />
-      <button
-          type="button"
-          class="new-chat-btn"
-          :disabled="running"
-          :title="t('assistant.btn.newChat')"
-          @click="newSession"
-      >
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-          <path d="M12 5v14M5 12h14" stroke-linecap="round"/>
-        </svg>
-        <span v-show="!sidebarCollapsed">+ {{ t('assistant.btn.newChat') }}</span>
-      </button>
       <div v-show="!sidebarCollapsed" class="session-list">
         <div
             v-for="sess in sessions"
@@ -569,49 +566,6 @@ onUnmounted(() => {
 
 .session-rail :deep(.n-base-selection-label) {
   height: 36px;
-}
-
-.new-chat-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  width: 100%;
-  height: 36px;
-  box-sizing: border-box;
-  padding: 0 10px;
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-sm);
-  background: var(--bg-elevated);
-  color: var(--text-primary);
-  font-family: inherit;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  flex-shrink: 0;
-  transition: background 0.15s ease, border-color 0.15s ease;
-}
-
-.session-rail--collapsed .new-chat-btn {
-  width: 36px;
-  height: 36px;
-  padding: 0;
-}
-
-.new-chat-btn:hover:not(:disabled) {
-  background: var(--bg-hover);
-}
-
-.new-chat-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.new-chat-btn svg {
-  width: 16px;
-  height: 16px;
-  color: var(--accent);
-  flex-shrink: 0;
 }
 
 .session-list {

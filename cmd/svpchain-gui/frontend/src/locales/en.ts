@@ -122,7 +122,6 @@ export default {
         btn: {
             send: 'Send',
             cancel: 'Cancel',
-            newChat: 'New chat',
             deleteChat: 'Delete conversation',
         },
         session: {

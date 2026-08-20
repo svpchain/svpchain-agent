@@ -169,7 +169,9 @@ func (s *Store) Current() (SessionInfo, bool) {
 	return SessionInfo{}, false
 }
 
-// SetCurrent switches the active session.
+// SetCurrent switches the active session. An empty id clears the current
+// pointer without deleting any conversation — the next Create (first send)
+// starts a fresh session.
 func (s *Store) SetCurrent(id string) error {
 	if !s.Enabled() {
 		return nil
@@ -177,6 +179,11 @@ func (s *Store) SetCurrent(id string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	idx := s.loadIndexLocked()
+	id = strings.TrimSpace(id)
+	if id == "" {
+		idx.Current = ""
+		return s.saveIndexLocked(idx)
+	}
 	for _, sess := range idx.Sessions {
 		if sess.ID == id {
 			idx.Current = id

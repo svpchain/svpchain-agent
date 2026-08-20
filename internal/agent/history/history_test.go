@@ -99,6 +99,12 @@ func TestStore_SwitchAndDelete(t *testing.T) {
 	_, ok := s.Current()
 	require.False(t, ok)
 	require.Len(t, s.List(), 1)
+
+	require.NoError(t, s.SetCurrent(s2.ID))
+	require.NoError(t, s.SetCurrent(""))
+	_, ok = s.Current()
+	require.False(t, ok)
+	require.Len(t, s.List(), 1)
 }
 
 func TestRepairPairing(t *testing.T) {

@@ -43,6 +43,7 @@ const defaultChainIds = ref<string[]>([])
 
 const updateModalsRef = ref<InstanceType<typeof UpdateModals> | null>(null)
 const onboardingRef = ref<InstanceType<typeof OnboardingTour> | null>(null)
+const assistantTabRef = ref<InstanceType<typeof AssistantTab> | null>(null)
 const tourSettingsExpand = ref<string[]>([])
 
 function setStatus(msg: string) {
@@ -65,6 +66,11 @@ function restartOnboarding() {
 watch(activeTab, () => {
   status.value = ''
 })
+
+function selectTab(id: TabId) {
+  activeTab.value = id
+  if (id === 'assistant') assistantTabRef.value?.startDraft()
+}
 
 function toggleMaximise() {
   WindowToggleMaximise()
@@ -108,7 +114,7 @@ onMounted(async () => {
               :class="{ 'nav-item--active': activeTab === item.id }"
               :data-tour="item.id === 'keys' || item.id === 'settings' || item.id === 'assistant' ? `nav-${item.id}` : undefined"
               :title="sidebarCollapsed ? t(item.labelKey) : undefined"
-              @click="activeTab = item.id"
+              @click="selectTab(item.id)"
           >
             <span class="nav-icon" aria-hidden="true">
               <svg v-if="item.icon === 'chat'" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -202,7 +208,7 @@ onMounted(async () => {
 
       <main class="main-content">
         <div v-show="activeTab === 'assistant'" class="tab-panel tab-panel--assistant">
-          <AssistantTab :entries="entries" @status="setStatus" @focus-assistant="activeTab = 'assistant'"/>
+          <AssistantTab ref="assistantTabRef" :entries="entries" @status="setStatus" @focus-assistant="activeTab = 'assistant'"/>
         </div>
         <div v-show="activeTab === 'agents'" class="tab-panel tab-panel--scroll">
           <AgentsTab @status="setStatus"/>

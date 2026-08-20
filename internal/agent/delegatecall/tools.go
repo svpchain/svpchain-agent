@@ -10,6 +10,7 @@ import (
 
 	sdkmath "cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/svpchain/svpchain-agent/internal/a2a"
 	"github.com/svpchain/svpchain-agent/internal/chainmsgs"
@@ -24,6 +25,9 @@ const defaultDelegationDays = 30
 // credential's budget. Cancellations commit nothing and need no budget.
 var committingActions = map[string]bool{
 	"clob.place_order": true,
+	// A delegated native EVM transfer reserves its exact asvp value against
+	// the credential and root delegation budgets.
+	"evm.native_transfer": true,
 }
 
 // allQueryActions reports whether every action is a read-only query.* grant —
@@ -77,6 +81,19 @@ func argUint32s(args map[string]any, key string) []uint32 {
 		}
 	}
 	return out
+}
+
+// argEVMContracts parses the existing contract/recipient allowlist and keeps
+// it in the canonical lowercase form the chain uses for byte-exact matching.
+// Native EVM transfers reuse this set as their recipient allowlist.
+func argEVMContracts(args map[string]any, key string) ([]string, error) {
+	contracts := argStrings(args, key)
+	for _, contract := range contracts {
+		if !strings.HasPrefix(contract, "0x") || contract != strings.ToLower(contract) || !common.IsHexAddress(contract) {
+			return nil, fmt.Errorf("%s entry %q must be a lowercase 0x-prefixed EVM address", key, contract)
+		}
+	}
+	return contracts, nil
 }
 
 func argInt64(args map[string]any, key string) int64 {
@@ -231,6 +248,10 @@ func (s *Service) createRootDelegation(ctx context.Context, args map[string]any)
 	skills := argStrings(args, "skills")
 	subaccounts := argUint32s(args, "subaccounts")
 	denoms := argStrings(args, "denoms")
+	contracts, err := argEVMContracts(args, "contracts")
+	if err != nil {
+		return "", err
+	}
 	if len(actions) == 0 {
 		return "", fmt.Errorf("actions is required — empty grants deny everything (e.g. [\"clob.place_order\"])")
 	}
@@ -284,6 +305,7 @@ func (s *Service) createRootDelegation(ctx context.Context, args map[string]any)
 		Denoms:             denoms,
 		Actions:            actions,
 		Skills:             skills,
+		Contracts:          contracts,
 		Subaccounts:        subaccounts,
 		MaxDepth:           2, // user → executor is depth 1; a redelegable credential uses the one hop of headroom
 		MaxTokenTtlSeconds: maxTTL,
@@ -292,6 +314,7 @@ func (s *Service) createRootDelegation(ctx context.Context, args map[string]any)
 	lines := []string{
 		"Delegate to: yourself (" + agentID + ") — the root your per-task grants narrow from",
 		"Actions: " + strings.Join(actions, ", "),
+		"EVM contracts / native-transfer recipients: " + strings.Join(contracts, ", "),
 		"Subaccounts: " + fmt.Sprint(subaccounts),
 		"Total spend cap: " + coinsText(spendTotal),
 		"Daily spend cap: " + coinsText(spendDaily),
@@ -399,6 +422,10 @@ func (s *Service) delegateTask(ctx context.Context, args map[string]any) (string
 
 	actions := argStrings(args, "actions")
 	subaccounts := argUint32s(args, "subaccounts")
+	contracts, err := argEVMContracts(args, "contracts")
+	if err != nil {
+		return "", err
+	}
 	budget, err := argCoins(args, "budget")
 	if err != nil {
 		return "", err
@@ -510,6 +537,7 @@ func (s *Service) delegateTask(ctx context.Context, args map[string]any) (string
 		"Agent: " + agentID + " (" + remote.Endpoint + ")",
 		"Task: " + skill + " / " + tool,
 		"Actions: " + strings.Join(actions, ", "),
+		"EVM contracts / native-transfer recipients: " + strings.Join(contracts, ", "),
 		"Subaccounts: " + fmt.Sprint(subaccounts),
 		"Budget: " + coinsText(budget),
 		fmt.Sprintf("Credential expires in %d seconds; usable only by %s", ttlShown, agentID),
@@ -557,6 +585,7 @@ func (s *Service) delegateTask(ctx context.Context, args map[string]any) (string
 		Skills:       argStrings(args, "skills"),
 		Subaccounts:  subaccounts,
 		Denoms:       argStrings(args, "denoms"),
+		Contracts:    contracts,
 		Budget:       budget,
 		SvcBudget:    svcBudget,
 		Settlement:   settlementHex,

@@ -18,12 +18,13 @@ import (
 	"github.com/a2aproject/a2a-go/v2/a2a"
 	"github.com/a2aproject/a2a-go/v2/a2asrv"
 	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
-	"github.com/cosmos/gogoproto/proto"
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
+	"github.com/cosmos/gogoproto/proto"
 	"github.com/stretchr/testify/require"
 	"github.com/svpchain/svpdt"
 
 	svpa2a "github.com/svpchain/svpchain-agent/internal/a2a"
+	"github.com/svpchain/svpchain-agent/internal/chainmsgs"
 	"github.com/svpchain/svpchain-agent/internal/delegation"
 	"github.com/svpchain/svpchain-agent/internal/registry"
 )
@@ -288,6 +289,77 @@ func TestDelegateTaskSendsAVerifiableProof(t *testing.T) {
 	require.Equal(t, life.Owner(), verified.Principal)
 	require.True(t, verified.Effective.Actions.Has("clob.place_order"))
 	require.False(t, verified.Effective.Actions.Has("clob.cancel_order"))
+	require.Empty(t, verified.Effective.Contracts)
+}
+
+func TestDelegateTaskNativeTransferIncludesRecipientInCredential(t *testing.T) {
+	svc, exec, life, _ := stubStack(t)
+	const recipient = "0x000000000000000000000000000000000000c07e"
+	args := taskArgs()
+	args["tool"] = "execute_evm_native_transfer"
+	args["args"] = map[string]any{"transfer": map[string]any{
+		"recipient": recipient,
+		"value":     "25",
+	}}
+	args["actions"] = []any{"evm.native_transfer"}
+	args["contracts"] = []any{recipient}
+	args["budget"] = []any{map[string]any{"denom": "asvp", "amount": "25"}}
+
+	_, err := svc.Call(context.Background(), "delegate_task", args)
+	require.NoError(t, err)
+
+	exec.mu.Lock()
+	deleg := exec.metadata[svpa2a.DelegationMetadataKey].(map[string]any)
+	exec.mu.Unlock()
+	proof := deleg["tokens"].([]any)
+	raw, err := base64.StdEncoding.DecodeString(proof[0].(string))
+	require.NoError(t, err)
+	verified, err := svpdt.VerifyChain([][]byte{raw}, svpdt.SingleKeyResolver(map[string][]byte{
+		life.OwnerDID(): life.Priv.PubKey().Bytes(),
+	}), svpdt.VerifyOpts{ChainID: testChainID, Now: testNow, MaxDepth: 4, Audience: remoteDID})
+	require.NoError(t, err)
+	require.True(t, verified.Effective.Actions.Has("evm.native_transfer"))
+	require.True(t, verified.Effective.Contracts.Has(recipient))
+}
+
+func TestDelegateTaskNativeTransferRequiresBudget(t *testing.T) {
+	svc, _, _, _ := stubStack(t)
+	args := taskArgs()
+	args["tool"] = "execute_evm_native_transfer"
+	args["actions"] = []any{"evm.native_transfer"}
+	delete(args, "budget")
+
+	_, err := svc.Call(context.Background(), "delegate_task", args)
+	require.ErrorContains(t, err, "budget is required")
+}
+
+func TestCreateRootDelegationIncludesNativeTransferRecipient(t *testing.T) {
+	svc, _, _, capture := stubStack(t)
+	const recipient = "0x000000000000000000000000000000000000c07e"
+
+	_, err := svc.Call(context.Background(), "create_root_delegation", map[string]any{
+		"actions":           []any{"evm.native_transfer"},
+		"subaccounts":       []any{float64(0)},
+		"contracts":         []any{recipient},
+		"spend_limit_total": []any{map[string]any{"denom": "asvp", "amount": "25"}},
+	})
+	require.NoError(t, err)
+
+	var msg chainmsgs.MsgCreateDelegation
+	require.NoError(t, proto.Unmarshal(capture.soleMsg(t, "/dydxprotocol.agentwallet.MsgCreateDelegation"), &msg))
+	require.Equal(t, []string{"evm.native_transfer"}, msg.Limits.Actions)
+	require.Equal(t, []string{recipient}, msg.Limits.Contracts)
+}
+
+func TestCreateRootDelegationRejectsNonCanonicalEVMRecipient(t *testing.T) {
+	svc, _, _, _ := stubStack(t)
+	_, err := svc.Call(context.Background(), "create_root_delegation", map[string]any{
+		"actions":           []any{"evm.native_transfer"},
+		"subaccounts":       []any{float64(0)},
+		"contracts":         []any{"0x000000000000000000000000000000000000C07E"},
+		"spend_limit_total": []any{map[string]any{"denom": "asvp", "amount": "25"}},
+	})
+	require.ErrorContains(t, err, "lowercase 0x-prefixed EVM address")
 }
 
 // The safety-critical invariant: a declined dialog mints nothing and sends

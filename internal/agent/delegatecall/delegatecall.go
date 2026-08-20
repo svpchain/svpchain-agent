@@ -282,7 +282,7 @@ func (s *Service) delegationToolDefs() []llm.Tool {
 					"properties": map[string]any{
 						"actions": map[string]any{
 							"type": "array", "items": map[string]any{"type": "string"},
-							"description": "Permitted actions, e.g. [\"clob.place_order\",\"clob.cancel_order\"]",
+							"description": "Permitted actions, e.g. [\"clob.place_order\",\"clob.cancel_order\"] or [\"evm.native_transfer\"] for an EVM native-SVP transfer",
 						},
 						"skills": map[string]any{
 							"type": "array", "items": map[string]any{"type": "string"},
@@ -296,7 +296,11 @@ func (s *Service) delegationToolDefs() []llm.Tool {
 							"type": "array", "items": map[string]any{"type": "string"},
 							"description": "Denominations the delegation may move; optional",
 						},
-						"spend_limit_total": coinListSchema("Lifetime spend cap (required)"),
+						"contracts": map[string]any{
+							"type": "array", "items": map[string]any{"type": "string"},
+							"description": "Lowercase 0x EVM contract addresses; for evm.native_transfer these are the only permitted recipients",
+						},
+						"spend_limit_total": coinListSchema("Lifetime spend cap (required). This is an ARRAY of coins, e.g. [{\"denom\":\"asvp\",\"amount\":\"10000000000000000000\"}] for a 10 SVP native-transfer ceiling"),
 						"spend_limit_daily": coinListSchema("Per-day spend cap (optional)"),
 						"svc_spend_limit_total": coinListSchema(
 							"Lifetime cap on paying agents for their services (optional, but " +
@@ -364,6 +368,8 @@ func (s *Service) delegationToolDefs() []llm.Tool {
 					"agent's A2A endpoint. Use get_agent_card first to learn the agent's skills/tools and " +
 					"their argument shapes. Grant the minimum: only the actions, subaccounts and budget " +
 					"this one task needs. For read-only tasks grant [\"query.account\"] with no budget. " +
+					"For execute_evm_native_transfer, action evm.native_transfer, subaccount 0, the " +
+					"lowercase recipient in contracts, and an asvp budget array at least equal to transfer.value are required. " +
 					"Set redelegable=true plus redelegate_to ONLY when the target agent must sub-delegate " +
 					"to another named agent — never \"just in case\".",
 				Parameters: map[string]any{
@@ -378,7 +384,7 @@ func (s *Service) delegationToolDefs() []llm.Tool {
 						},
 						"actions": map[string]any{
 							"type": "array", "items": map[string]any{"type": "string"},
-							"description": "Actions the credential grants, e.g. [\"clob.place_order\"], or [\"query.account\"] for read-only access",
+							"description": "Actions the credential grants, e.g. [\"clob.place_order\"], [\"evm.native_transfer\"] for a native-SVP transfer, or [\"query.account\"] for read-only access",
 						},
 						"skills": map[string]any{
 							"type": "array", "items": map[string]any{"type": "string"},
@@ -392,11 +398,17 @@ func (s *Service) delegationToolDefs() []llm.Tool {
 							"type": "array", "items": map[string]any{"type": "string"},
 							"description": "Denoms the task may move; optional",
 						},
+						"contracts": map[string]any{
+							"type": "array", "items": map[string]any{"type": "string"},
+							"description": "Lowercase 0x EVM contract addresses; for evm.native_transfer this must include every recipient",
+						},
 						"budget": coinListSchema(
 							"Cap on what this one task may commit. REQUIRED for value-committing " +
-								"actions such as clob.place_order — the chain prices the action and " +
+								"actions such as clob.place_order and evm.native_transfer — the chain prices the action and " +
 								"refuses it against an empty budget. Size it for this task, not for " +
-								"the delegation's whole allowance.",
+								"the delegation's whole allowance. This MUST be a JSON array, never a single coin object: " +
+								"[{\"denom\":\"asvp\",\"amount\":\"10000000000000000000\"}]. For execute_evm_native_transfer, " +
+								"amount is in asvp and must be at least args.transfer.value (1 SVP = 1000000000000000000 asvp).",
 						),
 						"service_budget": map[string]any{
 							"type": "object",

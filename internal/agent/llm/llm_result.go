@@ -25,9 +25,3 @@ type ChatResult struct {
 	Model     string
 	LatencyMs int64
 }
-
-type chatRoundResult struct {
-	msg   Message
-	usage Usage
-	model string
-}

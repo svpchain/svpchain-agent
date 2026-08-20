@@ -30,11 +30,11 @@ func isRetryable(err error) bool {
 // withRetry retries do() on transient errors with exponential backoff, but stops
 // retrying the moment any delta has been emitted (started bit) — re-running a stream
 // after partial output would double tokens. The wrapped emit sets started on first call.
-func (c *Client) withRetry(ctx context.Context, do func(emit func(string)) (chatRoundResult, error), onDelta func(string)) (chatRoundResult, error) {
+func (c *Client) withRetry(ctx context.Context, do func(emit func(string)) (ChatResult, error), onDelta func(string)) (ChatResult, error) {
 	var lastErr error
 	for attempt := 0; attempt <= llmMaxRetries; attempt++ {
 		if ctx.Err() != nil {
-			return chatRoundResult{}, ctx.Err()
+			return ChatResult{}, ctx.Err()
 		}
 		started := false
 		emit := func(s string) {
@@ -50,13 +50,13 @@ func (c *Client) withRetry(ctx context.Context, do func(emit func(string)) (chat
 		lastErr = err
 		// Do not retry once tokens have reached the caller, or for non-transient errors.
 		if started || !isRetryable(err) || attempt == llmMaxRetries {
-			return chatRoundResult{}, err
+			return ChatResult{}, err
 		}
 		select {
 		case <-ctx.Done():
-			return chatRoundResult{}, ctx.Err()
+			return ChatResult{}, ctx.Err()
 		case <-time.After(llmRetryBaseDelay << attempt):
 		}
 	}
-	return chatRoundResult{}, lastErr
+	return ChatResult{}, lastErr
 }

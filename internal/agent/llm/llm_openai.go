@@ -60,31 +60,39 @@ type openAIToolCallAcc struct {
 	args strings.Builder
 }
 
-func (c *Client) chatOpenAI(ctx context.Context, messages []Message, tools []Tool, emit func(string)) (chatRoundResult, error) {
+type openaiModel struct {
+	cfg    Config
+	client *http.Client
+}
+
+func (m *openaiModel) Chat(ctx context.Context, messages []Message, tools []Tool, emit func(string)) (ChatResult, error) {
+	if emit == nil {
+		emit = func(string) {}
+	}
 	body, err := json.Marshal(openAIChatRequest{
-		Model:         c.cfg.Model,
+		Model:         m.cfg.Model,
 		Messages:      messages,
 		Tools:         tools,
 		Stream:        true,
 		StreamOptions: &openAIStreamOptions{IncludeUsage: true},
 	})
 	if err != nil {
-		return chatRoundResult{}, err
+		return ChatResult{}, err
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.cfg.BaseURL+"/v1/chat/completions", bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, m.cfg.BaseURL+"/v1/chat/completions", bytes.NewReader(body))
 	if err != nil {
-		return chatRoundResult{}, err
+		return ChatResult{}, err
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "text/event-stream")
-	req.Header.Set("Authorization", "Bearer "+c.cfg.APIKey)
-	resp, err := c.client.Do(req)
+	req.Header.Set("Authorization", "Bearer "+m.cfg.APIKey)
+	resp, err := m.client.Do(req)
 	if err != nil {
-		return chatRoundResult{}, err
+		return ChatResult{}, err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return chatRoundResult{}, httpError(resp)
+		return ChatResult{}, httpError(resp)
 	}
 
 	out := Message{Role: "assistant"}
@@ -135,7 +143,7 @@ func (c *Client) chatOpenAI(ctx context.Context, messages []Message, tools []Too
 		return false, nil
 	})
 	if err != nil {
-		return chatRoundResult{}, err
+		return ChatResult{}, err
 	}
 
 	out.Content = contentB.String()
@@ -150,5 +158,5 @@ func (c *Client) chatOpenAI(ctx context.Context, messages []Message, tools []Too
 			},
 		})
 	}
-	return chatRoundResult{msg: out, usage: usage, model: respModel}, nil
+	return ChatResult{Message: out, Usage: usage, Model: respModel}, nil
 }

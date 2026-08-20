@@ -55,52 +55,65 @@ func (c Config) normalized() Config {
 	return out
 }
 
-// Client calls a chat-completion API (OpenAI-compatible or Anthropic).
-type Client struct {
-	cfg    Config
-	client *http.Client
+// Model is the LLM transport (the ChatModel adapter). An implementation speaks
+// one provider's wire format and streams tokens. It MUST NOT execute tools —
+// the runner owns dispatch (whitelist → write-path → HITL).
+type Model interface {
+	Chat(ctx context.Context, messages []Message, tools []Tool, emit func(string)) (ChatResult, error)
 }
 
+// Client wraps a Model with retries and latency accounting.
+type Client struct {
+	cfg   Config
+	model Model
+}
+
+// NewClient picks the OpenAI-compatible or Anthropic adapter from cfg.Provider.
 func NewClient(cfg Config) *Client {
-	return &Client{
-		cfg:    cfg.normalized(),
-		client: &http.Client{Timeout: 120 * time.Second},
+	cfg = cfg.normalized()
+	httpClient := &http.Client{Timeout: 120 * time.Second}
+	return NewClientWithModel(cfg, newModel(cfg, httpClient))
+}
+
+// NewClientWithModel uses a caller-supplied transport. Tests inject fakes;
+// a future Eino/Genkit wrapper would plug in here without touching runner.go.
+func NewClientWithModel(cfg Config, model Model) *Client {
+	cfg = cfg.normalized()
+	if model == nil {
+		model = newModel(cfg, nil)
 	}
+	return &Client{cfg: cfg, model: model}
+}
+
+func newModel(cfg Config, httpClient *http.Client) Model {
+	if httpClient == nil {
+		httpClient = &http.Client{Timeout: 120 * time.Second}
+	}
+	if cfg.Provider == providerAnthropic {
+		return &anthropicModel{cfg: cfg, client: httpClient}
+	}
+	return &openaiModel{cfg: cfg, client: httpClient}
 }
 
 // Chat sends one round and returns the assistant message (with any tool calls),
 // per-round latency, and token usage when the provider reports it in the stream.
 // It streams under the hood: onDelta (if non-nil) receives assistant text increments
 // as they arrive. Transient failures are retried — but only before the first delta is
-// emitted, so a partially streamed answer is never duplicated. The provider-specific
-// wire handling lives in chatOpenAI / chatAnthropic.
+// emitted, so a partially streamed answer is never duplicated.
 func (c *Client) Chat(ctx context.Context, messages []Message, tools []Tool, onDelta func(string)) (ChatResult, error) {
 	if c.cfg.APIKey == "" {
 		return ChatResult{}, fmt.Errorf("LLM API key is not configured")
 	}
 	start := time.Now()
-	var round chatRoundResult
-	var err error
-	if c.cfg.Provider == providerAnthropic {
-		round, err = c.withRetry(ctx, func(emit func(string)) (chatRoundResult, error) {
-			return c.chatAnthropic(ctx, messages, tools, emit)
-		}, onDelta)
-	} else {
-		round, err = c.withRetry(ctx, func(emit func(string)) (chatRoundResult, error) {
-			return c.chatOpenAI(ctx, messages, tools, emit)
-		}, onDelta)
-	}
+	round, err := c.withRetry(ctx, func(emit func(string)) (ChatResult, error) {
+		return c.model.Chat(ctx, messages, tools, emit)
+	}, onDelta)
 	if err != nil {
 		return ChatResult{}, err
 	}
-	model := round.model
-	if model == "" {
-		model = c.cfg.Model
+	if round.Model == "" {
+		round.Model = c.cfg.Model
 	}
-	return ChatResult{
-		Message:   round.msg,
-		Usage:     round.usage,
-		Model:     model,
-		LatencyMs: time.Since(start).Milliseconds(),
-	}, nil
+	round.LatencyMs = time.Since(start).Milliseconds()
+	return round, nil
 }

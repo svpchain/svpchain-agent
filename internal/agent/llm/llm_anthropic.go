@@ -48,10 +48,18 @@ type anthropicBlockAcc struct {
 	json strings.Builder
 }
 
-func (c *Client) chatAnthropic(ctx context.Context, messages []Message, tools []Tool, emit func(string)) (chatRoundResult, error) {
+type anthropicModel struct {
+	cfg    Config
+	client *http.Client
+}
+
+func (m *anthropicModel) Chat(ctx context.Context, messages []Message, tools []Tool, emit func(string)) (ChatResult, error) {
+	if emit == nil {
+		emit = func(string) {}
+	}
 	system, msgs := toAnthropicMessages(messages)
 	reqBody := map[string]any{
-		"model":      c.cfg.Model,
+		"model":      m.cfg.Model,
 		"max_tokens": anthropicMaxTokens,
 		"messages":   msgs,
 		"stream":     true,
@@ -64,23 +72,23 @@ func (c *Client) chatAnthropic(ctx context.Context, messages []Message, tools []
 	}
 	body, err := json.Marshal(reqBody)
 	if err != nil {
-		return chatRoundResult{}, err
+		return ChatResult{}, err
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.cfg.BaseURL+"/v1/messages", bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, m.cfg.BaseURL+"/v1/messages", bytes.NewReader(body))
 	if err != nil {
-		return chatRoundResult{}, err
+		return ChatResult{}, err
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "text/event-stream")
-	req.Header.Set("x-api-key", c.cfg.APIKey)
+	req.Header.Set("x-api-key", m.cfg.APIKey)
 	req.Header.Set("anthropic-version", anthropicVersion)
-	resp, err := c.client.Do(req)
+	resp, err := m.client.Do(req)
 	if err != nil {
-		return chatRoundResult{}, err
+		return ChatResult{}, err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return chatRoundResult{}, httpError(resp)
+		return ChatResult{}, httpError(resp)
 	}
 
 	out := Message{Role: "assistant"}
@@ -131,7 +139,7 @@ func (c *Client) chatAnthropic(ctx context.Context, messages []Message, tools []
 		return false, nil
 	})
 	if err != nil {
-		return chatRoundResult{}, err
+		return ChatResult{}, err
 	}
 
 	out.Content = contentB.String()
@@ -156,7 +164,7 @@ func (c *Client) chatAnthropic(ctx context.Context, messages []Message, tools []
 	if usage.TotalTokens == 0 && (usage.PromptTokens > 0 || usage.CompletionTokens > 0) {
 		usage.TotalTokens = usage.PromptTokens + usage.CompletionTokens
 	}
-	return chatRoundResult{msg: out, usage: usage, model: respModel}, nil
+	return ChatResult{Message: out, Usage: usage, Model: respModel}, nil
 }
 
 // toAnthropicMessages converts OpenAI-shaped messages into Anthropic's (system, messages)

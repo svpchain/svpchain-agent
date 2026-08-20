@@ -120,11 +120,14 @@ export default {
             send: 'Send',
             cancel: 'Cancel',
             newChat: 'New chat',
-            deleteChat: 'Delete this conversation',
+            deleteChat: 'Delete conversation',
         },
         session: {
             placeholder: 'Conversations',
             untitled: 'New conversation',
+        },
+        chain: {
+            testnet: 'Testnet ({id})',
         },
         status: {
             label: 'Status',

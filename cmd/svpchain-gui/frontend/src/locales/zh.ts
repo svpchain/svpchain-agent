@@ -120,11 +120,14 @@ export default {
             send: '发送',
             cancel: '取消',
             newChat: '新对话',
-            deleteChat: '删除当前对话',
+            deleteChat: '删除对话',
         },
         session: {
             placeholder: '历史对话',
             untitled: '新对话',
+        },
+        chain: {
+            testnet: '测试网 ({id})',
         },
         status: {
             label: '执行状态',

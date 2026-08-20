@@ -161,6 +161,8 @@ onMounted(async () => {
           </button>
         </nav>
 
+        <div id="sidebar-sessions" class="sidebar-sessions"/>
+
         <div class="sidebar-footer">
           <button
               type="button"
@@ -200,7 +202,7 @@ onMounted(async () => {
 
       <main class="main-content">
         <div v-show="activeTab === 'assistant'" class="tab-panel tab-panel--assistant">
-          <AssistantTab :entries="entries" @status="setStatus"/>
+          <AssistantTab :entries="entries" @status="setStatus" @focus-assistant="activeTab = 'assistant'"/>
         </div>
         <div v-show="activeTab === 'agents'" class="tab-panel tab-panel--scroll">
           <AgentsTab @status="setStatus"/>
@@ -333,8 +335,7 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  flex: 1;
-  min-height: 0;
+  flex-shrink: 0;
 }
 
 .nav-item {
@@ -395,6 +396,14 @@ onMounted(async () => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.sidebar-sessions {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .sidebar-footer {

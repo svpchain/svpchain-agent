@@ -3,12 +3,16 @@ import AgentView from '../AgentView.vue'
 import type {Entry} from '../types'
 
 defineProps<{ entries: Entry[] }>()
-const emit = defineEmits<{ status: [msg: string] }>()
+const emit = defineEmits<{ status: [msg: string]; 'focus-assistant': [] }>()
 </script>
 
 <template>
   <div class="assistant-tab">
-    <AgentView :entries="entries" @status="emit('status', $event)"/>
+    <AgentView
+        :entries="entries"
+        @status="emit('status', $event)"
+        @focus-assistant="emit('focus-assistant')"
+    />
   </div>
 </template>
 

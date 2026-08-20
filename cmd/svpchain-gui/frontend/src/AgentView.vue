@@ -6,9 +6,11 @@ import * as App from '../wailsjs/go/desktop/App'
 import {desktop} from '../wailsjs/go/models'
 import {EventsOn} from '../wailsjs/runtime/runtime'
 import {renderMarkdown} from './markdown'
+import {useAppTheme} from './composables/useAppTheme'
 import type {Entry} from './types'
 
 const {t, tm} = useI18n()
+const {sidebarCollapsed} = useAppTheme()
 
 // Rendered markdown links must not navigate the webview; only http(s) URLs
 // are handed to the system browser.
@@ -23,7 +25,7 @@ function onBubbleClick(e: MouseEvent) {
 type ChatLine = { role: 'user' | 'assistant' | 'step'; text: string; kind?: string }
 
 const props = defineProps<{ entries: Entry[] }>()
-const emit = defineEmits<{ status: [msg: string] }>()
+const emit = defineEmits<{ status: [msg: string]; 'focus-assistant': [] }>()
 
 const chainId = ref('')
 const input = ref('')
@@ -42,6 +44,19 @@ const promptChips = computed(() => {
   const raw = tm('assistant.chips')
   return Array.isArray(raw) ? (raw as string[]) : []
 })
+
+const chainOptions = computed(() =>
+    props.entries.map((e) => ({label: chainLabel(e.ChainID), value: e.ChainID})),
+)
+
+function chainLabel(id: string) {
+  if (id === 'svp-2517-1') return t('assistant.chain.testnet', {id})
+  return id
+}
+
+function focusAssistant() {
+  emit('focus-assistant')
+}
 
 const isMultilineInput = computed(() => input.value.includes('\n'))
 
@@ -187,7 +202,10 @@ async function loadTranscript(id: string) {
 }
 
 async function switchSession(id: string) {
-  if (running.value || !id || id === currentSessionId.value) return
+  if (running.value || !id || id === currentSessionId.value) {
+    focusAssistant()
+    return
+  }
   try {
     await App.AgentSwitchSession(id)
     currentSessionId.value = id
@@ -196,6 +214,7 @@ async function switchSession(id: string) {
       await persistChainID(sess.chain_id)
     }
     await loadTranscript(id)
+    focusAssistant()
   } catch (err) {
     report(String(err))
   }
@@ -208,17 +227,21 @@ async function newSession() {
     lines.value = []
     streamingIdx = -1
     await refreshSessions()
+    focusAssistant()
   } catch (err) {
     report(String(err))
   }
 }
 
-async function deleteSession() {
-  if (running.value || !currentSessionId.value) return
+async function deleteSession(id: string) {
+  if (running.value || !id) return
+  const wasCurrent = id === currentSessionId.value
   try {
-    await App.AgentDeleteSession(currentSessionId.value)
-    lines.value = []
-    streamingIdx = -1
+    await App.AgentDeleteSession(id)
+    if (wasCurrent) {
+      lines.value = []
+      streamingIdx = -1
+    }
     await refreshSessions()
   } catch (err) {
     report(String(err))
@@ -339,52 +362,76 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="assistant-pane">
-    <header class="chat-header">
+  <Teleport to="#sidebar-sessions" defer>
+    <div class="session-rail" :class="{ 'session-rail--collapsed': sidebarCollapsed }">
       <n-select
           :value="chainId || null"
           data-tour="assistant-chain"
           :placeholder="t('assistant.ph.chainId')"
-          :options="entries.map((e) => ({ label: e.ChainID, value: e.ChainID }))"
+          :options="chainOptions"
           size="small"
           class="chain-select"
           :disabled="running"
+          :consistent-menu-width="true"
           @update:value="persistChainID"
       />
-      <div class="session-controls">
-        <n-select
-            v-if="sessions.length > 0"
-            :value="currentSessionId || null"
-            :placeholder="t('assistant.session.placeholder')"
-            :options="sessions.map((s) => ({ label: s.title || t('assistant.session.untitled'), value: s.id }))"
-            size="small"
-            class="session-select"
-            :disabled="running"
-            @update:value="switchSession"
-        />
-        <n-button size="small" quaternary :disabled="running" @click="newSession">
-          {{ t('assistant.btn.newChat') }}
-        </n-button>
-        <n-button
-            v-if="currentSessionId"
-            size="small"
-            quaternary
-            :disabled="running"
-            :aria-label="t('assistant.btn.deleteChat')"
-            :title="t('assistant.btn.deleteChat')"
-            @click="deleteSession"
+      <button
+          type="button"
+          class="new-chat-btn"
+          :disabled="running"
+          :title="t('assistant.btn.newChat')"
+          @click="newSession"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <path d="M12 5v14M5 12h14" stroke-linecap="round"/>
+        </svg>
+        <span v-show="!sidebarCollapsed">+ {{ t('assistant.btn.newChat') }}</span>
+      </button>
+      <div v-show="!sidebarCollapsed" class="session-list">
+        <div
+            v-for="sess in sessions"
+            :key="sess.id"
+            class="session-item"
+            :class="{ 'session-item--active': sess.id === currentSessionId }"
         >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="trash-icon">
-            <path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" stroke-linecap="round"
+          <button
+              type="button"
+              class="session-open"
+              :disabled="running"
+              :title="sess.title || t('assistant.session.untitled')"
+              @click="switchSession(sess.id)"
+          >
+            <svg class="session-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"
+                 aria-hidden="true">
+              <path
+                  d="M12 3c5.523 0 10 3.582 10 8 0 2.4-1.2 4.56-3.12 6.08L21 21l-4.28-1.42C15.56 20.18 13.82 20.5 12 20.5 6.477 20.5 2 16.918 2 11.5S6.477 3 12 3z"
                   stroke-linejoin="round"/>
-          </svg>
-        </n-button>
+            </svg>
+            <span class="session-title">{{ sess.title || t('assistant.session.untitled') }}</span>
+          </button>
+          <button
+              type="button"
+              class="session-delete"
+              :disabled="running"
+              :aria-label="t('assistant.btn.deleteChat')"
+              :title="t('assistant.btn.deleteChat')"
+              @click="deleteSession(sess.id)"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" stroke-linecap="round"
+                    stroke-linejoin="round"/>
+            </svg>
+          </button>
+        </div>
       </div>
-      <span v-if="running" class="running-badge">
-        <span class="running-pulse"/>
-        {{ runStatus || t('assistant.status.running') }}
-      </span>
-    </header>
+    </div>
+  </Teleport>
+
+  <div class="assistant-pane">
+    <div v-if="running" class="running-bar">
+      <span class="running-pulse"/>
+      {{ runStatus || t('assistant.status.running') }}
+    </div>
 
     <n-scrollbar ref="scrollRef" class="chat-log">
       <div class="chat-inner">
@@ -491,51 +538,185 @@ onUnmounted(() => {
   background: var(--bg-base);
 }
 
-.chat-header {
-  flex-shrink: 0;
+.session-rail {
   display: flex;
+  flex-direction: column;
+  gap: 8px;
+  height: 100%;
+  min-height: 0;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.session-rail--collapsed {
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 12px 24px;
-  border-bottom: 1px solid var(--border-subtle);
-  background: var(--bg-base);
+  padding-top: 8px;
 }
 
 .chain-select {
-  max-width: 200px;
+  width: 100%;
   flex-shrink: 0;
 }
 
-.session-controls {
+.session-rail--collapsed .chain-select {
+  display: none;
+}
+
+.session-rail :deep(.n-base-selection) {
+  --n-color: var(--bg-hover) !important;
+  --n-color-active: var(--bg-hover) !important;
+}
+
+.new-chat-btn {
   display: flex;
   align-items: center;
-  gap: 6px;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.session-rail--collapsed .new-chat-btn {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+}
+
+.new-chat-btn:hover:not(:disabled) {
+  background: var(--bg-hover);
+}
+
+.new-chat-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.new-chat-btn svg {
+  width: 16px;
+  height: 16px;
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.session-list {
   flex: 1;
-  min-width: 0;
-  justify-content: flex-end;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
-.session-select {
-  max-width: 220px;
-  min-width: 120px;
+.session-item {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  width: 100%;
+  padding-right: 2px;
+  border-radius: var(--radius-sm);
+  transition: background 0.15s ease;
 }
 
-.trash-icon {
-  width: 15px;
-  height: 15px;
+.session-item:hover,
+.session-item--active {
+  background: var(--bg-hover);
 }
 
-.running-badge {
-  display: inline-flex;
+.session-open {
+  display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 12px;
-  color: var(--accent);
-  max-width: 50%;
+  flex: 1;
+  min-width: 0;
+  padding: 8px 8px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.session-item:hover .session-open,
+.session-item--active .session-open {
+  color: var(--text-primary);
+}
+
+.session-open:disabled,
+.session-delete:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.session-icon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  opacity: 0.75;
+}
+
+.session-title {
+  flex: 1;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.session-delete {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  opacity: 0;
+  flex-shrink: 0;
+  transition: opacity 0.12s ease, background 0.12s ease, color 0.12s ease;
+}
+
+.session-item:hover .session-delete,
+.session-item--active .session-delete,
+.session-delete:focus-visible {
+  opacity: 1;
+}
+
+.session-delete:hover:not(:disabled) {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+}
+
+.session-delete svg {
+  width: 14px;
+  height: 14px;
+}
+
+.running-bar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 16px 0;
+  font-size: 12px;
+  color: var(--accent);
 }
 
 .running-pulse {

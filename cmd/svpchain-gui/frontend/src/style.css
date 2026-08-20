@@ -28,7 +28,7 @@
     --shadow-md: 0 4px 24px rgba(0, 0, 0, 0.08);
     --shadow-input: 0 0 0 1px var(--border-default), 0 2px 12px rgba(0, 0, 0, 0.06);
 
-    --sidebar-width: 220px;
+    --sidebar-width: 240px;
     --sidebar-width-collapsed: 56px;
     --titlebar-height: 38px;
     --statusbar-height: 28px;

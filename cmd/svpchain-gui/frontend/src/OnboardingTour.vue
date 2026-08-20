@@ -43,7 +43,7 @@ const steps: TourStep[] = [
     tab: 'assistant',
     titleKey: 'onboarding.step3Title',
     descKey: 'onboarding.step3Desc',
-    placement: 'bottom',
+    placement: 'right',
   },
 ]
 

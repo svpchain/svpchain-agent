@@ -125,6 +125,42 @@ func TestBroadcastMutatedSignedTx(t *testing.T) {
 	require.Contains(t, err.Error(), "altered")
 }
 
+func TestBroadcastMayDropDiagnosticFields(t *testing.T) {
+	tr := New()
+	require.NoError(t, tr.After("build_swap", nil, evmBuild))
+	require.NoError(t, tr.Before("sign_evm_transaction", map[string]any{
+		"payload": map[string]any{"evm_chain_id": "2517", "to": "0x1111111111111111111111111111111111111111", "value": "1", "nonce": "0"},
+	}))
+	require.NoError(t, tr.After("sign_evm_transaction", nil,
+		`{"signed_tx":{"raw_tx_hex":"0xABC","tx_hash":"0x1","v":"0","r":"11","s":"22"}}`))
+
+	require.NoError(t, tr.Before("broadcast_evm_tx", map[string]any{
+		"client_id": "9f6a7b2d-5e4c-4b8f-9d3f-1c5e6f7a8b9c",
+		"signed_tx": map[string]any{"raw_tx_hex": "0xabc", "tx_hash": "0x1"},
+	}))
+}
+
+func TestBroadcastRequiresRawBytes(t *testing.T) {
+	tr := New()
+	require.NoError(t, tr.After("build_swap", nil, evmBuild))
+	require.NoError(t, tr.After("sign_evm_transaction", nil,
+		`{"signed_tx":{"raw_tx_hex":"0xabc","tx_hash":"0x1","v":"0"}}`))
+	err := tr.Before("broadcast_evm_tx", map[string]any{
+		"signed_tx": map[string]any{"tx_hash": "0x1", "v": "0"},
+	})
+	require.ErrorAs(t, err, new(*Violation))
+}
+
+func TestBroadcastCosmosDropsSignatureFields(t *testing.T) {
+	tr := New()
+	require.NoError(t, tr.After("build_bank_send", nil, cosmosBuild))
+	require.NoError(t, tr.After("sign_transaction", nil,
+		`{"signed_tx":{"tx_raw_bytes_b64":"raw","signature_b64":"sig","pub_key_b64":"pk"}}`))
+	require.NoError(t, tr.Before("broadcast_signed_tx", map[string]any{
+		"signed_tx": map[string]any{"tx_raw_bytes_b64": "raw"},
+	}))
+}
+
 func TestApprovalRequiredDoesNotRecord(t *testing.T) {
 	tr := New()
 	require.NoError(t, tr.After("lendora_build_supply_tx", nil, `{"approval_required":{"tool":"build_erc20_approve"}}`))

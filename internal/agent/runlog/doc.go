@@ -6,8 +6,9 @@
 //
 // Each line is one JSON Run with run_id, steps, llm_rounds (latency, tokens, truncated
 // reply + tool_calls), prompt_sha256 + skill names (prompt body is never stored), usage
-// totals, outcome (success|failed|stopped|rejected|cancelled), and tx_hashes extracted
-// from broadcast tool results.
+// totals, outcome (success|failed|stopped|rejected|cancelled), session_id,
+// tx_hashes extracted from broadcast tool results, tx_checks from a CometBFT
+// RPC /tx?hash= lookup, and intent_checks matching build_* args to tx events.
 //
 // Disable via Settings → Basic → "Save assistant run logs" (agent_run_log_disabled in prefs.json).
 //

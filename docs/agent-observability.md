@@ -81,9 +81,13 @@ Report **security metrics** (whitelist rejections, signer cross-checks) separate
 ### Record shape (one JSON object per line)
 
 Fields include: `run_id`, timestamps, `chain_id`, `model`, redacted `user_message`, `outcome`, `answer`, `error`,
-`tx_hashes`, `round_count`, `prompt_sha256` (SHA-256 of the assembled system prompt — the body is never stored),
-`skills` (injected skill names), `llm_rounds[]` (latency, tokens, truncated `reply` + `tool_calls`), and `steps[]`
-(think/tool/error with timing).
+`session_id` / `session_title` (the multi-turn conversation this run belongs to), `tx_hashes`, `tx_checks` (CometBFT
+RPC `GET /tx?hash=0x…`: `confirmed` / `failed` / `pending` / `error` / `skipped`), `intent_checks` (build_* / delegation args scored against
+confirmed tx events: `matched` / `mismatch` / `included` / `unobserved` / `skipped` — event fields such as
+recipient or ticker, not an order-book or position snapshot; EVM txs with no comparable events score `included`),
+`round_count`, `prompt_sha256` (SHA-256 of the assembled
+system prompt — the body is never stored), `skills` (injected skill names), `llm_rounds[]` (latency, tokens, truncated
+`reply` + `tool_calls`), and `steps[]` (think/tool/error with timing).
 
 ### `outcome` values
 
@@ -105,7 +109,11 @@ Disable: Settings UI or `"agent_run_log_disabled": true` in `prefs.json`.
 ### Inspect
 
 **GUI:** sidebar **Runs** — filter by outcome, open a run for the tool timeline, LLM round reply/`tool_calls`, skill
-names, and tx hashes. Delete one run or clear the log from this tab. Settings → Basic → **View runs** jumps there.
+names, tx hashes (with on-chain status), and **intent checks** (whether bank-send recipients / order tickers appear in
+tx events). **Open conversation** jumps to that session in Assistant. **Recheck on
+chain** polls CometBFT RPC (`/tx?hash=0x…`, testnet `https://rpc-testnet.svpchain.org`) again if the first lookup was
+pending. This is not the Agent Hub URL. Delete one run or clear
+the log from this tab. Settings → Basic → **View runs** jumps there.
 
 ```bash
 tail -1 ~/Library/Application\ Support/com.svpchain.agent/agent_runs.jsonl | jq .
@@ -142,7 +150,7 @@ Package: `internal/agent/eval/`.
 | Keys stay local    | Careful redaction | Default local                   |
 | Team dashboard     | Yes               | Optional self-hosted Langfuse   |
 
-**Recommended path:** JSONL + guard eval + weekly failed-run review → later mock MCP + indexer outcome checks.
+**Recommended path:** JSONL + Runs tab (session link + RPC `tx_checks` / `intent_checks`) + guard eval → later mock MCP.
 
 ---
 
@@ -160,7 +168,6 @@ Package: `internal/agent/eval/`.
 
 - Mock MCP replay for CI
 - LLM eval cases (expected tools/args)
-- Post-broadcast indexer verification
 - JSONL aggregation scripts / weekly report
 
 ---
@@ -169,6 +176,7 @@ Package: `internal/agent/eval/`.
 
 ```
 internal/agent/runlog/
+internal/chainrpc/
 internal/agent/eval/
 internal/agent/runner.go
 internal/desktop/agent.go
@@ -184,5 +192,5 @@ scripts/agent-eval.sh
 
 | Date    | Notes                                               |
 |---------|-----------------------------------------------------|
-| 2026-08 | GUI Runs tab; LLM generation span (truncated reply/tool_calls, prompt hash) |
+| 2026-08 | GUI Runs tab; generation span; session_id; RPC tx_checks; intent_checks |
 | 2026-06 | Initial: JSONL run log, guard eval, settings toggle |

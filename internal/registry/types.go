@@ -166,8 +166,40 @@ type AccountInfo struct {
 
 // TxResult is a broadcast or lookup outcome.
 type TxResult struct {
-	TxHash string `json:"txhash"`
-	Code   uint32 `json:"code"`
-	RawLog string `json:"raw_log"`
-	Height string `json:"height"`
+	TxHash string      `json:"txhash"`
+	Code   uint32      `json:"code"`
+	RawLog string      `json:"raw_log"`
+	Height string      `json:"height"`
+	Events []AbciEvent `json:"events,omitempty"`
+	Logs   []TxLog     `json:"logs,omitempty"`
+}
+
+// AbciEvent is one Tendermint/ABCI event from a tx response.
+type AbciEvent struct {
+	Type       string          `json:"type"`
+	Attributes []AbciAttribute `json:"attributes"`
+}
+
+// AbciAttribute is one event key/value.
+type AbciAttribute struct {
+	Key   string `json:"key"`
+	Value string `json:"value"`
+	Index bool   `json:"index,omitempty"`
+}
+
+// TxLog is one message log inside tx_response.logs.
+type TxLog struct {
+	Events []AbciEvent `json:"events"`
+}
+
+// AllEvents prefers top-level tx_response.events and falls back to logs[].events.
+func (r TxResult) AllEvents() []AbciEvent {
+	if len(r.Events) > 0 {
+		return r.Events
+	}
+	var out []AbciEvent
+	for _, log := range r.Logs {
+		out = append(out, log.Events...)
+	}
+	return out
 }

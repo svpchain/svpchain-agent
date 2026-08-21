@@ -34,6 +34,38 @@ func Delete(id string) error {
 	return writeAll(path, kept)
 }
 
+func patchRun(id string, fn func(*Run) error) (Run, error) {
+	id = strings.TrimSpace(id)
+	if id == "" {
+		return Run{}, errRunIDRequired
+	}
+	persistMu.Lock()
+	defer persistMu.Unlock()
+
+	path := LogPath()
+	runs, err := ReadAll(path)
+	if err != nil {
+		return Run{}, err
+	}
+	idx := -1
+	for i := range runs {
+		if runs[i].RunID == id {
+			idx = i
+			break
+		}
+	}
+	if idx < 0 {
+		return Run{}, fmt.Errorf("run not found")
+	}
+	if err := fn(&runs[idx]); err != nil {
+		return Run{}, err
+	}
+	if err := writeAll(path, runs); err != nil {
+		return Run{}, err
+	}
+	return runs[idx], nil
+}
+
 // DeleteAll truncates the run log file.
 func DeleteAll() error {
 	persistMu.Lock()

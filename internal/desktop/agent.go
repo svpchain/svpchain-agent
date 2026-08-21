@@ -13,6 +13,7 @@ import (
 	"github.com/svpchain/svpchain-agent/internal/agent/llm"
 	"github.com/svpchain/svpchain-agent/internal/agent/runlog"
 	"github.com/svpchain/svpchain-agent/internal/agent/skills"
+	"github.com/svpchain/svpchain-agent/internal/chainrpc"
 	"github.com/svpchain/svpchain-agent/internal/i18n"
 	"github.com/svpchain/svpchain-agent/internal/manage"
 	"github.com/svpchain/svpchain-agent/internal/prefs"
@@ -189,13 +190,16 @@ func (a *App) AgentSend(chainID, message string) error {
 		})
 
 		answer, err := agent.Run(ctx, agent.Config{
-			ChainID:     chainID,
-			RemoteURL:   remoteURL,
-			AgentHubURL: settings.AgentHubURL,
-			Confirm:     a.confirmHook,
-			RunLog:      runlog.New(!settings.AgentRunLogDisabled),
-			LLM:         llmCfg,
-			Prior:       prior,
+			ChainID:      chainID,
+			RemoteURL:    remoteURL,
+			AgentHubURL:  settings.AgentHubURL,
+			ChainRPCURL:  chainrpc.URLForChain(chainID),
+			Confirm:      a.confirmHook,
+			RunLog:       runlog.New(!settings.AgentRunLogDisabled),
+			LLM:          llmCfg,
+			Prior:        prior,
+			SessionID:    sess.ID,
+			SessionTitle: sess.Title,
 			OnTranscript: func(runID string, msgs []llm.Message) {
 				if sess.ID != "" {
 					_ = hist.Append(sess.ID, runID, msgs)

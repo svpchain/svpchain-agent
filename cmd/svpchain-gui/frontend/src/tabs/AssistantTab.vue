@@ -10,6 +10,7 @@ const agentRef = ref<InstanceType<typeof AgentView> | null>(null)
 
 defineExpose({
   startDraft: () => agentRef.value?.startDraft(),
+  openSession: (id: string) => agentRef.value?.switchSession(id),
 })
 </script>
 

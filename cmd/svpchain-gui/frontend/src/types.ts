@@ -72,6 +72,25 @@ export type AgentLLMRound = {
     tool_calls?: {id?: string; name: string; args?: string}[]
 }
 
+export type AgentTxCheck = {
+    hash: string
+    status: string
+    code?: number
+    height?: string
+    raw_log?: string
+    error?: string
+    checked_at?: string
+}
+
+export type AgentIntentCheck = {
+    kind: string
+    tool: string
+    expect?: Record<string, string>
+    status: string
+    detail?: string
+    observed?: Record<string, string>
+}
+
 export type AgentRun = {
     run_id: string
     started_at: string
@@ -84,7 +103,11 @@ export type AgentRun = {
     outcome: AgentRunOutcome
     answer?: string
     error?: string
+    session_id?: string
+    session_title?: string
     tx_hashes?: string[]
+    tx_checks?: AgentTxCheck[]
+    intent_checks?: AgentIntentCheck[]
     round_count: number
     usage?: {
         prompt_tokens?: number

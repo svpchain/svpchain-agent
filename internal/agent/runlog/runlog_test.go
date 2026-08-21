@@ -1,7 +1,9 @@
 package runlog
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"strings"
 	"testing"
@@ -184,4 +186,86 @@ func TestDeleteAll_removesFile(t *testing.T) {
 	_, statErr := os.Stat(path)
 	require.True(t, os.IsNotExist(statErr))
 	require.NoError(t, DeleteAll(), "clearing an empty log must succeed")
+}
+
+func TestSession_recordsSessionID(t *testing.T) {
+	dir := t.TempDir()
+	path := dir + "/agent_runs.jsonl"
+	SetPathOverride(path)
+	t.Cleanup(func() { SetPathOverride("") })
+
+	rec := New(true)
+	sess := rec.Begin(Meta{
+		ChainID:      "svp-2517-1",
+		UserMessage:  "hi",
+		SessionID:    "sess-1",
+		SessionTitle: "查价格",
+	})
+	sess.Complete("ok", nil)
+	runs, err := ReadAll(path)
+	require.NoError(t, err)
+	require.Equal(t, "sess-1", runs[0].SessionID)
+	require.Equal(t, "查价格", runs[0].SessionTitle)
+}
+
+func TestLCDQueryHash(t *testing.T) {
+	h := "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"
+	require.Equal(t, strings.ToUpper(h), LCDQueryHash("0x"+h))
+	require.Equal(t, strings.ToUpper(h), LCDQueryHash(h))
+}
+
+func TestVerifyTxs_andRecheck(t *testing.T) {
+	dir := t.TempDir()
+	path := dir + "/agent_runs.jsonl"
+	SetPathOverride(path)
+	t.Cleanup(func() { SetPathOverride("") })
+
+	hash := "0xabcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"
+	rec := New(true)
+	sess := rec.Begin(Meta{ChainID: "svp-2517-1", UserMessage: "broadcast"})
+	build := sess.RecordTool("build_bank_send", `{"recipient":"svp1abc","amount":"12"}`)
+	build(true, `{"summary":{"recipient":"svp1abc"}}`, "")
+	done := sess.RecordTool("broadcast_signed_tx", `{}`)
+	done(true, `{"tx_hash":"`+hash+`"}`, "")
+
+	calls := 0
+	lookup := func(_ context.Context, got string) (ChainTx, error) {
+		calls++
+		require.Equal(t, hash, got)
+		if calls == 1 {
+			return ChainTx{}, fmt.Errorf("chain REST: 404: not found")
+		}
+		return ChainTx{
+			Code:   0,
+			Height: "12",
+			Events: []ChainEvent{{
+				Type:  "transfer",
+				Attrs: map[string]string{"recipient": "svp1abc"},
+			}},
+		}, nil
+	}
+	sess.VerifyTxs(context.Background(), lookup)
+	require.Equal(t, TxPending, sess.run.TxChecks[0].Status)
+	require.Equal(t, IntentUnobserved, sess.run.IntentChecks[0].Status)
+	sess.Complete("ok", nil)
+
+	rechecked, err := RecheckTxs(context.Background(), sess.RunID(), lookup)
+	require.NoError(t, err)
+	require.Equal(t, TxConfirmed, rechecked.TxChecks[0].Status)
+	require.Equal(t, "12", rechecked.TxChecks[0].Height)
+	require.Equal(t, IntentMatched, rechecked.IntentChecks[0].Status)
+
+	skipped, err := RecheckTxs(context.Background(), sess.RunID(), nil)
+	require.NoError(t, err)
+	require.Equal(t, TxSkipped, skipped.TxChecks[0].Status)
+}
+
+func TestClassifyTx_failedAndError(t *testing.T) {
+	hash := "0x" + strings.Repeat("ab", 32)
+	failed := classifyTx(hash, ChainTx{Code: 5, Height: "9", RawLog: "out of gas"}, nil)
+	require.Equal(t, TxFailed, failed.Status)
+	require.Equal(t, uint32(5), failed.Code)
+
+	errored := classifyTx(hash, ChainTx{}, fmt.Errorf("connection refused"))
+	require.Equal(t, TxError, errored.Status)
 }

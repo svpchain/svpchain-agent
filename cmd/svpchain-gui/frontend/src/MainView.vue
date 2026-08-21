@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import {computed, onMounted, ref, watch} from 'vue'
+import {computed, nextTick, onMounted, ref, watch} from 'vue'
 import {useI18n} from 'vue-i18n'
 import {setLocale} from './i18n'
 import {useAppTheme} from './composables/useAppTheme'
@@ -86,6 +86,12 @@ function openRuns() {
   navExpanded.value = true
   activeTab.value = 'runs'
   runsTabRef.value?.refresh()
+}
+
+function openAssistantSession(id: string) {
+  navExpanded.value = true
+  activeTab.value = 'assistant'
+  nextTick(() => assistantTabRef.value?.openSession(id))
 }
 
 function toggleMaximise() {
@@ -264,7 +270,12 @@ onMounted(async () => {
           />
         </div>
         <div v-show="activeTab === 'runs'" class="tab-panel tab-panel--runs">
-          <RunsTab ref="runsTabRef" :active="activeTab === 'runs'" @status="setStatus"/>
+          <RunsTab
+              ref="runsTabRef"
+              :active="activeTab === 'runs'"
+              @status="setStatus"
+              @open-session="openAssistantSession"
+          />
         </div>
         <div v-show="activeTab === 'about'" class="tab-panel tab-panel--scroll">
           <AboutTab/>

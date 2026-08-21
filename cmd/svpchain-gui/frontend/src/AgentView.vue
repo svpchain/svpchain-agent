@@ -370,7 +370,7 @@ onUnmounted(() => {
   unsubs = []
 })
 
-defineExpose({startDraft})
+defineExpose({startDraft, switchSession})
 </script>
 
 <template>

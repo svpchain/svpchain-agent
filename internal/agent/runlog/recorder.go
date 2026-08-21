@@ -92,33 +92,39 @@ type UsageTotal struct {
 
 // Run is one assistant execution trace.
 type Run struct {
-	RunID        string     `json:"run_id"`
-	StartedAt    time.Time  `json:"started_at"`
-	FinishedAt   time.Time  `json:"finished_at,omitempty"`
-	ChainID      string     `json:"chain_id"`
-	RemoteURL    string     `json:"remote_url"`
-	Model        string     `json:"model,omitempty"`
-	Provider     string     `json:"provider,omitempty"`
-	UserMessage  string     `json:"user_message"`
-	Outcome      Outcome    `json:"outcome"`
-	Answer       string     `json:"answer,omitempty"`
-	Error        string     `json:"error,omitempty"`
-	TxHashes     []string   `json:"tx_hashes,omitempty"`
-	RoundCount   int        `json:"round_count"`
-	Usage        UsageTotal `json:"usage,omitempty"`
-	PromptSHA256 string     `json:"prompt_sha256,omitempty"`
-	Skills       []string   `json:"skills,omitempty"`
-	LLMRounds    []LLMRound `json:"llm_rounds,omitempty"`
-	Steps        []Step     `json:"steps"`
+	RunID        string        `json:"run_id"`
+	StartedAt    time.Time     `json:"started_at"`
+	FinishedAt   time.Time     `json:"finished_at,omitempty"`
+	ChainID      string        `json:"chain_id"`
+	RemoteURL    string        `json:"remote_url"`
+	Model        string        `json:"model,omitempty"`
+	Provider     string        `json:"provider,omitempty"`
+	UserMessage  string        `json:"user_message"`
+	Outcome      Outcome       `json:"outcome"`
+	Answer       string        `json:"answer,omitempty"`
+	Error        string        `json:"error,omitempty"`
+	SessionID    string        `json:"session_id,omitempty"`
+	SessionTitle string        `json:"session_title,omitempty"`
+	TxHashes     []string      `json:"tx_hashes,omitempty"`
+	TxChecks     []TxCheck     `json:"tx_checks,omitempty"`
+	IntentChecks []IntentCheck `json:"intent_checks,omitempty"`
+	RoundCount   int           `json:"round_count"`
+	Usage        UsageTotal    `json:"usage,omitempty"`
+	PromptSHA256 string        `json:"prompt_sha256,omitempty"`
+	Skills       []string      `json:"skills,omitempty"`
+	LLMRounds    []LLMRound    `json:"llm_rounds,omitempty"`
+	Steps        []Step        `json:"steps"`
 }
 
 // Meta describes a run before execution starts.
 type Meta struct {
-	ChainID     string
-	RemoteURL   string
-	Model       string
-	Provider    string
-	UserMessage string
+	ChainID      string
+	RemoteURL    string
+	Model        string
+	Provider     string
+	UserMessage  string
+	SessionID    string
+	SessionTitle string
 }
 
 // Recorder appends completed runs to a local JSONL file.
@@ -145,13 +151,15 @@ func (r *Recorder) Begin(meta Meta) *Session {
 	return &Session{
 		recorder: r,
 		run: Run{
-			RunID:       uuid.NewString(),
-			StartedAt:   time.Now().UTC(),
-			ChainID:     strings.TrimSpace(meta.ChainID),
-			RemoteURL:   strings.TrimSpace(meta.RemoteURL),
-			Model:       strings.TrimSpace(meta.Model),
-			Provider:    strings.TrimSpace(meta.Provider),
-			UserMessage: Redact(meta.UserMessage),
+			RunID:        uuid.NewString(),
+			StartedAt:    time.Now().UTC(),
+			ChainID:      strings.TrimSpace(meta.ChainID),
+			RemoteURL:    strings.TrimSpace(meta.RemoteURL),
+			Model:        strings.TrimSpace(meta.Model),
+			Provider:     strings.TrimSpace(meta.Provider),
+			UserMessage:  Redact(meta.UserMessage),
+			SessionID:    strings.TrimSpace(meta.SessionID),
+			SessionTitle: strings.TrimSpace(meta.SessionTitle),
 		},
 	}
 }

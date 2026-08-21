@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/99designs/keyring"
 
@@ -23,6 +24,7 @@ import (
 	"github.com/svpchain/svpchain-agent/internal/agent/skills"
 	"github.com/svpchain/svpchain-agent/internal/agent/step"
 	"github.com/svpchain/svpchain-agent/internal/agent/writepath"
+	"github.com/svpchain/svpchain-agent/internal/chainrpc"
 	"github.com/svpchain/svpchain-agent/internal/delegation"
 	"github.com/svpchain/svpchain-agent/internal/keystore"
 	"github.com/svpchain/svpchain-agent/internal/manage"
@@ -60,7 +62,11 @@ type Config struct {
 	RemoteURL string
 	// AgentHubURL is the chain's REST (grpc-gateway) endpoint, enabling the
 	// agent-discovery and delegation tools. Empty disables them.
+	// It is not used to look up run-log transaction hashes.
 	AgentHubURL string
+	// ChainRPCURL is the CometBFT RPC base used to look up broadcast tx
+	// hashes (GET /tx?hash=0x…). Empty falls back to chainrpc.URLForChain.
+	ChainRPCURL string
 	// Confirm is the HITL hook for grants and local sign_* calls.
 	// Nil, a decline, or a timeout all deny — nothing is signed or granted.
 	Confirm hitl.Func
@@ -77,6 +83,10 @@ type Config struct {
 	// message, assistant replies, and tool round-trips) with tool-call pairing
 	// already repaired, so the caller can persist them as history.
 	OnTranscript func(runID string, msgs []llm.Message)
+	// SessionID / SessionTitle attach this run to a multi-turn history
+	// conversation so the GUI can jump from a trace back to the chat.
+	SessionID    string
+	SessionTitle string
 }
 
 const maxAgentIterations = 25
@@ -87,15 +97,23 @@ var _ ToolObserver = (*runlog.Session)(nil)
 // Run executes one user message through the agent loop.
 func Run(ctx context.Context, cfg Config, userMessage string) (answer string, err error) {
 	var trace *runlog.Session
+	var chain *registry.Client
 	if cfg.RunLog != nil && cfg.RunLog.Enabled() {
 		trace = cfg.RunLog.Begin(runlog.Meta{
-			ChainID:     cfg.ChainID,
-			RemoteURL:   cfg.RemoteURL,
-			Model:       cfg.LLM.Model,
-			Provider:    cfg.LLM.Provider,
-			UserMessage: userMessage,
+			ChainID:      cfg.ChainID,
+			RemoteURL:    cfg.RemoteURL,
+			Model:        cfg.LLM.Model,
+			Provider:     cfg.LLM.Provider,
+			UserMessage:  userMessage,
+			SessionID:    cfg.SessionID,
+			SessionTitle: cfg.SessionTitle,
 		})
-		defer func() { trace.Complete(answer, err) }()
+		defer func() {
+			lookupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+			trace.VerifyTxs(lookupCtx, chainrpc.Lookup(resolveChainRPC(cfg)))
+			cancel()
+			trace.Complete(answer, err)
+		}()
 	}
 
 	emit := func(s Step) {
@@ -161,9 +179,9 @@ func Run(ctx context.Context, cfg Config, userMessage string) (answer string, er
 	}
 	deleg := &delegatecall.Service{Confirm: confirm}
 	if restURL := strings.TrimSpace(cfg.AgentHubURL); restURL != "" {
-		reg := registry.New(restURL)
-		deleg.Registry = reg
-		deleg.Lifecycle = &delegation.Lifecycle{Registry: reg, Priv: priv, ChainID: chainID}
+		chain = registry.New(restURL)
+		deleg.Registry = chain
+		deleg.Lifecycle = &delegation.Lifecycle{Registry: chain, Priv: priv, ChainID: chainID}
 	}
 	writes := writepath.New()
 	env := dispatchEnv{
@@ -301,4 +319,11 @@ func truncate(s string, n int) string {
 		return s
 	}
 	return s[:n] + "…"
+}
+
+func resolveChainRPC(cfg Config) string {
+	if u := strings.TrimSpace(cfg.ChainRPCURL); u != "" {
+		return u
+	}
+	return chainrpc.URLForChain(cfg.ChainID)
 }

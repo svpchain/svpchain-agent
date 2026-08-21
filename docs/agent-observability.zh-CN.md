@@ -108,7 +108,15 @@ LangSmith 等 SaaS trace）的前提下，本地调试、回归与持续改进�
   "outcome": "success",
   "answer": "...",
   "error": "",
+  "session_id": "…",
+  "session_title": "查一下 BTC",
   "tx_hashes": ["0x..."],
+  "tx_checks": [
+    {"hash": "0x...", "status": "confirmed", "height": "12345", "checked_at": "2026-08-21T00:00:00Z"}
+  ],
+  "intent_checks": [
+    {"kind": "bank_send", "tool": "build_bank_send", "expect": {"recipient": "svp1…"}, "status": "matched"}
+  ],
   "round_count": 2,
   "prompt_sha256": "…",
   "skills": ["base", "onchain-workflow"],
@@ -137,6 +145,18 @@ LangSmith 等 SaaS trace）的前提下，本地调试、回归与持续改进�
 }
 ```
 
+对照的是 **链上交易事件字段**（收款地址、ticker 等），不是持仓或订单账本的前后快照。EVM 交易通常没有可对照的 Cosmos 事件，只能标 `included`。查询走 CometBFT RPC（测试网 `https://rpc-testnet.svpchain.org/tx?hash=0x…`），**不是** Agent Hub 地址。
+
+`intent_checks[].status`：
+
+| 值           | 含义 |
+|--------------|------|
+| `matched`    | 已确认交易的事件里出现了该次 `build_*` 的必填字段 |
+| `mismatch`   | 交易已上链，但字段对不上（例如收款地址不同） |
+| `included`   | 已上链，但没有可对照的事件（典型：EVM） |
+| `unobserved` | 还没有 `confirmed` 的 tx |
+| `skipped`    | 当前 chain id 没有对应的 RPC |
+
 ### 3.4 outcome 取值
 
 | 值          | 含义                                       |
@@ -157,7 +177,7 @@ LangSmith 等 SaaS trace）的前提下，本地调试、回归与持续改进�
 
 ### 3.6 查看
 
-**GUI：** 侧栏 **运行记录** — 按 outcome 筛选，点开一轮查看工具时间线、LLM 回复/`tool_calls`、skill 名与 tx hash。可删除单条或清空全部。设置 → 基础 → **查看记录** 可跳转。
+**GUI：** 侧栏 **运行记录** — 按 outcome 筛选，点开一轮查看工具时间线、LLM 回复/`tool_calls`、skill 名、tx hash（含链上状态）以及 **意图核对**（收款地址 / 下单 ticker 是否出现在交易事件里）。**打开对话** 跳到该会话。**回查链上** 用 CometBFT RPC（`/tx?hash=0x…`）再查一次尚未收录的交易；与设置里的 Agent Hub 无关。可删除单条或清空全部。设置 → 基础 → **查看记录** 可跳转。
 
 ```bash
 # 美化输出最近一条
@@ -207,14 +227,15 @@ go test ./internal/agent/eval/... ./internal/agent/runlog/... -count=1
 |------------------|----------------------|---------------------------------|
 | LLM + tool trace | ✅ 云端              | ✅ `agent_runs.jsonl`           |
 | Dataset 回归     | ✅                   | ✅ `guard_cases.json`（可扩展） |
-| 链上 tx 关联     | ❌ 需自建            | ✅ `tx_hashes` 字段             |
+| 链上 tx 关联     | ❌ 需自建            | ✅ `tx_hashes` + `tx_checks`    |
+| 意图核对         | ❌ 需自建            | ✅ `intent_checks`（RPC 事件）  |
 | 私钥不出本机     | ⚠️ 需脱敏与合规      | ✅ 默认本地                     |
 | 团队协作看板     | ✅                   | 可选自托管 Langfuse             |
 
 **建议路径：**
 
-1. **现阶段**：JSONL + guard 回归 + 人工 weekly review 失败 run
-2. **中期**：补充 mock remote MCP 的 LLM 用例；broadcast 后 indexer 校验
+1. **现阶段**：JSONL + Runs 页（会话跳转 + RPC `tx_checks` / `intent_checks`）+ guard 回归
+2. **中期**：补充 mock remote MCP 的 LLM 用例
 3. **可选**：自托管 Langfuse，仅同步脱敏后的 span
 
 ---
@@ -246,7 +267,6 @@ go test ./internal/agent/eval/... ./internal/agent/runlog/... -count=1
 |-------------------|---------------------------------------------------------|
 | Mock MCP replay   | CI 不连真网，录制 tool 响应回放                         |
 | LLM eval 用例     | 自然语言 → 期望 tool 名/参数（需 mock LLM 或固定 seed） |
-| 链上 outcome 校验 | broadcast 成功后自动 query 订单/持仓 delta              |
 | 指标看板          | 本地脚本聚合 JSONL 生成周报                             |
 
 ---
@@ -254,11 +274,12 @@ go test ./internal/agent/eval/... ./internal/agent/runlog/... -count=1
 ## 8. 相关代码索引
 
 ```
-internal/agent/runlog/     # JSONL 记录、脱敏、tx hash 提取、读取
+internal/agent/runlog/     # JSONL 记录、脱敏、tx hash、意图核对
+internal/chainrpc/         # CometBFT /tx?hash= 回查
 internal/agent/eval/       # 离线回归加载与打分
 internal/agent/runner.go   # RunLog 接入
 internal/desktop/agent.go  # GUI 启用记录
-internal/desktop/runlog.go # AgentRunLogPath / AgentRecentRuns
+internal/desktop/runlog.go # AgentRunLogPath / AgentRecentRuns / 回查链上
 cmd/svpchain-gui/frontend/src/tabs/RunsTab.vue
 testdata/agent_eval/       # 回归用例
 scripts/agent-eval.sh      # 一键跑 eval 测试
@@ -270,5 +291,5 @@ scripts/agent-eval.sh      # 一键跑 eval 测试
 
 | 日期    | 说明                                      |
 |---------|-------------------------------------------|
-| 2026-08 | GUI「运行记录」标签页；LLM generation span（截断回复/`tool_calls`、prompt hash） |
+| 2026-08 | GUI「运行记录」；generation span；session_id；RPC tx_checks；intent_checks |
 | 2026-06 | 初版：JSONL run log、guard eval、设置开关 |

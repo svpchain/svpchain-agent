@@ -3,10 +3,10 @@ import {computed, onMounted, ref, watch} from 'vue'
 import {useI18n} from 'vue-i18n'
 import {NButton, NEmpty, NSelect, NSpin, NTag, NText, useDialog, useMessage} from 'naive-ui'
 import * as App from '../../wailsjs/go/desktop/App'
-import type {AgentRun, AgentRunOutcome, AgentRunStep} from '../types'
+import type {AgentRun, AgentRunOutcome, AgentRunStep, AgentTxCheck} from '../types'
 
 const props = defineProps<{active?: boolean}>()
-const emit = defineEmits<{status: [msg: string]}>()
+const emit = defineEmits<{status: [msg: string]; 'open-session': [id: string]}>()
 
 const {t, locale} = useI18n()
 const dialog = useDialog()
@@ -20,6 +20,8 @@ const selectedId = ref('')
 const outcomeFilter = ref<string>('all')
 const expanded = ref<Record<string, boolean>>({})
 const deleting = ref(false)
+const checking = ref(false)
+const sessionTitles = ref<Record<string, string>>({})
 
 const outcomes: AgentRunOutcome[] = ['success', 'failed', 'stopped', 'rejected', 'cancelled']
 
@@ -117,6 +119,85 @@ function outcomeLabel(outcome: string) {
   return translated === key ? outcome : translated
 }
 
+function sessionLabel(run: AgentRun) {
+  const id = run.session_id
+  if (!id) return ''
+  return sessionTitles.value[id] || run.session_title || id.slice(0, 8)
+}
+
+function sessionStillExists(id?: string) {
+  return !!id && Object.prototype.hasOwnProperty.call(sessionTitles.value, id)
+}
+
+function txRows(run: AgentRun): {hash: string; check?: AgentTxCheck}[] {
+  const checks = run.tx_checks || []
+  const byHash = new Map(checks.map((c) => [c.hash, c]))
+  const hashes = run.tx_hashes?.length ? run.tx_hashes : checks.map((c) => c.hash)
+  return hashes.map((hash) => ({hash, check: byHash.get(hash)}))
+}
+
+function txStatusType(status?: string): 'success' | 'error' | 'warning' | 'default' {
+  if (status === 'confirmed') return 'success'
+  if (status === 'failed' || status === 'error') return 'error'
+  if (status === 'pending') return 'warning'
+  return 'default'
+}
+
+function txStatusLabel(status?: string) {
+  if (!status) return ''
+  const key = `runs.txStatus.${status}`
+  const translated = t(key)
+  return translated === key ? status : translated
+}
+
+function intentStatusType(status?: string): 'success' | 'error' | 'warning' | 'info' | 'default' {
+  if (status === 'matched') return 'success'
+  if (status === 'mismatch') return 'error'
+  if (status === 'unobserved' || status === 'skipped') return 'warning'
+  if (status === 'included') return 'info'
+  return 'default'
+}
+
+function intentStatusLabel(status?: string) {
+  if (!status) return ''
+  const key = `runs.intentStatus.${status}`
+  const translated = t(key)
+  return translated === key ? status : translated
+}
+
+function expectLine(expect?: Record<string, string>) {
+  if (!expect) return ''
+  return Object.entries(expect)
+      .filter(([, v]) => v)
+      .map(([k, v]) => `${k}=${v}`)
+      .join(' · ')
+}
+
+function openSelectedSession() {
+  const id = selected.value?.session_id
+  if (!id) return
+  if (!sessionStillExists(id)) {
+    setStatus(t('runs.sessionGone'))
+    return
+  }
+  emit('open-session', id)
+}
+
+async function recheckSelected() {
+  const run = selected.value
+  if (!run || checking.value) return
+  checking.value = true
+  try {
+    const updated = (await App.AgentRecheckRunTxs(run.run_id)) as unknown as AgentRun
+    runs.value = runs.value.map((r) => (r.run_id === updated.run_id ? updated : r))
+    setStatus(t('runs.status.rechecked'))
+  } catch (err) {
+    setStatus(t('runs.status.recheckFailed', {err: String(err)}))
+  } finally {
+    checking.value = false
+  }
+}
+
 function stepKindLabel(kind: string) {
   const key = `runs.step.${kind}`
   const translated = t(key)
@@ -146,6 +227,16 @@ async function refresh() {
     }
     const list = ((await App.AgentRecentRuns(100)) as unknown as AgentRun[]) || []
     runs.value = list
+    try {
+      const sessions = ((await App.AgentSessions()) || []) as Array<{id: string; title: string}>
+      const titles: Record<string, string> = {}
+      for (const s of sessions) {
+        if (s.id) titles[s.id] = s.title || ''
+      }
+      sessionTitles.value = titles
+    } catch {
+      sessionTitles.value = {}
+    }
     if (!selectedId.value && list.length) selectedId.value = list[0].run_id
     setStatus(t('runs.status.count', {n: list.length}))
   } catch (err) {
@@ -281,6 +372,7 @@ defineExpose({refresh})
               <span>{{ run.model || '—' }}</span>
               <span>{{ t('runs.rounds', {n: run.round_count || 0}) }}</span>
               <span>{{ formatDuration(durationMs(run)) }}</span>
+              <span v-if="sessionLabel(run)">{{ sessionLabel(run) }}</span>
             </div>
           </button>
         </div>
@@ -315,6 +407,15 @@ defineExpose({refresh})
             <div>
               <dt>{{ t('col.chainId') }}</dt>
               <dd class="mono">{{ selected.chain_id || '—' }}</dd>
+            </div>
+            <div v-if="selected.session_id">
+              <dt>{{ t('runs.session') }}</dt>
+              <dd class="hash-row">
+                <span>{{ sessionLabel(selected) }}</span>
+                <n-button size="tiny" quaternary @click="openSelectedSession">
+                  {{ t('runs.openSession') }}
+                </n-button>
+              </dd>
             </div>
             <div>
               <dt>{{ t('runs.model') }}</dt>
@@ -369,16 +470,58 @@ defineExpose({refresh})
             <p class="block-text">{{ selected.answer }}</p>
           </section>
 
-          <section v-if="selected.tx_hashes?.length" class="block">
-            <h3>{{ t('runs.txHashes') }}</h3>
+          <section v-if="txRows(selected).length" class="block">
+            <h3>
+              {{ t('runs.txHashes') }}
+              <n-button
+                  size="tiny"
+                  quaternary
+                  :disabled="checking"
+                  :loading="checking"
+                  @click="recheckSelected"
+              >
+                {{ t('runs.txRecheck') }}
+              </n-button>
+            </h3>
             <div class="hash-list">
-              <div v-for="hash in selected.tx_hashes" :key="hash" class="hash-row">
-                <code class="mono">{{ hash }}</code>
-                <n-button size="tiny" quaternary @click="copy(hash, 'runs.status.hashCopied')">
+              <div v-for="row in txRows(selected)" :key="row.hash" class="hash-row">
+                <code class="mono">{{ row.hash }}</code>
+                <n-tag
+                    v-if="row.check?.status"
+                    size="small"
+                    round
+                    :bordered="false"
+                    :type="txStatusType(row.check.status)"
+                >
+                  {{ txStatusLabel(row.check.status) }}
+                  <template v-if="row.check.height"> · {{ row.check.height }}</template>
+                </n-tag>
+                <n-button size="tiny" quaternary @click="copy(row.hash, 'runs.status.hashCopied')">
                   {{ t('btn.copyShort') }}
                 </n-button>
               </div>
             </div>
+          </section>
+
+          <section v-if="selected.intent_checks?.length" class="block">
+            <h3>{{ t('runs.intents') }}</h3>
+            <ul class="intent-list">
+              <li v-for="(item, idx) in selected.intent_checks" :key="`${item.tool}-${idx}`" class="intent-row">
+                <div class="hash-row">
+                  <span class="mono">{{ item.tool }}</span>
+                  <n-tag
+                      size="small"
+                      round
+                      :bordered="false"
+                      :type="intentStatusType(item.status)"
+                  >
+                    {{ intentStatusLabel(item.status) }}
+                  </n-tag>
+                </div>
+                <p v-if="expectLine(item.expect)" class="block-text muted">{{ expectLine(item.expect) }}</p>
+                <p v-if="item.detail" class="block-text muted">{{ item.detail }}</p>
+              </li>
+            </ul>
           </section>
 
           <section v-if="selected.llm_rounds?.length" class="block">
@@ -645,6 +788,9 @@ defineExpose({refresh})
   font-size: 12px;
   font-weight: 600;
   color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .block-text {
@@ -682,6 +828,16 @@ defineExpose({refresh})
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.intent-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.intent-row + .intent-row {
+  border-top: 1px solid var(--border-subtle);
 }
 
 .skill-tags {

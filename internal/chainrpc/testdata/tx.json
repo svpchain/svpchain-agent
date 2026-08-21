@@ -1,0 +1,42 @@
+{
+  "jsonrpc": "2.0",
+  "id": -1,
+  "result": {
+    "hash": "71C53E6DA77B0EF60D0B053661521A786C5E3EC2A84E90AC50FC3DF393DD6CED",
+    "height": "6413575",
+    "index": 2,
+    "tx_result": {
+      "code": 0,
+      "log": "",
+      "gas_wanted": "1000000",
+      "gas_used": "89193",
+      "events": [
+        {
+          "type": "transfer",
+          "attributes": [
+            {"key": "recipient", "value": "svp17xpfvakm2amg962yls6f84z3kell8c5lvz3zkx", "index": true},
+            {"key": "sender", "value": "svp1808r2mctzf5mp3u4yj66ss4fxxku50kt4jhtxy", "index": true},
+            {"key": "amount", "value": "25000000000000000asvp", "index": true}
+          ]
+        },
+        {
+          "type": "message",
+          "attributes": [
+            {"key": "action", "value": "/cosmos.bank.v1beta1.MsgSend", "index": true},
+            {"key": "module", "value": "bank", "index": true},
+            {"key": "msg_index", "value": "0", "index": true}
+          ]
+        },
+        {
+          "type": "transfer",
+          "attributes": [
+            {"key": "recipient", "value": "svp1qec3nef5x7kkmksml08ucw747dm9h6yldy5y2d", "index": true},
+            {"key": "sender", "value": "svp1808r2mctzf5mp3u4yj66ss4fxxku50kt4jhtxy", "index": true},
+            {"key": "amount", "value": "10000000000000000asvp", "index": true},
+            {"key": "msg_index", "value": "0", "index": true}
+          ]
+        }
+      ]
+    }
+  }
+}

@@ -2,7 +2,6 @@ package phoenix
 
 import (
 	"context"
-	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -26,13 +25,15 @@ func TestExportURL(t *testing.T) {
 }
 
 func TestSession_exportsRedactedSpans(t *testing.T) {
-	var got otlpPayload
+	var body []byte
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		require.Equal(t, "/v1/traces", r.URL.Path)
-		require.Equal(t, "application/json", r.Header.Get("Content-Type"))
-		body, err := io.ReadAll(r.Body)
+		require.Equal(t, otlpContentType, r.Header.Get("Content-Type"))
+		require.Equal(t, projectName, r.Header.Get(projectHeader))
+		var err error
+		body, err = io.ReadAll(r.Body)
 		require.NoError(t, err)
-		require.NoError(t, json.Unmarshal(body, &got))
+		w.Header().Set("Content-Type", otlpContentType)
 		w.WriteHeader(http.StatusOK)
 	}))
 	t.Cleanup(srv.Close)
@@ -65,19 +66,18 @@ func TestSession_exportsRedactedSpans(t *testing.T) {
 	s.End("stopped", nil)
 	require.NoError(t, s.Flush(context.Background()))
 
-	require.Len(t, got.ResourceSpans, 1)
-	spans := got.ResourceSpans[0].ScopeSpans[0].Spans
-	require.GreaterOrEqual(t, len(spans), 3)
-	blob, err := json.Marshal(got)
-	require.NoError(t, err)
-	require.NotContains(t, string(blob), "should-not-leak")
-	require.NotContains(t, string(blob), "payload-secret")
-	require.Contains(t, string(blob), "[REDACTED_KEY]")
-	require.Contains(t, string(blob), "[REDACTED]")
-	require.Contains(t, string(blob), "AGENT")
-	require.Contains(t, string(blob), "LLM")
-	require.Contains(t, string(blob), "TOOL")
-	require.Contains(t, string(blob), "prompt.sha256")
+	got := string(body)
+	require.NotEmpty(t, body)
+	require.NotContains(t, got, "should-not-leak")
+	require.NotContains(t, got, "payload-secret")
+	require.Contains(t, got, "[REDACTED_KEY]")
+	require.Contains(t, got, "[REDACTED]")
+	require.Contains(t, got, "AGENT")
+	require.Contains(t, got, "LLM")
+	require.Contains(t, got, "TOOL")
+	require.Contains(t, got, "prompt.sha256")
+	require.Contains(t, got, projectName)
+	require.Contains(t, got, "assistant.run")
 }
 
 func TestSession_flushErrorDoesNotPanic(t *testing.T) {

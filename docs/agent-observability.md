@@ -129,7 +129,7 @@ redacted tool/LLM spans so you can inspect a tree in a local Arize Phoenix UI.
 
 | Piece    | Path / pref                                                                 |
 |----------|-----------------------------------------------------------------------------|
-| Exporter | `internal/agent/phoenix/` (HTTP JSON OTLP, no OpenTelemetry SDK)            |
+| Exporter | `internal/agent/phoenix/` (OTLP HTTP protobuf — Phoenix rejects JSON)       |
 | Hook     | `internal/agent/runner.go` → `Config.PhoenixOTLPURL` + `composeObservers`   |
 | GUI      | Settings → Basic → **Export to Phoenix** (switch). Off hides the URL field  |
 |          | and **clears** a saved URL. On with an empty field writes                    |

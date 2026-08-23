@@ -208,7 +208,8 @@ func (s *Session) Flush(ctx context.Context) error {
 	payload := otlpPayload{
 		ResourceSpans: []otlpResourceSpans{{
 			Resource: otlpResource{Attributes: []otlpAttr{
-				strAttr("service.name", "svpchain-agent"),
+				strAttr("service.name", projectName),
+				strAttr(projectAttr, projectName),
 			}},
 			ScopeSpans: []otlpScopeSpans{{
 				Scope: otlpScope{Name: "svpchain-agent", Version: "phoenix"},

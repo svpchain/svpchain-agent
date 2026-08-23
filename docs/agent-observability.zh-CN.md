@@ -195,7 +195,7 @@ JSONL 仍是权威记录。Phoenix 是同一套脱敏 tool / LLM span 的 **旁�
 
 | 组件     | 路径 / 配置                                                                    |
 |----------|--------------------------------------------------------------------------------|
-| 导出     | `internal/agent/phoenix/`（HTTP JSON OTLP，不引入 OpenTelemetry SDK）          |
+| 导出     | `internal/agent/phoenix/`（OTLP HTTP protobuf；Phoenix 拒收 JSON）            |
 | 接入     | `internal/agent/runner.go` → `Config.PhoenixOTLPURL` + `composeObservers`      |
 | GUI      | 设置 → 基础 → **导出到 Phoenix**（开关）。关：隐藏输入框并 **清空** 已存地址。 |
 |          | 开且未填：写入 `http://127.0.0.1:6006/v1/traces`。                             |

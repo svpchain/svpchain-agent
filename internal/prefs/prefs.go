@@ -82,6 +82,7 @@ type File struct {
 	ShowToolSteps       bool             `json:"show_tool_steps,omitempty"`
 	OnboardingDone      bool             `json:"onboarding_done,omitempty"`
 	AgentRunLogDisabled bool             `json:"agent_run_log_disabled,omitempty"`
+	PhoenixOTLPURL      string           `json:"phoenix_otlp_url,omitempty"`
 }
 
 // WhitelistEntry is one persisted whitelist row in prefs.json.

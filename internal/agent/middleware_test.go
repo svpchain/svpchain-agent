@@ -94,3 +94,22 @@ func TestObserveRecordsGuardRejectionWithoutHITL(t *testing.T) {
 	require.False(t, *obs.ok)
 	require.NotEmpty(t, obs.err)
 }
+
+func TestComposeObservers(t *testing.T) {
+	require.Nil(t, composeObservers(nil, nil))
+
+	a := &recObserver{}
+	require.Equal(t, a, composeObservers(nil, a))
+
+	b := &recObserver{}
+	combo := composeObservers(a, nil, b)
+	require.NotNil(t, combo)
+	fin := combo.RecordTool("whoami", `{}`)
+	fin(true, "ok", "")
+	require.True(t, a.called)
+	require.True(t, b.called)
+	require.Equal(t, "whoami", a.name)
+	require.Equal(t, "whoami", b.name)
+	require.NotNil(t, a.ok)
+	require.True(t, *a.ok)
+}

@@ -37,6 +37,7 @@ type AgentSettings struct {
 	SkillsConfigBase    string   `json:"skills_config_base"`
 	ShowToolSteps       bool     `json:"show_tool_steps"`
 	AgentRunLogDisabled bool     `json:"agent_run_log_disabled"`
+	PhoenixOTLPURL      string   `json:"phoenix_otlp_url"`
 }
 
 // AgentGetSettings returns saved assistant settings (API key included for local use only).
@@ -56,6 +57,7 @@ func (a *App) AgentGetSettings() AgentSettings {
 		SkillsConfigBase:    s.SkillsConfigBase,
 		ShowToolSteps:       s.ShowToolSteps,
 		AgentRunLogDisabled: s.AgentRunLogDisabled,
+		PhoenixOTLPURL:      s.PhoenixOTLPURL,
 	}
 }
 
@@ -85,6 +87,7 @@ func (a *App) AgentSetSettings(s AgentSettings) {
 		SkillsConfigBase:    s.SkillsConfigBase,
 		ShowToolSteps:       s.ShowToolSteps,
 		AgentRunLogDisabled: s.AgentRunLogDisabled,
+		PhoenixOTLPURL:      s.PhoenixOTLPURL,
 	})
 	skills.ApplySkillsConfigBase(s.SkillsConfigBase)
 }
@@ -190,16 +193,17 @@ func (a *App) AgentSend(chainID, message string) error {
 		})
 
 		answer, err := agent.Run(ctx, agent.Config{
-			ChainID:      chainID,
-			RemoteURL:    remoteURL,
-			AgentHubURL:  settings.AgentHubURL,
-			ChainRPCURL:  chainrpc.URLForChain(chainID),
-			Confirm:      a.confirmHook,
-			RunLog:       runlog.New(!settings.AgentRunLogDisabled),
-			LLM:          llmCfg,
-			Prior:        prior,
-			SessionID:    sess.ID,
-			SessionTitle: sess.Title,
+			ChainID:        chainID,
+			RemoteURL:      remoteURL,
+			AgentHubURL:    settings.AgentHubURL,
+			ChainRPCURL:    chainrpc.URLForChain(chainID),
+			Confirm:        a.confirmHook,
+			RunLog:         runlog.New(!settings.AgentRunLogDisabled),
+			PhoenixOTLPURL: settings.PhoenixOTLPURL,
+			LLM:            llmCfg,
+			Prior:          prior,
+			SessionID:      sess.ID,
+			SessionTitle:   sess.Title,
 			OnTranscript: func(runID string, msgs []llm.Message) {
 				if sess.ID != "" {
 					_ = hist.Append(sess.ID, runID, msgs)

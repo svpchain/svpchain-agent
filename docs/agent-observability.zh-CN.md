@@ -189,6 +189,24 @@ jq -r .outcome ~/Library/Application\ Support/com.svpchain.agent/agent_runs.json
 
 ---
 
+## 3b. 已落地：可选 Phoenix OTLP（默认关）
+
+JSONL 仍是权威记录。Phoenix 是同一套脱敏 tool / LLM span 的 **旁路导出**，方便在本机 Arize Phoenix 里看树状 trace。
+
+| 组件     | 路径 / 配置                                                                    |
+|----------|--------------------------------------------------------------------------------|
+| 导出     | `internal/agent/phoenix/`（HTTP JSON OTLP，不引入 OpenTelemetry SDK）          |
+| 接入     | `internal/agent/runner.go` → `Config.PhoenixOTLPURL` + `composeObservers`      |
+| GUI      | 设置 → 基础 → **导出到 Phoenix**（开关）。关：隐藏输入框并 **清空** 已存地址。 |
+|          | 开且未填：写入 `http://127.0.0.1:6006/v1/traces`。                             |
+| Prefs    | `phoenix_otlp_url` — 空即关闭。                                                |
+
+未写 path 时补 `/v1/traces`。只接受 `http` / `https`。Flush 失败不中断本次 run。
+
+脱敏与 JSONL 相同：不导出私钥、LLM API Key、`signed_tx`、system prompt 正文（只带指纹和 skill 名）。
+
+---
+
 ## 4. 已落地：离线 Eval 回归集
 
 ### 4.1 用例文件
@@ -230,13 +248,13 @@ go test ./internal/agent/eval/... ./internal/agent/runlog/... -count=1
 | 链上 tx 关联     | ❌ 需自建            | ✅ `tx_hashes` + `tx_checks`    |
 | 意图核对         | ❌ 需自建            | ✅ `intent_checks`（RPC 事件）  |
 | 私钥不出本机     | ⚠️ 需脱敏与合规      | ✅ 默认本地                     |
-| 团队协作看板     | ✅                   | 可选自托管 Langfuse             |
+| 团队协作看板     | ✅                   | 可选本机 Phoenix（OTLP）        |
 
 **建议路径：**
 
 1. **现阶段**：JSONL + Runs 页（会话跳转 + RPC `tx_checks` / `intent_checks`）+ guard 回归
-2. **中期**：补充 mock remote MCP 的 LLM 用例
-3. **可选**：自托管 Langfuse，仅同步脱敏后的 span
+2. **可选**：本机 Phoenix，仅同步脱敏后的 span
+3. **中期**：补充 mock remote MCP 的 LLM 用例
 
 ---
 
@@ -275,6 +293,7 @@ go test ./internal/agent/eval/... ./internal/agent/runlog/... -count=1
 
 ```
 internal/agent/runlog/     # JSONL 记录、脱敏、tx hash、意图核对
+internal/agent/phoenix/    # 可选 OTLP 旁路（Arize Phoenix）
 internal/chainrpc/         # CometBFT /tx?hash= 回查
 internal/agent/eval/       # 离线回归加载与打分
 internal/agent/runner.go   # RunLog 接入
@@ -291,5 +310,6 @@ scripts/agent-eval.sh      # 一键跑 eval 测试
 
 | 日期    | 说明                                      |
 |---------|-------------------------------------------|
+| 2026-08 | 可选 Phoenix OTLP（`phoenix_otlp_url`；开关关闭时清空地址） |
 | 2026-08 | GUI「运行记录」；generation span；session_id；RPC tx_checks；intent_checks |
 | 2026-06 | 初版：JSONL run log、guard eval、设置开关 |

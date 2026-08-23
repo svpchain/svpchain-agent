@@ -19,6 +19,7 @@ import (
 	"github.com/svpchain/svpchain-agent/internal/agent/llm"
 	localsigner "github.com/svpchain/svpchain-agent/internal/agent/local"
 	"github.com/svpchain/svpchain-agent/internal/agent/memory"
+	"github.com/svpchain/svpchain-agent/internal/agent/phoenix"
 	remotemcp "github.com/svpchain/svpchain-agent/internal/agent/remote"
 	"github.com/svpchain/svpchain-agent/internal/agent/runlog"
 	"github.com/svpchain/svpchain-agent/internal/agent/skills"
@@ -76,6 +77,9 @@ type Config struct {
 	OnDelta func(string)
 	// RunLog, when enabled, appends a JSONL trace to the local run log file.
 	RunLog *runlog.Recorder
+	// PhoenixOTLPURL, when set, exports redacted OpenInference spans to a
+	// Phoenix OTLP HTTP endpoint. Empty disables export.
+	PhoenixOTLPURL string
 	// Prior is earlier conversation turns (no system message) prepended before
 	// the current user message, enabling multi-turn context.
 	Prior []llm.Message
@@ -91,12 +95,16 @@ type Config struct {
 
 const maxAgentIterations = 25
 
-// *runlog.Session is the shipped ToolObserver; an OTel wrapper would satisfy the same interface.
-var _ ToolObserver = (*runlog.Session)(nil)
+// *runlog.Session is the shipped ToolObserver; Phoenix satisfies the same interface.
+var (
+	_ ToolObserver = (*runlog.Session)(nil)
+	_ ToolObserver = (*phoenix.Session)(nil)
+)
 
 // Run executes one user message through the agent loop.
 func Run(ctx context.Context, cfg Config, userMessage string) (answer string, err error) {
 	var trace *runlog.Session
+	var ph *phoenix.Session
 	var chain *registry.Client
 	if cfg.RunLog != nil && cfg.RunLog.Enabled() {
 		trace = cfg.RunLog.Begin(runlog.Meta{
@@ -113,6 +121,23 @@ func Run(ctx context.Context, cfg Config, userMessage string) (answer string, er
 			trace.VerifyTxs(lookupCtx, chainrpc.Lookup(resolveChainRPC(cfg)))
 			cancel()
 			trace.Complete(answer, err)
+		}()
+	}
+	ph = phoenix.Begin(cfg.PhoenixOTLPURL, phoenix.Meta{
+		RunID:        runlogID(trace),
+		SessionID:    cfg.SessionID,
+		SessionTitle: cfg.SessionTitle,
+		ChainID:      cfg.ChainID,
+		Model:        cfg.LLM.Model,
+		Provider:     cfg.LLM.Provider,
+		UserMessage:  userMessage,
+	})
+	if ph != nil {
+		defer func() {
+			ph.End(answer, err)
+			flushCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 3*time.Second)
+			_ = ph.Flush(flushCtx)
+			cancel()
 		}()
 	}
 
@@ -192,9 +217,7 @@ func Run(ctx context.Context, cfg Config, userMessage string) (answer string, er
 		confirm: confirm,
 		writes:  writes,
 		mem:     &sessionMem,
-	}
-	if trace != nil {
-		env.observe = trace
+		observe: composeObservers(trace, ph),
 	}
 
 	tools, err := buildToolList(ctx, remote, deleg)
@@ -214,8 +237,12 @@ func Run(ctx context.Context, cfg Config, userMessage string) (answer string, er
 	if aliases := guard.AliasPrompt(chainID); aliases != "" {
 		systemPrompt += "\n\n" + aliases
 	}
+	promptHash := runlog.PromptSHA256(systemPrompt)
 	if trace != nil {
-		trace.SetPrompt(runlog.PromptSHA256(systemPrompt), skillNames)
+		trace.SetPrompt(promptHash, skillNames)
+	}
+	if ph != nil {
+		ph.SetPrompt(promptHash, skillNames)
 	}
 
 	client := llm.NewClient(cfg.LLM)
@@ -244,7 +271,7 @@ func Run(ctx context.Context, cfg Config, userMessage string) (answer string, er
 					newMsgs = append(newMsgs, llm.Message{Role: "assistant", Content: answer})
 				}
 			}
-			cfg.OnTranscript(trace.RunID(), history.RepairPairing(newMsgs))
+			cfg.OnTranscript(runlogID(trace), history.RepairPairing(newMsgs))
 		}()
 	}
 
@@ -263,6 +290,9 @@ func Run(ctx context.Context, cfg Config, userMessage string) (answer string, er
 		}
 		if trace != nil {
 			trace.RecordLLMRound(i+1, llmResult)
+		}
+		if ph != nil {
+			ph.RecordLLM(i+1, llmResult)
 		}
 		reply := llmResult.Message
 		messages = append(messages, reply)
@@ -319,6 +349,13 @@ func truncate(s string, n int) string {
 		return s
 	}
 	return s[:n] + "…"
+}
+
+func runlogID(trace *runlog.Session) string {
+	if trace == nil {
+		return ""
+	}
+	return trace.RunID()
 }
 
 func resolveChainRPC(cfg Config) string {

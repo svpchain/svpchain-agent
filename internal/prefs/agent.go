@@ -43,6 +43,7 @@ type AgentSettings struct {
 	SkillsConfigBase    string
 	ShowToolSteps       bool
 	AgentRunLogDisabled bool
+	PhoenixOTLPURL      string
 }
 
 // AgentSettings returns the saved assistant configuration.
@@ -62,6 +63,7 @@ func (s *Store) AgentSettings() AgentSettings {
 		SkillsConfigBase:    f.SkillsConfigBase,
 		ShowToolSteps:       f.ShowToolSteps,
 		AgentRunLogDisabled: f.AgentRunLogDisabled,
+		PhoenixOTLPURL:      f.PhoenixOTLPURL,
 	}
 }
 
@@ -81,5 +83,6 @@ func (s *Store) SetAgentSettings(in AgentSettings) {
 		f.SkillsConfigBase = strings.TrimSpace(in.SkillsConfigBase)
 		f.ShowToolSteps = in.ShowToolSteps
 		f.AgentRunLogDisabled = in.AgentRunLogDisabled
+		f.PhoenixOTLPURL = strings.TrimSpace(in.PhoenixOTLPURL)
 	})
 }

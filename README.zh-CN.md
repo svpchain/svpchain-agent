@@ -40,4 +40,4 @@ make test
 | [转账白名单](docs/security-whitelist.zh-CN.md)        | 两层校验（助手预检 + 签名器兜底）及各自的空列表语义                        |
 | [Agent-to-Agent (A2A)](docs/a2a.zh-CN.md)             | A2A 客户端（`a2a_send_message`）、安全说明                                 |
 | [构建、打包与测试](docs/build-and-packaging.zh-CN.md) | 构建依赖、macOS `.app`/DMG、Windows zip、应用内更新、测试                  |
-| [Agent 可观测性](docs/agent-observability.zh-CN.md)   | 运行日志与离线评估的完整设计                                               |
+| [Agent 可观测性](docs/agent-observability.zh-CN.md)   | 运行日志、可选 Phoenix OTLP 与离线评估                                     |

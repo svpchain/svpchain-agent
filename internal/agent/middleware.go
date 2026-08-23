@@ -27,9 +27,9 @@ func wrap(h toolFunc, mws ...middleware) toolFunc {
 	return h
 }
 
-// ToolObserver records one tool invocation. *runlog.Session implements this;
-// an OpenTelemetry span wrapper plugs in here without changing the handler chain.
-// It is telemetry only — it must not execute tools or override guard.Check.
+// ToolObserver records one tool invocation. *runlog.Session and
+// *phoenix.Session implement this. It is telemetry only — it must not
+// execute tools or override guard.Check.
 type ToolObserver interface {
 	RecordTool(name, args string) func(ok bool, result, errDetail string)
 }
@@ -48,8 +48,8 @@ type dispatchEnv struct {
 }
 
 func (env dispatchEnv) dispatch(ctx context.Context, name string, args map[string]any) (string, error) {
-	// Outer → inner. Observe is telemetry (runlog today; OTel later) and never
-	// executes a tool. Guard is the first layer that can refuse — empty
+	// Outer → inner. Observe is telemetry (runlog and optional Phoenix) and
+	// never executes a tool. Guard is the first layer that can refuse — empty
 	// whitelist still rejects every transfer. HITL sits inside the local-signer
 	// handler so a whitelist/graph rejection never opens a dialog.
 	h := wrap(env.mux,
@@ -59,6 +59,37 @@ func (env dispatchEnv) dispatch(ctx context.Context, name string, args map[strin
 		env.withCache(),
 	)
 	return h(ctx, name, args)
+}
+
+type multiObserver []ToolObserver
+
+func composeObservers(obs ...ToolObserver) ToolObserver {
+	var live []ToolObserver
+	for _, o := range obs {
+		if o != nil {
+			live = append(live, o)
+		}
+	}
+	switch len(live) {
+	case 0:
+		return nil
+	case 1:
+		return live[0]
+	default:
+		return multiObserver(live)
+	}
+}
+
+func (m multiObserver) RecordTool(name, args string) func(ok bool, result, errDetail string) {
+	fins := make([]func(bool, string, string), 0, len(m))
+	for _, o := range m {
+		fins = append(fins, o.RecordTool(name, args))
+	}
+	return func(ok bool, result, errDetail string) {
+		for _, fin := range fins {
+			fin(ok, result, errDetail)
+		}
+	}
 }
 
 func (env dispatchEnv) withObserve() middleware {

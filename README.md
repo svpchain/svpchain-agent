@@ -66,4 +66,4 @@ See [Build, packaging & testing](docs/build-and-packaging.md) for prerequisites 
 | [Transfer whitelist](docs/security-whitelist.md)          | Two-layer enforcement (pre-flight gate + signer fallback) and their different empty-list semantics |
 | [Agent-to-Agent (A2A)](docs/a2a.md)                       | A2A client (`a2a_send_message`), security notes                                                    |
 | [Build, packaging & testing](docs/build-and-packaging.md) | Build prerequisites, macOS `.app`/DMG, Windows zip, in-app updates, tests                          |
-| [Agent observability](docs/agent-observability.md)        | Full design of run traces and offline eval                                                         |
+| [Agent observability](docs/agent-observability.md)        | Run traces, optional Phoenix OTLP, and offline eval                                                |

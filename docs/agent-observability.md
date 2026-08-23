@@ -122,6 +122,28 @@ jq -r .outcome ~/Library/Application\ Support/com.svpchain.agent/agent_runs.json
 
 ---
 
+## 3b. Implemented: optional Phoenix OTLP (off by default)
+
+JSONL remains the source of truth. Phoenix is a **side-channel** of the same
+redacted tool/LLM spans so you can inspect a tree in a local Arize Phoenix UI.
+
+| Piece    | Path / pref                                                                 |
+|----------|-----------------------------------------------------------------------------|
+| Exporter | `internal/agent/phoenix/` (HTTP JSON OTLP, no OpenTelemetry SDK)            |
+| Hook     | `internal/agent/runner.go` → `Config.PhoenixOTLPURL` + `composeObservers`   |
+| GUI      | Settings → Basic → **Export to Phoenix** (switch). Off hides the URL field  |
+|          | and **clears** a saved URL. On with an empty field writes                    |
+|          | `http://127.0.0.1:6006/v1/traces`.                                          |
+| Pref     | `phoenix_otlp_url` — empty disables export.                                 |
+
+A host without a path is rewritten to `/v1/traces`. Only `http` / `https` are
+accepted. Flush failures never abort a run.
+
+The same `runlog.Redact` rules apply: no private keys, LLM API keys, `signed_tx`,
+or system-prompt body (fingerprint + skill names only).
+
+---
+
 ## 4. Implemented: offline eval
 
 ### Cases
@@ -148,9 +170,9 @@ Package: `internal/agent/eval/`.
 | Dataset regression | Yes               | `guard_cases.json` (extensible) |
 | On-chain tx link   | DIY               | `tx_hashes`                     |
 | Keys stay local    | Careful redaction | Default local                   |
-| Team dashboard     | Yes               | Optional self-hosted Langfuse   |
+| Team dashboard     | Yes               | Optional local Phoenix (OTLP)   |
 
-**Recommended path:** JSONL + Runs tab (session link + RPC `tx_checks` / `intent_checks`) + guard eval → later mock MCP.
+**Recommended path:** JSONL + Runs tab (session link + RPC `tx_checks` / `intent_checks`) + guard eval → optional Phoenix for a span tree.
 
 ---
 
@@ -169,6 +191,7 @@ Package: `internal/agent/eval/`.
 - Mock MCP replay for CI
 - LLM eval cases (expected tools/args)
 - JSONL aggregation scripts / weekly report
+- Self-hosted Langfuse (Phoenix OTLP is the shipped optional viewer)
 
 ---
 
@@ -176,6 +199,7 @@ Package: `internal/agent/eval/`.
 
 ```
 internal/agent/runlog/
+internal/agent/phoenix/
 internal/chainrpc/
 internal/agent/eval/
 internal/agent/runner.go
@@ -192,5 +216,6 @@ scripts/agent-eval.sh
 
 | Date    | Notes                                               |
 |---------|-----------------------------------------------------|
+| 2026-08 | Optional Phoenix OTLP (`phoenix_otlp_url`; switch clears URL when off) |
 | 2026-08 | GUI Runs tab; generation span; session_id; RPC tx_checks; intent_checks |
 | 2026-06 | Initial: JSONL run log, guard eval, settings toggle |

@@ -58,6 +58,8 @@ export default {
         skillsConfigBase: 'Skills directory root',
         showToolSteps: 'Show tool invocation steps',
         agentRunLog: 'Save assistant run logs',
+        phoenix: 'Export to Phoenix',
+        phoenixOTLPURL: 'Phoenix OTLP URL',
         autoUpdate: 'Auto-download updates',
         llmContextWindow: 'Context window (tokens)',
     },
@@ -75,6 +77,7 @@ export default {
         whitelistAlias: 'Optional, e.g. Team Treasury',
         skillsConfigBase: 'Leave empty for the OS default config directory',
         llmContextWindow: 'Default 128000',
+        phoenixOTLPURL: 'e.g. http://127.0.0.1:6006/v1/traces',
     },
     addressType: {
         cosmos: 'SVP Cosmos',
@@ -89,6 +92,7 @@ export default {
         showToolSteps: 'When on, the Assistant tab shows tool calls, thinking steps, and other intermediate progress. Off by default — only final replies are shown.',
         remoteMCPDisabled: 'When on, the assistant does not connect to the remote MCP service at all: no transaction building, broadcasting, or market data. It keeps local signing plus on-chain agent discovery and delegation. Useful for working against the chain alone.',
         agentRunLog: 'When on, each assistant run appends a JSONL trace (tool calls, outcomes; no private keys or API keys) to agent_runs.jsonl for debugging and evaluation.',
+        phoenix: 'When on, redacted assistant spans (LLM rounds and tool calls) are sent to a local or self-hosted Arize Phoenix. Turning it on with an empty field defaults to http://127.0.0.1:6006/v1/traces. Turning it off clears the saved URL. Private keys, API keys, signed_tx, and the system prompt body are never exported.',
         autoUpdate: 'When on, new releases are downloaded and verified in the background at startup, and you are prompted to restart once the update is ready to install.',
         llmContextWindow: "Your model's context window in tokens. Conversation history is kept within ~70% of this; older turns are auto-summarized when it overflows.",
         skillsConfigBase:

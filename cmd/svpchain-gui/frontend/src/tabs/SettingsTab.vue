@@ -54,6 +54,9 @@ const skillSettings = ref<SkillSetting[]>([])
 const settingsExpandedSections = ref<string[]>(['basic'])
 const showToolSteps = ref(false)
 const agentRunLogDisabled = ref(false)
+const phoenixEnabled = ref(false)
+const phoenixOTLPURL = ref('')
+const defaultPhoenixOTLPURL = 'http://127.0.0.1:6006/v1/traces'
 const updateSupported = ref(false)
 const autoUpdate = ref(false)
 const llmContextWindow = ref('')
@@ -103,6 +106,7 @@ async function loadAgentSettings() {
       skills_config_base?: string
       show_tool_steps?: boolean
       agent_run_log_disabled?: boolean
+      phoenix_otlp_url?: string
       llm_context_window?: number
     }
     llmApiKey.value = s.llm_api_key || ''
@@ -116,6 +120,8 @@ async function loadAgentSettings() {
     agentChainId.value = s.chain_id || ''
     showToolSteps.value = !!s.show_tool_steps
     agentRunLogDisabled.value = !!s.agent_run_log_disabled
+    phoenixOTLPURL.value = (s.phoenix_otlp_url || '').trim()
+    phoenixEnabled.value = !!phoenixOTLPURL.value
     skillsConfigBase.value = s.skills_config_base || ''
     try {
       defaultSkillsConfigBase.value = await App.AgentDefaultSkillsConfigBase()
@@ -153,6 +159,7 @@ function settingsPayload() {
     skills_config_base: skillsConfigBase.value.trim(),
     show_tool_steps: showToolSteps.value,
     agent_run_log_disabled: agentRunLogDisabled.value,
+    phoenix_otlp_url: phoenixEnabled.value ? phoenixOTLPURL.value.trim() : '',
   }
 }
 
@@ -190,6 +197,16 @@ async function persistNow(reloadSkills: boolean) {
 
 async function onRunLogChange(on: boolean) {
   agentRunLogDisabled.value = !on
+  await persist()
+}
+
+async function onPhoenixChange(on: boolean) {
+  phoenixEnabled.value = on
+  if (!on) {
+    phoenixOTLPURL.value = ''
+  } else if (!phoenixOTLPURL.value.trim()) {
+    phoenixOTLPURL.value = defaultPhoenixOTLPURL
+  }
   await persist()
 }
 
@@ -309,6 +326,32 @@ onMounted(init)
                 {{ t('btn.viewRuns') }}
               </n-button>
             </div>
+          </n-form-item>
+          <n-form-item>
+            <template #label>
+              <span class="label-with-help">
+                <span>{{ t('field.phoenix') }}</span>
+                <n-popover trigger="hover" placement="top-start" :show-arrow="true">
+                  <template #trigger>
+                    <span
+                        class="help-icon"
+                        tabindex="0"
+                        role="button"
+                        :title="t('hint.phoenix')"
+                    >?</span>
+                  </template>
+                  <div class="help-tooltip-text">{{ t('hint.phoenix') }}</div>
+                </n-popover>
+              </span>
+            </template>
+            <n-switch :value="phoenixEnabled" @update:value="onPhoenixChange"/>
+          </n-form-item>
+          <n-form-item v-if="phoenixEnabled" :label="t('field.phoenixOTLPURL')">
+            <n-input
+                v-model:value="phoenixOTLPURL"
+                :placeholder="t('ph.phoenixOTLPURL')"
+                @blur="persist()"
+            />
           </n-form-item>
           <n-form-item v-if="updateSupported">
             <template #label>

@@ -99,6 +99,45 @@ Do not state a budget only in prose. It must be present in the structured
 `budget` array. If the root cannot cover the action, recipient and amount,
 create a new narrow root delegation and wait for the user's approval.
 
+## EVM contract method calls
+
+For an EVM agent card advertising `execute_evm_contract_method`, use this for
+configured ERC-20 transfers and approvals, swap routers, and bridge contracts
+without constructing calldata. The root
+delegation and task credential must both grant `"evm.contract_call"`, include
+subaccount `0`, and list `args.call.contract` in `contracts` as a lowercase
+`0x` address. The task credential is signed by the user and binds the user's
+account, that contract, and the four-byte ABI method selector. The EVM agent
+checks the configured method and ABI-encodes `args.call.args`. Use only a
+method whose argument choices you accept.
+
+Contract calls have `value = 0` and require no `budget`: ERC-20 value is
+encoded in calldata and the chain does not price it. Their authority is the
+user-signed method Task described above. Native SVP transfers remain on
+`execute_evm_native_transfer` with the separate recipient allowlist and
+`asvp` budget above.
+
+```json
+{
+  "skill": "svpchain-execution",
+  "tool": "execute_evm_contract_method",
+  "args": {
+    "call": {
+      "contract": "0x000000000000000000000000000000000000c07e",
+      "method": "transfer(address,uint256)",
+      "args": ["0x00000000000000000000000000000000000000dd", "1000000"]
+    }
+  },
+  "actions": ["evm.contract_call"],
+  "subaccounts": [0],
+  "contracts": ["0x000000000000000000000000000000000000c07e"]
+}
+```
+
+`execute_evm_call` remains available as the expert/raw compatibility path
+when a caller already has ABI calldata. It uses the same contract and selector
+authorization, but takes `args.call.data` instead of `method` and `args`.
+
 ## Paying an agent for its work
 
 Pass `service_budget` (one coin) to `delegate_task` when the task is paid work. This opens an on-chain settlement escrow
@@ -151,7 +190,7 @@ task on to agent B — set
 - **Empty grants deny.** Actions and subaccounts must be explicit. The action namespace is defined by the chain:
   `clob.place_order`,
   `clob.cancel_order`, `clob.batch_cancel`, `sending.deposit_to_subaccount`,
-  `evm.native_transfer`, `settlement.record_spend` (added automatically with `service_budget`), and the read-only
+  `evm.contract_call`, `evm.native_transfer`, `settlement.record_spend` (added automatically with `service_budget`), and the read-only
   `query.account`.
 - **Value-committing actions need a budget.** The chain prices an order and checks it against the credential's own
   budget, so `clob.place_order` or `evm.native_transfer` without a `budget` is refused. Size the budget for this order

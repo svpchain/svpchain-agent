@@ -273,7 +273,7 @@ func (s *Service) delegationToolDefs() []llm.Tool {
 					"properties": map[string]any{
 						"actions": map[string]any{
 							"type": "array", "items": map[string]any{"type": "string"},
-							"description": "Permitted actions, e.g. [\"clob.place_order\",\"clob.cancel_order\"] or [\"evm.native_transfer\"] for an EVM native-SVP transfer",
+							"description": "Permitted actions, e.g. [\"clob.place_order\",\"clob.cancel_order\"], [\"evm.contract_call\"] for delegated EVM contract methods, or [\"evm.native_transfer\"] for an EVM native-SVP transfer",
 						},
 						"skills": map[string]any{
 							"type": "array", "items": map[string]any{"type": "string"},
@@ -291,7 +291,7 @@ func (s *Service) delegationToolDefs() []llm.Tool {
 							"type": "array", "items": map[string]any{"type": "string"},
 							"description": "Lowercase 0x EVM contract addresses; for evm.native_transfer these are the only permitted recipients",
 						},
-						"spend_limit_total": coinListSchema("Lifetime spend cap (required). This is an ARRAY of coins, e.g. [{\"denom\":\"asvp\",\"amount\":\"10000000000000000000\"}] for a 10 SVP native-transfer ceiling"),
+						"spend_limit_total": coinListSchema("Lifetime spend cap. Required unless every action is evm.contract_call; zero-value contract calls are authorised by a signed method grant and do not use a Cosmos-denom budget. This is an ARRAY of coins, e.g. [{\"denom\":\"asvp\",\"amount\":\"10000000000000000000\"}] for a 10 SVP native-transfer ceiling"),
 						"spend_limit_daily": coinListSchema("Per-day spend cap (optional)"),
 						"svc_spend_limit_total": coinListSchema(
 							"Lifetime cap on paying agents for their services (optional, but " +
@@ -303,7 +303,7 @@ func (s *Service) delegationToolDefs() []llm.Tool {
 							"description": "Unix seconds when the delegation expires; default 30 days",
 						},
 					},
-					"required": []string{"actions", "subaccounts", "spend_limit_total"},
+					"required": []string{"actions", "subaccounts"},
 				},
 			},
 		},
@@ -361,6 +361,7 @@ func (s *Service) delegationToolDefs() []llm.Tool {
 					"this one task needs. For read-only tasks grant [\"query.account\"] with no budget. " +
 					"For execute_evm_native_transfer, action evm.native_transfer, subaccount 0, the " +
 					"lowercase recipient in contracts, and an asvp budget array at least equal to transfer.value are required. " +
+					"For execute_evm_call or execute_evm_contract_method, action evm.contract_call, subaccount 0, and args.call.contract in contracts are required; the user-signed credential binds that contract and ABI selector. The typed method tool takes method plus arguments and lets the EVM agent encode configured ABI calldata. " +
 					"Set redelegable=true plus redelegate_to ONLY when the target agent must sub-delegate " +
 					"to another named agent — never \"just in case\".",
 				Parameters: map[string]any{
@@ -375,7 +376,7 @@ func (s *Service) delegationToolDefs() []llm.Tool {
 						},
 						"actions": map[string]any{
 							"type": "array", "items": map[string]any{"type": "string"},
-							"description": "Actions the credential grants, e.g. [\"clob.place_order\"], [\"evm.native_transfer\"] for a native-SVP transfer, or [\"query.account\"] for read-only access",
+							"description": "Actions the credential grants, e.g. [\"clob.place_order\"], [\"evm.contract_call\"] for an EVM contract call, [\"evm.native_transfer\"] for a native-SVP transfer, or [\"query.account\"] for read-only access",
 						},
 						"skills": map[string]any{
 							"type": "array", "items": map[string]any{"type": "string"},
@@ -391,7 +392,7 @@ func (s *Service) delegationToolDefs() []llm.Tool {
 						},
 						"contracts": map[string]any{
 							"type": "array", "items": map[string]any{"type": "string"},
-							"description": "Lowercase 0x EVM contract addresses; for evm.native_transfer this must include every recipient",
+							"description": "Lowercase 0x EVM contract addresses; execute_evm_call and execute_evm_contract_method require args.call.contract here, while evm.native_transfer requires every recipient",
 						},
 						"budget": coinListSchema(
 							"Cap on what this one task may commit. REQUIRED for value-committing " +

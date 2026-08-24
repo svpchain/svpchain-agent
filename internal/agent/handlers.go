@@ -2,6 +2,8 @@ package agent
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 
 	"github.com/svpchain/svpchain-agent/internal/agent/a2acall"
 	"github.com/svpchain/svpchain-agent/internal/agent/delegatecall"
@@ -24,7 +26,7 @@ func (env dispatchEnv) handlers() []toolHandler {
 	return []toolHandler{
 		httpHandler{},
 		x402Handler{},
-		a2aHandler{},
+		a2aHandler{env: env},
 		delegateHandler{svc: env.deleg},
 		skillRefHandler{},
 		localHandler{env: env},
@@ -64,12 +66,32 @@ func (x402Handler) Call(_ context.Context, name string, args map[string]any) (st
 	}
 }
 
-type a2aHandler struct{}
+type a2aHandler struct{ env dispatchEnv }
 
 func (a2aHandler) Match(name string) bool { return a2acall.IsTool(name) }
 
-func (a2aHandler) Call(ctx context.Context, _ string, args map[string]any) (string, error) {
-	return a2acall.SendFromArgs(ctx, args)
+func (h a2aHandler) Call(ctx context.Context, name string, args map[string]any) (string, error) {
+	if name == "a2a_send_message" {
+		return a2acall.SendFromArgs(ctx, args)
+	}
+	if h.env.local == nil {
+		return "", fmt.Errorf("local signer is unavailable")
+	}
+	if h.env.deleg == nil {
+		return "", fmt.Errorf("agent discovery is not configured: set the chain REST endpoint in Settings")
+	}
+	p, source, err := a2acall.BuildLendoraCollateral(ctx, args, h.env.deleg.Registry, h.env.local.EVMOwner(), h.env.local.EVMChainID())
+	if err != nil {
+		return "", err
+	}
+	if err := h.env.writes.ImportEVMPayload(p); err != nil {
+		return "", err
+	}
+	bz, err := json.Marshal(map[string]any{"payload": p, "source": source})
+	if err != nil {
+		return "", err
+	}
+	return string(bz), nil
 }
 
 type skillRefHandler struct{}

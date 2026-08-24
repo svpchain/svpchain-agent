@@ -35,6 +35,24 @@ func (l *Signer) Owner() string {
 	return out.Owner
 }
 
+// EVMOwner returns the 0x address controlled by this local signer.
+func (l *Signer) EVMOwner() string {
+	_, out, err := l.h.Whoami(context.Background(), nil, signermcp.WhoamiInput{})
+	if err != nil {
+		return ""
+	}
+	return out.EVMOwner
+}
+
+// EVMChainID returns the numeric EIP-155 chain ID the local signer is bound to.
+func (l *Signer) EVMChainID() string {
+	_, out, err := l.h.Whoami(context.Background(), nil, signermcp.WhoamiInput{})
+	if err != nil {
+		return ""
+	}
+	return out.EVMChainID
+}
+
 // SignChallenge signs an auth challenge and returns base64 signature.
 func (l *Signer) SignChallenge(challenge string) (string, error) {
 	_, out, err := l.h.SignChallenge(context.Background(), nil, signermcp.SignChallengeInput{
@@ -164,6 +182,24 @@ func ToolDefs() []llm.Tool {
 						"payload": map[string]any{"type": "object", "description": "TxPayload from build_*"},
 					},
 					"required": []string{"payload"},
+				},
+			},
+		},
+		{
+			Type: "function",
+			Function: llm.Function{
+				Name:        "a2a_build_lendora_collateral_tx",
+				Description: "Request a Lendora collateral build from an active, on-chain registered lending agent and import its verified EVM payload for local signing. The agent card hash, declared collateral-builder tool, local signer, Comptroller target, and enterMarkets/exitMarket selector are checked before the payload is accepted.",
+				Parameters: map[string]any{
+					"type": "object",
+					"properties": map[string]any{
+						"agent_id":  map[string]any{"type": "string", "description": "Registered lending agent ID (did:svp:...)"},
+						"asset":     map[string]any{"type": "string", "description": "Lendora underlying symbol or cToken address"},
+						"action":    map[string]any{"type": "string", "enum": []string{"enable", "disable"}},
+						"client_id": map[string]any{"type": "string", "description": "UUID used for the later broadcast_evm_tx call"},
+						"bearer":    map[string]any{"type": "string", "description": "Optional bearer issued by the lending agent's auth flow"},
+					},
+					"required": []string{"agent_id", "asset", "action", "client_id"},
 				},
 			},
 		},

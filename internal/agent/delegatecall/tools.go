@@ -2,6 +2,8 @@ package delegatecall
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -11,6 +13,7 @@ import (
 	sdkmath "cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 
 	"github.com/svpchain/svpchain-agent/internal/a2a"
 	"github.com/svpchain/svpchain-agent/internal/agent/hitl"
@@ -29,6 +32,21 @@ var committingActions = map[string]bool{
 	// A delegated native EVM transfer reserves its exact asvp value against
 	// the credential and root delegation budgets.
 	"evm.native_transfer": true,
+}
+
+// onlyUnpricedEVMContractCalls identifies roots whose only chain-executable
+// action is a zero-value EVM contract call. Those calls are authorised by the
+// user-signed Task caveat and have no generic Cosmos-denom budget to reserve.
+func onlyUnpricedEVMContractCalls(actions []string) bool {
+	if len(actions) == 0 {
+		return false
+	}
+	for _, action := range actions {
+		if action != "evm.contract_call" {
+			return false
+		}
+	}
+	return true
 }
 
 // allQueryActions reports whether every action is a read-only query.* grant —
@@ -95,6 +113,96 @@ func argEVMContracts(args map[string]any, key string) ([]string, error) {
 		}
 	}
 	return contracts, nil
+}
+
+// evmMethodTask derives the chain-defined SVP-DT Task caveat for a delegated
+// contract call. The user signs this value with the task credential; callers
+// cannot supply or override it.
+const (
+	evmSelectorLen      = 4
+	evmMethodTaskPrefix = "evmmethod:"
+	evmMethodTaskDomain = "SVP-AGENTWALLET-EVM-METHOD/1"
+)
+
+func evmMethodTask(principal string, taskArgs map[string]any) (string, error) {
+	call, ok := taskArgs["call"].(map[string]any)
+	if !ok {
+		return "", fmt.Errorf("execute_evm_call requires args.call")
+	}
+	contract, _ := call["contract"].(string)
+	dataText, _ := call["data"].(string)
+	contract = strings.TrimSpace(contract)
+	dataText = strings.TrimSpace(dataText)
+	if !isCanonicalEVMAddress(contract) {
+		return "", fmt.Errorf("args.call.contract must be a lowercase 0x-prefixed EVM address")
+	}
+	if !strings.HasPrefix(dataText, "0x") {
+		return "", fmt.Errorf("args.call.data must be 0x-prefixed calldata")
+	}
+	data, err := hex.DecodeString(dataText[2:])
+	if err != nil {
+		return "", fmt.Errorf("decode args.call.data: %w", err)
+	}
+	if len(data) < evmSelectorLen {
+		return "", fmt.Errorf("args.call.data must contain a 4-byte ABI selector")
+	}
+	return evmMethodTaskForCall(principal, contract, data), nil
+}
+
+// evmMethodTaskFromSignature creates the same chain-defined task caveat as a
+// raw calldata call, but without asking the caller to construct calldata. The
+// EVM agent later ABI-encodes the configured method arguments.
+func evmMethodTaskFromSignature(principal string, taskArgs map[string]any) (string, error) {
+	call, ok := taskArgs["call"].(map[string]any)
+	if !ok {
+		return "", fmt.Errorf("execute_evm_contract_method requires args.call")
+	}
+	contract, _ := call["contract"].(string)
+	method, _ := call["method"].(string)
+	contract = strings.TrimSpace(contract)
+	method = strings.TrimSpace(method)
+	if !isCanonicalEVMAddress(contract) {
+		return "", fmt.Errorf("args.call.contract must be a lowercase 0x-prefixed EVM address")
+	}
+	if !isSimpleMethodSignature(method) {
+		return "", fmt.Errorf("args.call.method must be a whitespace-free ABI signature such as transfer(address,uint256)")
+	}
+	return evmMethodTaskForCall(principal, contract, crypto.Keccak256([]byte(method))[:evmSelectorLen]), nil
+}
+
+func isSimpleMethodSignature(method string) bool {
+	open := strings.IndexByte(method, '(')
+	return open > 0 && strings.HasSuffix(method, ")") && !strings.ContainsAny(method, " \t\n")
+}
+
+func isEVMContractCallTool(tool string) bool {
+	return tool == "execute_evm_call" || tool == "execute_evm_contract_method"
+}
+
+func isCanonicalEVMAddress(address string) bool {
+	return len(address) == 42 && strings.HasPrefix(address, "0x") &&
+		address == strings.ToLower(address) && common.IsHexAddress(address)
+}
+
+// evmMethodTaskForCall mirrors MsgEVMCall.DelegationMethodTask in the chain's
+// agentwallet types. Keep the domain and length-delimited field encoding in
+// sync with protocol/x/agentwallet/types/tx.go; importing the full protocol
+// module here pulls its application-only dependency graph into the desktop app.
+func evmMethodTaskForCall(principal, contract string, data []byte) string {
+	h := sha256.New()
+	_, _ = h.Write([]byte(evmMethodTaskDomain))
+	_, _ = h.Write([]byte{0})
+	writeEVMMethodTaskField(h, principal)
+	writeEVMMethodTaskField(h, contract)
+	writeEVMMethodTaskField(h, string(data[:evmSelectorLen]))
+	return evmMethodTaskPrefix + hex.EncodeToString(h.Sum(nil))
+}
+
+func writeEVMMethodTaskField(h interface{ Write([]byte) (int, error) }, value string) {
+	var length [8]byte
+	binary.BigEndian.PutUint64(length[:], uint64(len(value)))
+	_, _ = h.Write(length[:])
+	_, _ = h.Write([]byte(value))
 }
 
 func argInt64(args map[string]any, key string) int64 {
@@ -276,8 +384,8 @@ func (s *Service) createRootDelegation(ctx context.Context, args map[string]any)
 	if err != nil {
 		return "", err
 	}
-	if len(spendTotal) == 0 {
-		return "", fmt.Errorf("spend_limit_total is required — an unbounded delegation is refused")
+	if len(spendTotal) == 0 && !onlyUnpricedEVMContractCalls(actions) {
+		return "", fmt.Errorf("spend_limit_total is required unless every action is evm.contract_call")
 	}
 
 	expiresAt := argInt64(args, "expires_at")
@@ -434,6 +542,28 @@ func (s *Service) delegateTask(ctx context.Context, args map[string]any) (string
 	if len(actions) == 0 {
 		return "", fmt.Errorf("actions is required — the credential grants nothing by default (e.g. [\"clob.place_order\"])")
 	}
+	methodTask := ""
+	if isEVMContractCallTool(tool) {
+		if !containsStr(actions, "evm.contract_call") {
+			return "", fmt.Errorf("%s requires action \"evm.contract_call\"", tool)
+		}
+		if !containsU32(subaccounts, 0) {
+			return "", fmt.Errorf("%s requires subaccount 0", tool)
+		}
+		if tool == "execute_evm_call" {
+			methodTask, err = evmMethodTask(s.Lifecycle.Owner(), taskArgs)
+		} else {
+			methodTask, err = evmMethodTaskFromSignature(s.Lifecycle.Owner(), taskArgs)
+		}
+		if err != nil {
+			return "", err
+		}
+		call := taskArgs["call"].(map[string]any)
+		contract, _ := call["contract"].(string)
+		if !containsStr(contracts, strings.TrimSpace(contract)) {
+			return "", fmt.Errorf("%s requires args.call.contract in contracts", tool)
+		}
+	}
 	// A credential with no budget cannot commit value: the chain prices the
 	// action and refuses it against an empty per-action budget. Caught here so
 	// a doomed credential never costs the user a confirmation dialog.
@@ -543,6 +673,9 @@ func (s *Service) delegateTask(ctx context.Context, args map[string]any) (string
 		"Budget: " + coinsText(budget),
 		fmt.Sprintf("Credential expires in %d seconds; usable only by %s", ttlShown, agentID),
 	}
+	if methodTask != "" {
+		lines = append(lines, "EVM method grant: one contract and ABI selector; call arguments are selected by the agent")
+	}
 	if redelegable {
 		// The one place the user learns the blast radius grew: the executor
 		// may hand a narrowed copy of this grant to the listed agents.
@@ -590,6 +723,7 @@ func (s *Service) delegateTask(ctx context.Context, args map[string]any) (string
 		Budget:       budget,
 		SvcBudget:    svcBudget,
 		Settlement:   settlementHex,
+		Task:         methodTask,
 		TTLSeconds:   ttl,
 		Now:          s.now(),
 		Redelegable:  redelegable,

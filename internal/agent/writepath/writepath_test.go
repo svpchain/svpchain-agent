@@ -86,6 +86,21 @@ func TestSignWithoutBuild(t *testing.T) {
 	require.Contains(t, v.Reason, "matching build_*")
 }
 
+func TestImportEVMPayloadAdmitsOnlyEVMToTheCurrentRun(t *testing.T) {
+	tr := New()
+	payload := map[string]any{
+		"evm_chain_id": "2517",
+		"to":           "0x1111111111111111111111111111111111111111",
+		"value":        "0",
+		"nonce":        "0",
+	}
+	require.NoError(t, tr.ImportEVMPayload(payload))
+	require.NoError(t, tr.Before("sign_evm_transaction", map[string]any{"payload": payload}))
+
+	err := tr.ImportEVMPayload(map[string]any{"chain_id": "svp-2517-1", "tx_body_bytes_b64": "AAEC"})
+	require.ErrorContains(t, err, "not an EVM")
+}
+
 func TestSignMutatedPayload(t *testing.T) {
 	tr := New()
 	require.NoError(t, tr.After("build_bank_send", nil, cosmosBuild))

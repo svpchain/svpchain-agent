@@ -162,6 +162,38 @@ func (t *Tracker) afterBuild(result string) {
 	t.lanes[family] = &lane{payload: payload}
 }
 
+// ImportEVMPayload records an EVM build result obtained by a local tool that
+// has independently authenticated its remote source. It deliberately accepts
+// only an EVM payload; callers must not use it to turn arbitrary A2A text into
+// a signable transaction.
+func (t *Tracker) ImportEVMPayload(payload any) error {
+	if t == nil {
+		return nil
+	}
+	raw, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("encode imported EVM payload: %w", err)
+	}
+	var candidate map[string]any
+	if err := json.Unmarshal(raw, &candidate); err != nil {
+		return fmt.Errorf("decode imported EVM payload: %w", err)
+	}
+	if family, ok := familyOf(candidate); !ok || family != FamilyEVM {
+		return fmt.Errorf("imported payload is not an EVM transaction")
+	}
+	canon, err := canonical(candidate)
+	if err != nil {
+		return fmt.Errorf("canonicalize imported EVM payload: %w", err)
+	}
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if t.lanes == nil {
+		t.lanes = make(map[Family]*lane)
+	}
+	t.lanes[FamilyEVM] = &lane{payload: canon}
+	return nil
+}
+
 func (t *Tracker) afterSign(family Family, result string) error {
 	signed, err := extractSignedTx(result)
 	if err != nil {

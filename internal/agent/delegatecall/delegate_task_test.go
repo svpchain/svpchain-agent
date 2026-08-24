@@ -20,6 +20,7 @@ import (
 	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
 	"github.com/cosmos/evm/crypto/ethsecp256k1"
 	"github.com/cosmos/gogoproto/proto"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/require"
 	"github.com/svpchain/svpdt"
 
@@ -322,6 +323,72 @@ func TestDelegateTaskNativeTransferIncludesRecipientInCredential(t *testing.T) {
 	require.True(t, verified.Effective.Contracts.Has(recipient))
 }
 
+func TestDelegateTaskEVMCallIncludesMethodTask(t *testing.T) {
+	svc, exec, life, _ := stubStack(t)
+	const contract = "0x000000000000000000000000000000000000c07e"
+	const data = "0xa9059cbb00000000000000000000000000000000000000000000000000000000000000dd0000000000000000000000000000000000000000000000000000000000000019"
+	args := taskArgs()
+	args["tool"] = "execute_evm_call"
+	args["args"] = map[string]any{"call": map[string]any{"contract": contract, "data": data}}
+	args["actions"] = []any{"evm.contract_call"}
+	args["contracts"] = []any{contract}
+	delete(args, "budget")
+
+	_, err := svc.Call(context.Background(), "delegate_task", args)
+	require.NoError(t, err)
+
+	exec.mu.Lock()
+	deleg := exec.metadata[svpa2a.DelegationMetadataKey].(map[string]any)
+	exec.mu.Unlock()
+	proof := deleg["tokens"].([]any)
+	raw, err := base64.StdEncoding.DecodeString(proof[0].(string))
+	require.NoError(t, err)
+	verified, err := svpdt.VerifyChain([][]byte{raw}, svpdt.SingleKeyResolver(map[string][]byte{
+		life.OwnerDID(): life.Priv.PubKey().Bytes(),
+	}), svpdt.VerifyOpts{ChainID: testChainID, Now: testNow, MaxDepth: 4, Audience: remoteDID})
+	require.NoError(t, err)
+
+	callData, err := hex.DecodeString(data[2:])
+	require.NoError(t, err)
+	expected := evmMethodTaskForCall(life.Owner(), contract, callData)
+	require.Equal(t, expected, verified.Effective.Task)
+	require.True(t, verified.Effective.Actions.Has("evm.contract_call"))
+	require.True(t, verified.Effective.Contracts.Has(contract))
+}
+
+func TestDelegateTaskEVMContractMethodIncludesMethodTask(t *testing.T) {
+	svc, exec, life, _ := stubStack(t)
+	const contract = "0x000000000000000000000000000000000000c07e"
+	const method = "transfer(address,uint256)"
+	args := taskArgs()
+	args["tool"] = "execute_evm_contract_method"
+	args["args"] = map[string]any{"call": map[string]any{
+		"contract": contract, "method": method,
+		"args": []any{"0x00000000000000000000000000000000000000dd", "25"},
+	}}
+	args["actions"] = []any{"evm.contract_call"}
+	args["contracts"] = []any{contract}
+	delete(args, "budget")
+
+	_, err := svc.Call(context.Background(), "delegate_task", args)
+	require.NoError(t, err)
+
+	exec.mu.Lock()
+	deleg := exec.metadata[svpa2a.DelegationMetadataKey].(map[string]any)
+	exec.mu.Unlock()
+	proof := deleg["tokens"].([]any)
+	raw, err := base64.StdEncoding.DecodeString(proof[0].(string))
+	require.NoError(t, err)
+	verified, err := svpdt.VerifyChain([][]byte{raw}, svpdt.SingleKeyResolver(map[string][]byte{
+		life.OwnerDID(): life.Priv.PubKey().Bytes(),
+	}), svpdt.VerifyOpts{ChainID: testChainID, Now: testNow, MaxDepth: 4, Audience: remoteDID})
+	require.NoError(t, err)
+
+	expected := evmMethodTaskForCall(life.Owner(), contract, crypto.Keccak256([]byte(method))[:4])
+	require.Equal(t, expected, verified.Effective.Task)
+	require.True(t, verified.Effective.Contracts.Has(contract))
+}
+
 func TestDelegateTaskNativeTransferRequiresBudget(t *testing.T) {
 	svc, _, _, _ := stubStack(t)
 	args := taskArgs()
@@ -349,6 +416,23 @@ func TestCreateRootDelegationIncludesNativeTransferRecipient(t *testing.T) {
 	require.NoError(t, proto.Unmarshal(capture.soleMsg(t, "/dydxprotocol.agentwallet.MsgCreateDelegation"), &msg))
 	require.Equal(t, []string{"evm.native_transfer"}, msg.Limits.Actions)
 	require.Equal(t, []string{recipient}, msg.Limits.Contracts)
+}
+
+func TestCreateRootDelegationAllowsUnpricedEVMContractCallsWithoutBudget(t *testing.T) {
+	svc, _, _, capture := stubStack(t)
+	const contract = "0x000000000000000000000000000000000000c07e"
+
+	_, err := svc.Call(context.Background(), "create_root_delegation", map[string]any{
+		"actions":     []any{"evm.contract_call"},
+		"subaccounts": []any{float64(0)},
+		"contracts":   []any{contract},
+	})
+	require.NoError(t, err)
+
+	var msg chainmsgs.MsgCreateDelegation
+	require.NoError(t, proto.Unmarshal(capture.soleMsg(t, "/dydxprotocol.agentwallet.MsgCreateDelegation"), &msg))
+	require.Empty(t, msg.Limits.SpendLimitTotal)
+	require.Empty(t, msg.Limits.SpendLimitDaily)
 }
 
 func TestCreateRootDelegationRejectsNonCanonicalEVMRecipient(t *testing.T) {

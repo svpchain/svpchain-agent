@@ -39,6 +39,9 @@ type MintParams struct {
 	// the paid agent can record spend against that order and no other. Empty
 	// leaves it unbound.
 	Settlement string
+	// Task is an optional exact task binding defined by the target chain. EVM
+	// contract calls use it to grant one selector on one contract.
+	Task string
 	// TTLSeconds bounds the credential's life; 0 means DefaultTaskTTLSeconds.
 	// Clamped to the chain's MaxTokenTtlSeconds either way.
 	TTLSeconds int64
@@ -189,6 +192,7 @@ func buildCaveats(principal string, p MintParams, ttl int64) (svpdt.Caveats, err
 		Budget:       budget,
 		SvcBudget:    svcBudget,
 		Settlement:   strings.TrimSpace(p.Settlement),
+		Task:         strings.TrimSpace(p.Task),
 		Actions:      actions,
 		Skills:       skills,
 		Subaccounts:  svpdt.NewUint32Set(p.Subaccounts...),

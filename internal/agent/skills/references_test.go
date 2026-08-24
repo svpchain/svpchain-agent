@@ -18,6 +18,10 @@ func TestReadReference_bundledLendora(t *testing.T) {
 	got, err = skills.ReadReference("lendora-lending", "error-responses.md")
 	require.NoError(t, err)
 	require.Contains(t, got, "Error Response Templates")
+
+	got, err = skills.ReadReference("lendora-lending", "delegated-execution.md")
+	require.NoError(t, err)
+	require.Contains(t, got, "svpchain-execution-lendora")
 }
 
 func TestReadReference_rejectsBadNames(t *testing.T) {
@@ -64,7 +68,7 @@ func TestReadReference_userOverride(t *testing.T) {
 }
 
 func TestListReferences(t *testing.T) {
-	require.Equal(t, []string{"error-responses.md", "output-templates.md"}, skills.ListReferences("lendora-lending"))
+	require.Equal(t, []string{"delegated-execution.md", "error-responses.md", "output-templates.md"}, skills.ListReferences("lendora-lending"))
 	require.Empty(t, skills.ListReferences("base"))
 	require.Empty(t, skills.ListReferences("../etc"))
 }

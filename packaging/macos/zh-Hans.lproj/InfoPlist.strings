@@ -1,2 +1,4 @@
 "CFBundleDisplayName" = "SVPChain Agent";
 "CFBundleName" = "SVPChain Agent";
+"NSMicrophoneUsageDescription" = "语音输入会把你的指令转成文字填进助手输入框。识别由系统语音服务完成，SVPChain 不会上传录音。";
+"NSSpeechRecognitionUsageDescription" = "语音输入会用系统语音识别把你的指令转成文字填进助手输入框。识别由系统语音服务完成，SVPChain 不会上传录音。";

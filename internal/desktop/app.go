@@ -38,6 +38,8 @@ func NewApp() *App {
 // Startup is wired to Wails OnStartup; it captures the runtime context.
 func (a *App) Startup(ctx context.Context) {
 	a.ctx = ctx
+	setVoiceCtx(ctx)
+	installWebViewMicGrant()
 }
 
 // Shutdown releases pooled remote MCP sessions when the app exits.

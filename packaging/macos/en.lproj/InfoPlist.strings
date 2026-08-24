@@ -1,2 +1,4 @@
 "CFBundleDisplayName" = "SVPChain Agent";
 "CFBundleName" = "SVPChain Agent";
+"NSMicrophoneUsageDescription" = "Voice input transcribes your command into the assistant text box. Recognition uses the system speech service; SVPChain does not upload the recording.";
+"NSSpeechRecognitionUsageDescription" = "Voice input uses Speech Recognition to transcribe your command into the assistant text box. Recognition uses the system speech service; SVPChain does not upload the recording.";

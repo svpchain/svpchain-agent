@@ -8,9 +8,10 @@ import {EventsOn} from '../wailsjs/runtime/runtime'
 import {renderMarkdown} from './markdown'
 import {useAppTheme} from './composables/useAppTheme'
 import {useChainLabel} from './composables/useChainLabel'
+import {useSpeechDictation} from './composables/useSpeechDictation'
 import type {Entry} from './types'
 
-const {t, tm} = useI18n()
+const {t, tm, locale} = useI18n()
 const {sidebarCollapsed} = useAppTheme()
 const {chainSelectOptions} = useChainLabel()
 
@@ -63,14 +64,28 @@ function focusAssistant() {
 
 const isMultilineInput = computed(() => input.value.includes('\n'))
 
-function applyChip(text: string) {
-  if (running.value) return
-  input.value = text
-}
-
 function report(msg: string) {
   runStatus.value = msg
   emit('status', msg)
+}
+
+const voice = useSpeechDictation(input, () => locale.value, report, () => ({
+  unsupported: t('assistant.voice.unsupported'),
+  denied: t('assistant.voice.denied'),
+  unavailable: t('assistant.voice.unavailable'),
+  listening: t('assistant.voice.listening'),
+  filled: t('assistant.voice.filled'),
+  empty: t('assistant.voice.empty'),
+}))
+const {supported: voiceSupported, listening: voiceListening, toggle: toggleVoice, stop: stopVoice} = voice
+
+watch(running, (on) => {
+  if (on) stopVoice(true)
+})
+
+function applyChip(text: string) {
+  if (running.value || voiceListening.value) return
+  input.value = text
 }
 
 function scrollToBottom() {
@@ -252,6 +267,7 @@ async function deleteSession(id: string) {
 }
 
 async function send() {
+  stopVoice(true)
   const msg = input.value.trim()
   if (!msg) {
     report(t('assistant.status.enterMessage'))
@@ -479,7 +495,7 @@ defineExpose({startDraft, switchSession})
             :key="'c-' + idx"
             type="button"
             class="prompt-chip"
-            :disabled="running"
+            :disabled="running || voiceListening"
             @click="applyChip(chip)"
         >
           {{ chip }}
@@ -493,7 +509,7 @@ defineExpose({startDraft, switchSession})
             v-model:value="input"
             type="textarea"
             :autosize="{ minRows: 1, maxRows: 6 }"
-            :placeholder="t('assistant.ph.message')"
+            :placeholder="voiceListening ? t('assistant.voice.ph') : t('assistant.ph.message')"
             :readonly="running"
             :theme-overrides="composerInputTheme"
             class="composer-input"
@@ -512,6 +528,23 @@ defineExpose({startDraft, switchSession})
           >
             {{ t('assistant.btn.cancel') }}
           </n-button>
+          <button
+              type="button"
+              class="mic-btn"
+              :class="{ 'mic-btn--listening': voiceListening }"
+              :disabled="running"
+              :aria-pressed="voiceListening"
+              :aria-label="voiceListening ? t('assistant.btn.stopVoice') : t('assistant.btn.voice')"
+              :title="voiceSupported ? (voiceListening ? t('assistant.btn.stopVoice') : t('assistant.btn.voice')) : t('assistant.voice.unsupported')"
+              @click="toggleVoice()"
+          >
+            <svg v-if="!voiceListening" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M12 14a3 3 0 0 0 3-3V7a3 3 0 1 0-6 0v4a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2z"/>
+            </svg>
+            <svg v-else viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <rect x="6" y="6" width="12" height="12" rx="2"/>
+            </svg>
+          </button>
           <button
               type="button"
               class="send-btn"
@@ -1134,6 +1167,51 @@ defineExpose({startDraft, switchSession})
   gap: 2px;
   flex-shrink: 0;
   margin-left: 2px;
+}
+
+.mic-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  margin: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, opacity 0.15s ease, transform 0.1s ease;
+  flex-shrink: 0;
+}
+
+.mic-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.mic-btn:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.mic-btn:active:not(:disabled) {
+  transform: scale(0.94);
+}
+
+.mic-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.mic-btn--listening {
+  background: var(--accent-muted);
+  color: var(--accent);
+}
+
+.mic-btn--listening:hover:not(:disabled) {
+  background: var(--accent-muted);
+  color: var(--accent-hover);
 }
 
 .cancel-btn {

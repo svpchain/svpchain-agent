@@ -218,6 +218,8 @@ export default {
             send: 'Send',
             cancel: 'Cancel',
             deleteChat: 'Delete conversation',
+            voice: 'Voice input',
+            stopVoice: 'Stop listening',
         },
         session: {
             placeholder: 'Conversations',
@@ -233,6 +235,15 @@ export default {
             failed: 'Failed',
             cancelled: 'Cancelled',
             timeout: 'Timed out after 3 minutes — check network or Remote MCP URL',
+        },
+        voice: {
+            ph: 'Listening… tap the mic again when done, then review and send',
+            listening: 'Listening — tap the mic again to stop',
+            filled: 'Added to the box — review, then send',
+            empty: 'Nothing was recognized',
+            unsupported: 'Speech recognition is not available in this window',
+            denied: 'Microphone or speech-recognition access was denied. Allow both in System Settings → Privacy & Security.',
+            unavailable: 'Speech recognition is unavailable. Check the network and try again.',
         },
         chips: [
             'Check BTC-USD price',

@@ -14,7 +14,18 @@ build:
 #   go install github.com/wailsapp/wails/v2/cmd/wails@latest
 build-gui:
 	cd cmd/svpchain-gui && wails build -clean -trimpath
+	$(MAKE) patch-wails-macos-privacy
 	$(MAKE) restore-dist-placeholder
+
+# Wails' generated Info.plist omits microphone / speech-recognition usage
+# strings; without them macOS denies SFSpeechRecognizer with no prompt.
+.PHONY: patch-wails-macos-privacy
+patch-wails-macos-privacy:
+	@./scripts/macos-add-privacy-keys.sh \
+		cmd/svpchain-gui/build/bin/svpchain-gui.app/Contents/Info.plist \
+		cmd/svpchain-gui/build/darwin/Info.plist \
+		cmd/svpchain-gui/build/darwin/Info.dev.plist \
+		|| true
 
 # Vite empties frontend/dist on every build, which deletes the tracked
 # placeholder that lets `go build` work without the frontend toolchain — so a

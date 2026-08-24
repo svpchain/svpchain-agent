@@ -218,6 +218,8 @@ export default {
             send: '发送',
             cancel: '取消',
             deleteChat: '删除对话',
+            voice: '语音输入',
+            stopVoice: '停止录音',
         },
         session: {
             placeholder: '历史对话',
@@ -233,6 +235,15 @@ export default {
             failed: '执行失败',
             cancelled: '已取消',
             timeout: '请求超时（3 分钟），请检查网络或 Remote MCP 地址',
+        },
+        voice: {
+            ph: '正在听… 说完再点一次麦克风，确认文字后发送',
+            listening: '正在听，说完再点麦克风停止',
+            filled: '已填入输入框，请确认后发送',
+            empty: '没有识别到内容',
+            unsupported: '当前窗口不支持语音识别（Web Speech API）',
+            denied: '没有麦克风或语音识别权限。请在系统设置 → 隐私与安全性 中允许本应用的麦克风和语音识别',
+            unavailable: '语音识别不可用，请检查网络或稍后重试',
         },
         chips: [
             '查询 BTC-USD 价格',

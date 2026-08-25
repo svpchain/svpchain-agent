@@ -12,6 +12,7 @@ import (
 
 	"github.com/svpchain/svpchain-agent/internal/agent/hitl"
 	"github.com/svpchain/svpchain-agent/internal/agent/llm"
+	"github.com/svpchain/svpchain-agent/internal/agentmarket"
 	"github.com/svpchain/svpchain-agent/internal/delegation"
 	"github.com/svpchain/svpchain-agent/internal/registry"
 )
@@ -26,6 +27,10 @@ type (
 // Service holds what the delegation tools need for one run.
 type Service struct {
 	Registry *registry.Client
+	// Market enables semantic agent search (search_agents). Nil when no market
+	// service is configured, which simply drops that tool. Its results are a
+	// ranking hint only — see canSearch and searchAgents.
+	Market *agentmarket.Client
 	// Lifecycle signs delegation transactions and mints credentials with the
 	// user's key. Nil leaves only the read-only discovery tools available.
 	Lifecycle *delegation.Lifecycle
@@ -40,6 +45,13 @@ func (s *Service) Enabled() bool {
 	return s != nil && s.Registry != nil && s.Registry.BaseURL() != ""
 }
 
+// canSearch reports whether semantic search is available. It requires the
+// chain client too: a hit is only ever shown after being re-read from the
+// chain, so search without a registry would have nothing to verify against.
+func (s *Service) canSearch() bool {
+	return s.Enabled() && s.Market != nil
+}
+
 func (s *Service) canDelegate() bool {
 	return s.Enabled() && s.Lifecycle != nil
 }
@@ -47,7 +59,7 @@ func (s *Service) canDelegate() bool {
 // IsTool reports whether name belongs to this package.
 func IsTool(name string) bool {
 	switch name {
-	case "discover_agents", "get_agent_card",
+	case "discover_agents", "search_agents", "get_agent_card",
 		"list_delegations", "create_root_delegation",
 		"pause_delegation", "resume_delegation", "revoke_delegation",
 		"delegate_task",
@@ -66,6 +78,8 @@ func (s *Service) Call(ctx context.Context, name string, args map[string]any) (s
 	switch name {
 	case "discover_agents":
 		return s.discoverAgents(ctx, args)
+	case "search_agents":
+		return s.searchAgents(ctx, args)
 	case "get_agent_card":
 		return s.getAgentCard(ctx, args)
 	case "list_delegations":
@@ -141,6 +155,83 @@ func (s *Service) discoverAgents(ctx context.Context, args map[string]any) (stri
 	return string(out), nil
 }
 
+// searchedAgent is a discovery row plus the market's relevance score.
+type searchedAgent struct {
+	agentSummary
+	Similarity float64 `json:"similarity"`
+}
+
+// searchAgents shortlists agents by semantic similarity, then rebuilds every
+// row from the chain.
+//
+// The market service ranks; the chain decides what is true. Only the agent id
+// and score survive from the search response (see package agentmarket) — the
+// endpoint, capabilities, pricing and bond reported here are all re-read via
+// AgentByID. A hit that does not resolve on chain is dropped rather than shown,
+// so a stale or hostile index cannot introduce an agent, and above all cannot
+// substitute an endpoint that a later delegate_task would send a spending
+// credential to.
+func (s *Service) searchAgents(ctx context.Context, args map[string]any) (string, error) {
+	if !s.canSearch() {
+		return "", fmt.Errorf("semantic agent search is not configured: set the Agent Market URL in Settings, or use discover_agents to list all registered agents")
+	}
+	query, _ := args["query"].(string)
+	if strings.TrimSpace(query) == "" {
+		return "", fmt.Errorf("query is required")
+	}
+	capability, _ := args["capability"].(string)
+	limit := 10
+	if raw, ok := args["limit"].(float64); ok && raw > 0 {
+		limit = int(raw)
+	}
+
+	hits, err := s.Market.Search(ctx, agentmarket.Query{Text: query, Capability: capability, Limit: limit})
+	if err != nil {
+		return "", err
+	}
+
+	rows := make([]searchedAgent, 0, len(hits))
+	var unresolved []string
+	for _, hit := range hits {
+		agent, err := s.Registry.AgentByID(ctx, hit.AgentID)
+		if err != nil {
+			// Indexed but not resolvable on chain now: deregistered since it
+			// was indexed, or never real. Report the id so the discrepancy is
+			// visible rather than silently narrowing the results.
+			unresolved = append(unresolved, hit.AgentID)
+			continue
+		}
+		rows = append(rows, searchedAgent{
+			agentSummary: agentSummary{
+				AgentID:      agent.AgentID,
+				Endpoint:     agent.Endpoint,
+				Capabilities: agent.Capabilities,
+				Pricing:      agent.Pricing,
+				Bond:         agent.Bond,
+				Metadata:     agent.Metadata,
+			},
+			Similarity: hit.Similarity,
+		})
+	}
+
+	result := map[string]any{
+		"agents":           rows,
+		"count":            len(rows),
+		"query":            query,
+		"agent_hub_url":    s.Registry.BaseURL(),
+		"agent_market_url": s.Market.BaseURL(),
+		"ranking_source":   "agent market semantic search; every field above was re-read from the chain",
+	}
+	if len(unresolved) > 0 {
+		result["unresolved_on_chain"] = unresolved
+	}
+	out, err := json.Marshal(result)
+	if err != nil {
+		return "", err
+	}
+	return string(out), nil
+}
+
 func (s *Service) getAgentCard(ctx context.Context, args map[string]any) (string, error) {
 	agentID, _ := args["agent_id"].(string)
 	agentID = strings.TrimSpace(agentID)
@@ -191,6 +282,44 @@ func (s *Service) ToolDefs() []llm.Tool {
 		return nil
 	}
 	defs := s.delegationToolDefs()
+	if s.canSearch() {
+		defs = append(defs, llm.Tool{
+			Type: "function",
+			Function: llm.Function{
+				Name: "search_agents",
+				Description: "Find remote agents by DESCRIBING THE TASK in natural language, " +
+					"ranked by semantic similarity against each agent's published A2A card. " +
+					"USE THIS FIRST whenever you do not already know which agent can do " +
+					"something: it searches what agents actually say they can do, whereas " +
+					"discover_agents only filters on exact capability tags and returns every " +
+					"registered agent. Ranking comes from the Agent Market service, but every " +
+					"field returned is re-read from the chain, and hits that no longer resolve " +
+					"on chain are dropped (reported as unresolved_on_chain). Similarity is " +
+					"0..1; treat below ~0.4 as a weak match and say so rather than delegating " +
+					"blindly. Always confirm a candidate with get_agent_card before " +
+					"delegate_task — the card is what states the skill and tool names a task " +
+					"must use.",
+				Parameters: map[string]any{
+					"type": "object",
+					"properties": map[string]any{
+						"query": map[string]any{
+							"type":        "string",
+							"description": "The task, in natural language, e.g. \"check perpetual funding rates on BTC-USD\"",
+						},
+						"capability": map[string]any{
+							"type":        "string",
+							"description": "Optional exact capability tag to narrow the search",
+						},
+						"limit": map[string]any{
+							"type":        "integer",
+							"description": "Maximum candidates to return; default 10",
+						},
+					},
+					"required": []string{"query"},
+				},
+			},
+		})
+	}
 	return append([]llm.Tool{
 		{
 			Type: "function",

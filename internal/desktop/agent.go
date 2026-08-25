@@ -32,6 +32,7 @@ type AgentSettings struct {
 	LLMContextWindow    int      `json:"llm_context_window"`
 	RemoteMCPURL        string   `json:"remote_mcp_url"`
 	AgentHubURL         string   `json:"agent_hub_url"`
+	AgentMarketURL      string   `json:"agent_market_url"`
 	RemoteMCPDisabled   bool     `json:"remote_mcp_disabled"`
 	DisabledSkills      []string `json:"disabled_skills"`
 	SkillsConfigBase    string   `json:"skills_config_base"`
@@ -52,6 +53,7 @@ func (a *App) AgentGetSettings() AgentSettings {
 		LLMContextWindow:    s.LLMContextWindow,
 		RemoteMCPURL:        s.RemoteMCPURL,
 		AgentHubURL:         s.AgentHubURL,
+		AgentMarketURL:      s.AgentMarketURL,
 		RemoteMCPDisabled:   s.RemoteMCPDisabled,
 		DisabledSkills:      s.DisabledSkills,
 		SkillsConfigBase:    s.SkillsConfigBase,
@@ -82,6 +84,7 @@ func (a *App) AgentSetSettings(s AgentSettings) {
 		LLMContextWindow:    s.LLMContextWindow,
 		RemoteMCPURL:        s.RemoteMCPURL,
 		AgentHubURL:         s.AgentHubURL,
+		AgentMarketURL:      s.AgentMarketURL,
 		RemoteMCPDisabled:   s.RemoteMCPDisabled,
 		DisabledSkills:      s.DisabledSkills,
 		SkillsConfigBase:    s.SkillsConfigBase,
@@ -196,6 +199,7 @@ func (a *App) AgentSend(chainID, message string) error {
 			ChainID:        chainID,
 			RemoteURL:      remoteURL,
 			AgentHubURL:    settings.AgentHubURL,
+			AgentMarketURL: settings.AgentMarketURL,
 			ChainRPCURL:    chainrpc.URLForChain(chainID),
 			Confirm:        a.confirmHook,
 			RunLog:         runlog.New(!settings.AgentRunLogDisabled),

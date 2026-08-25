@@ -4,6 +4,7 @@ description: Discover on-chain registered agents and delegate tasks to them unde
 priority: 30
 tools:
   - discover_agents
+  - search_agents
   - get_agent_card
   - list_delegations
   - create_root_delegation
@@ -44,16 +45,48 @@ with `refresh: true`; never answer from an earlier result in the conversation, b
 
 ## The flow
 
-1. **Discover** — `discover_agents` (optionally with a `capability` tag such as `"trading"`) lists ACTIVE registered
-   agents with their DIDs, endpoints, pricing and bond.
+1. **Discover** — two ways in, and picking the right one matters:
+   - **You do not know which agent can do the task** → `search_agents` with the task described in natural language
+     (`"check perpetual funding rates on BTC-USD"`). It ranks agents by what their A2A cards actually say they can do,
+     so it finds agents whose capability tags you would never have guessed. Start here for any open-ended request.
+   - **You want the full list, or you know the exact capability tag** → `discover_agents`, optionally with
+     `capability: "trading"`. It returns every ACTIVE registered agent.
+
+   `search_agents` returns `similarity` in `0..1`. Treat anything below about `0.4` as a weak match: say so and offer
+   `discover_agents` instead of delegating on a guess. If it reports `unresolved_on_chain`, those agents are indexed but
+   no longer resolvable on chain — ignore them, and mention it if the user expected one of them.
 2. **Inspect** — `get_agent_card` fetches an agent's A2A card: its skills, tools and their argument shapes. If
    `verified` is false the served card does not match what the agent registered on chain — tell the user and be
    suspicious.
+
+   **Never skip this after `search_agents`.** A search result is a ranking, not a contract: it tells you an agent looks
+   relevant, not which `skill` and `tool` names a task must use. Those come from the card, and `delegate_task` needs
+   them exactly right.
 3. **Root delegation** — `list_delegations` shows the user's on-chain delegations. Before the first `delegate_task`, one
    root delegation to the user's own DID must exist; create it with `create_root_delegation` (the user approves the
    terms in a dialog). Its limits are the outer ceiling every later per-task grant narrows from.
 4. **Delegate** — `delegate_task` mints a short-lived credential (user approves each one in a dialog), attaches it to
    the A2A message metadata under `svp.delegation/v1`, and sends `{skill, tool, args}` to the agent's A2A endpoint.
+
+## Why search results are only a shortlist
+
+`search_agents` ranks candidates using the **Agent Market** service — a third remote party, separate from the Agent Hub
+(the chain) and the remote MCP server. It indexes the chain, but nothing the assistant can check proves that its copy is
+faithful.
+
+So the market only ever supplies an **ordering**. Every field in the result — endpoint, capabilities, pricing, bond — is
+re-read from the chain before you see it, and candidates that no longer resolve on chain are dropped. This matters
+because `delegate_task` sends a credential that can **spend the user's funds** to an agent's endpoint: if a bad index
+could choose that endpoint, it could redirect the money. It cannot.
+
+Practical consequences:
+
+- Never present a search result as proof an agent is registered, bonded, or trustworthy — that comes from the chain
+  fields and from `get_agent_card`.
+- An agent that has not yet been indexed will not appear in search even though it is registered and usable. If a user
+  insists an agent exists and search cannot find it, fall back to `discover_agents`.
+- If the Agent Market URL is not configured, `search_agents` is simply absent. Use `discover_agents` and say that
+  semantic search is not set up, rather than claiming no agent can do the task.
 
 ## Native SVP transfer through an EVM agent
 

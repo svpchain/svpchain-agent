@@ -75,6 +75,7 @@ type File struct {
 	LLMContextWindow    int              `json:"llm_context_window,omitempty"`
 	RemoteMCPURL        string           `json:"remote_mcp_url,omitempty"`
 	AgentHubURL         string           `json:"agent_hub_url,omitempty"`
+	AgentMarketURL      string           `json:"agent_market_url,omitempty"`
 	RemoteMCPDisabled   bool             `json:"remote_mcp_disabled,omitempty"`
 	Whitelist           []WhitelistEntry `json:"whitelist,omitempty"`
 	DisabledSkills      []string         `json:"disabled_skills,omitempty"`

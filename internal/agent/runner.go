@@ -25,6 +25,7 @@ import (
 	"github.com/svpchain/svpchain-agent/internal/agent/skills"
 	"github.com/svpchain/svpchain-agent/internal/agent/step"
 	"github.com/svpchain/svpchain-agent/internal/agent/writepath"
+	"github.com/svpchain/svpchain-agent/internal/agentmarket"
 	"github.com/svpchain/svpchain-agent/internal/chainrpc"
 	"github.com/svpchain/svpchain-agent/internal/delegation"
 	"github.com/svpchain/svpchain-agent/internal/keystore"
@@ -65,6 +66,12 @@ type Config struct {
 	// agent-discovery and delegation tools. Empty disables them.
 	// It is not used to look up run-log transaction hashes.
 	AgentHubURL string
+
+	// AgentMarketURL is the SVP Agent Market service's base URL, enabling
+	// semantic agent search (search_agents). Empty leaves the assistant with
+	// chain-only discovery. Results from it are a ranking hint: every hit is
+	// re-read from the chain before it is shown or used.
+	AgentMarketURL string
 	// ChainRPCURL is the CometBFT RPC base used to look up broadcast tx
 	// hashes (GET /tx?hash=0x…). Empty falls back to chainrpc.URLForChain.
 	ChainRPCURL string
@@ -207,6 +214,9 @@ func Run(ctx context.Context, cfg Config, userMessage string) (answer string, er
 		chain = registry.New(restURL)
 		deleg.Registry = chain
 		deleg.Lifecycle = &delegation.Lifecycle{Registry: chain, Priv: priv, ChainID: chainID}
+		// Search only makes sense with a chain client to verify hits against;
+		// nil when unset, which leaves search_agents out of the tool list.
+		deleg.Market = agentmarket.New(cfg.AgentMarketURL)
 	}
 	writes := writepath.New()
 	env := dispatchEnv{

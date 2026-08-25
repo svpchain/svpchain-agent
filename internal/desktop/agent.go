@@ -31,7 +31,6 @@ type AgentSettings struct {
 	LLMProvider         string   `json:"llm_provider"`
 	LLMContextWindow    int      `json:"llm_context_window"`
 	RemoteMCPURL        string   `json:"remote_mcp_url"`
-	AgentHubURL         string   `json:"agent_hub_url"`
 	AgentMarketURL      string   `json:"agent_market_url"`
 	RemoteMCPDisabled   bool     `json:"remote_mcp_disabled"`
 	DisabledSkills      []string `json:"disabled_skills"`
@@ -52,7 +51,6 @@ func (a *App) AgentGetSettings() AgentSettings {
 		LLMProvider:         s.LLMProvider,
 		LLMContextWindow:    s.LLMContextWindow,
 		RemoteMCPURL:        s.RemoteMCPURL,
-		AgentHubURL:         s.AgentHubURL,
 		AgentMarketURL:      s.AgentMarketURL,
 		RemoteMCPDisabled:   s.RemoteMCPDisabled,
 		DisabledSkills:      s.DisabledSkills,
@@ -83,7 +81,6 @@ func (a *App) AgentSetSettings(s AgentSettings) {
 		LLMProvider:         s.LLMProvider,
 		LLMContextWindow:    s.LLMContextWindow,
 		RemoteMCPURL:        s.RemoteMCPURL,
-		AgentHubURL:         s.AgentHubURL,
 		AgentMarketURL:      s.AgentMarketURL,
 		RemoteMCPDisabled:   s.RemoteMCPDisabled,
 		DisabledSkills:      s.DisabledSkills,
@@ -198,7 +195,6 @@ func (a *App) AgentSend(chainID, message string) error {
 		answer, err := agent.Run(ctx, agent.Config{
 			ChainID:        chainID,
 			RemoteURL:      remoteURL,
-			AgentHubURL:    settings.AgentHubURL,
 			AgentMarketURL: settings.AgentMarketURL,
 			ChainRPCURL:    chainrpc.URLForChain(chainID),
 			Confirm:        a.confirmHook,

@@ -7,7 +7,7 @@ import (
 
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
 
-	"github.com/svpchain/svpchain-agent/internal/agent/delegatecall"
+	"github.com/svpchain/svpchain-agent/internal/agent/discovery"
 	"github.com/svpchain/svpchain-agent/internal/agent/hitl"
 	"github.com/svpchain/svpchain-agent/internal/agent/llm"
 	localsigner "github.com/svpchain/svpchain-agent/internal/agent/local"
@@ -20,7 +20,7 @@ import (
 // A nil remote means the remote MCP is switched off: the assistant then has
 // only the local tools, and the skills that gate on remote tool names drop out
 // of the system prompt on their own.
-func buildToolList(ctx context.Context, remote *remotemcp.Client, deleg *delegatecall.Service) ([]llm.Tool, error) {
+func buildToolList(ctx context.Context, remote *remotemcp.Client, disc *discovery.Service) ([]llm.Tool, error) {
 	var remoteTools []*mcpsdk.Tool // schemas the remote advertises; nil when off
 	if remote != nil {
 		var err error
@@ -45,18 +45,18 @@ func buildToolList(ctx context.Context, remote *remotemcp.Client, deleg *delegat
 		})
 	}
 	out = append(out, localsigner.ToolDefs()...)
-	out = append(out, deleg.ToolDefs()...)
+	out = append(out, disc.ToolDefs()...)
 	return out, nil
 }
 
 // dispatchTool is the test-facing entry onto the middleware chain
 // (observe → guard → writepath → cache → protocol mux).
-func dispatchTool(ctx context.Context, chainID string, remote *remotemcp.Client, local *localsigner.Signer, deleg *delegatecall.Service, confirm hitl.Func, writes *writepath.Tracker, name string, args map[string]any, mem *memory.Session) (string, error) {
+func dispatchTool(ctx context.Context, chainID string, remote *remotemcp.Client, local *localsigner.Signer, disc *discovery.Service, confirm hitl.Func, writes *writepath.Tracker, name string, args map[string]any, mem *memory.Session) (string, error) {
 	return dispatchEnv{
 		chainID: chainID,
 		remote:  remote,
 		local:   local,
-		deleg:   deleg,
+		disc:    disc,
 		confirm: confirm,
 		writes:  writes,
 		mem:     mem,

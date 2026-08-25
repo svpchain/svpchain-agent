@@ -3,7 +3,7 @@ SVPChain Agent — macOS: Read Before Running
 
 This disk image contains:
 
-  • SVPChain Agent.app   The desktop agent: assistant, agent discovery, delegations, keys
+  • SVPChain Agent.app   The desktop agent: assistant, agent search, keys
   • This guide (READ-BEFORE-RUN.txt)
   • 运行前先阅读.txt          Chinese version of this guide
 
@@ -16,7 +16,7 @@ The .app bundle already includes svpchain-mcp; no separate download needed.
 1. Double-click the DMG to open it (e.g. from Downloads).
 2. Drag SVPChain Agent.app into Applications (or use the Applications shortcut in the DMG window).
 3. Launch the app once using the “First launch” steps below.
-4. In the app: import your key → set the LLM key and chain REST URL in Settings → use Assistant.
+4. In the app: import your key → set the LLM key and Agent Market URL in Settings → use Assistant.
 
 
 2. First launch (important)
@@ -72,8 +72,8 @@ Keys live in the system keychain — they are not saved in plain config files.
 4. After setup
 --------------
 
-The app is the product: use Assistant for on-chain actions, Agents to discover
-agents registered on chain, and Delegations to manage what they may spend.
+The app is the product: use Assistant for on-chain actions and to find
+remote agents by describing a task.
 
 It also bundles svpchain-mcp, so you can point Cursor or another MCP client at
 the signer separately — generate that config from the Config tab.

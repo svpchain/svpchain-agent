@@ -82,7 +82,7 @@ Report **security metrics** (whitelist rejections, signer cross-checks) separate
 
 Fields include: `run_id`, timestamps, `chain_id`, `model`, redacted `user_message`, `outcome`, `answer`, `error`,
 `session_id` / `session_title` (the multi-turn conversation this run belongs to), `tx_hashes`, `tx_checks` (CometBFT
-RPC `GET /tx?hash=0x…`: `confirmed` / `failed` / `pending` / `error` / `skipped`), `intent_checks` (build_* / delegation args scored against
+RPC `GET /tx?hash=0x…`: `confirmed` / `failed` / `pending` / `error` / `skipped`), `intent_checks` (build_* args scored against
 confirmed tx events: `matched` / `mismatch` / `included` / `unobserved` / `skipped` — event fields such as
 recipient or ticker, not an order-book or position snapshot; EVM txs with no comparable events score `included`),
 `round_count`, `prompt_sha256` (SHA-256 of the assembled
@@ -112,7 +112,7 @@ Disable: Settings UI or `"agent_run_log_disabled": true` in `prefs.json`.
 names, tx hashes (with on-chain status), and **intent checks** (whether bank-send recipients / order tickers appear in
 tx events). **Open conversation** jumps to that session in Assistant. **Recheck on
 chain** polls CometBFT RPC (`/tx?hash=0x…`, testnet `https://rpc-testnet.svpchain.org`) again if the first lookup was
-pending. This is not the Agent Hub URL. Delete one run or clear
+pending. This is not the Agent Market URL. Delete one run or clear
 the log from this tab. Settings → Basic → **View runs** jumps there.
 
 ```bash

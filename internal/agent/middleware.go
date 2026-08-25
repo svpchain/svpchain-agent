@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 
-	"github.com/svpchain/svpchain-agent/internal/agent/delegatecall"
+	"github.com/svpchain/svpchain-agent/internal/agent/discovery"
 	"github.com/svpchain/svpchain-agent/internal/agent/guard"
 	"github.com/svpchain/svpchain-agent/internal/agent/hitl"
 	localsigner "github.com/svpchain/svpchain-agent/internal/agent/local"
@@ -40,7 +40,7 @@ type dispatchEnv struct {
 	chainID string
 	remote  *remotemcp.Client
 	local   *localsigner.Signer
-	deleg   *delegatecall.Service
+	disc    *discovery.Service
 	confirm hitl.Func
 	writes  *writepath.Tracker
 	mem     *memory.Session

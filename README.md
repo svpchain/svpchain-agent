@@ -2,8 +2,8 @@
 
 **English** | [简体中文](README.zh-CN.md)
 
-A local-key **on-chain agent** for svpchain (Cosmos/EVM) that **discovers other agents on chain and delegates tasks to
-them**, built around a strict separation of trust:
+A local-key **on-chain agent** for svpchain (Cosmos/EVM) that also **discovers other agents on chain**, built around a
+strict separation of trust:
 
 - **Local signing MCP service** (`svpchain-mcp`) — keeps the user's signing key on the local machine, never exposes it,
   and only signs payloads/challenges that pass strict cross-checks.
@@ -13,10 +13,9 @@ them**, built around a strict separation of trust:
   Anthropic) that orchestrates the two: the remote side *builds* and *broadcasts*, the local side *signs*. Keys never
   leave the machine. Optional **transfer whitelist**, modular **assistant skills**, multi-turn **conversation history**,
   and local **run logs** tighten transfers, prompts, and observability.
-- **Agent discovery & delegation** — find agents in the chain's `x/agent` registry and hand them tasks under short-lived
-  **SVP-DT credentials**, so a remote agent can act on the user's account without ever holding the user's key.
-- **Google A2A (Agent-to-Agent)** — delegate sub-tasks to other A2A agents (client only; this agent never runs as a
-  network service).
+- **Agent search** — find remote agents by describing a task, through the **Agent Market** service.
+- **Google A2A (Agent-to-Agent)** — ask other A2A agents for information (client only; this agent never runs as a
+  network service). A2A messages carry no authority over the user's account.
 
 The signer runs over **stdio** (no network port; the process that starts it is the trust boundary). The remote side is
 reached over HTTP and gated by a signed-challenge bearer token, so the remote never holds a key either.
@@ -24,29 +23,25 @@ reached over HTTP and gated by a signed-challenge bearer token, so the remote ne
 The on-chain write flow is always: remote `build_*` → local `sign_*` → remote `broadcast_*`, passing `signed_tx` fields
 verbatim.
 
-## Agent discovery & delegation
+## Agent search
 
-The user issues credentials with **their own account key**, under the DID `did:svp:<their address>` — no agent
-registration, no fee, no bond. The chain resolves that DID through the account's published x/auth public key.
-Registration stays what it is for: a directory of agents that act on *others'* behalf, backed by slashable stake.
+1. **Search** — `search_agents` takes a task in natural language and returns agents ranked by semantic similarity
+   against their published A2A cards, with each one's DID, A2A endpoint, capability tags, pricing and bond. It runs
+   locally against the **Agent Market** service (Settings → Agent Market URL, reported back as `agent_market_url`), not
+   through the remote MCP server.
+2. **Talk** — `a2a_send_message` sends plain, uncredentialed text to an agent's endpoint. Nothing about it lets a remote
+   agent act on the user's account: on-chain writes still go through remote `build_*` → local `sign_*` →
+   remote `broadcast_*`, each signature confirmed in a dialog.
 
-1. **Discover** — the **Agents** tab (or the assistant's `discover_agents`) lists ACTIVE registered agents, with each
-   agent's A2A card checked against the capability hash it registered on chain.
-2. **Root delegation** — one on-chain delegation to the user's own DID sets the outer ceiling: permitted actions,
-   subaccounts, denominations, total and daily spend caps, expiry. Manage it in the **Delegations** tab.
-3. **Delegate a task** — the assistant mints a **single-use, short-lived** credential narrowing that ceiling to the one
-   task, attaches it to the message metadata as `svp.delegation/v1`, and sends `{skill, tool, args}` to the agent's A2A
-   endpoint. The remote agent verifies it and executes on chain via `MsgAgentExecDelegated`.
-
-**Every grant requires an explicit confirmation** in a dialog showing the exact terms. Declining, ignoring, or running
-headless all deny. **Pause** is the emergency stop: one click invalidates every outstanding credential under a
-delegation at once.
+The market service is the only source of these results: it indexes the chain's `x/agent` registry, but nothing here
+re-reads the chain, so an agent's endpoint and capabilities are that service's claim rather than a verified on-chain
+fact. The endpoint decides where an A2A message goes — it cannot move funds, but it does decide who reads the message.
 
 ## Quick start (GUI)
 
-Import a key → **Settings** (language, chain id, chain REST URL, LLM API key / provider) → optional **Security**
+Import a key → **Settings** (language, chain id, LLM API key / provider, Agent Market URL) → optional **Security**
 whitelist → use **Assistant** for on-chain actions (swap, transfer, bridge, ERC-20/721, Lendora lending, x402, …) or to
-discover and delegate to remote agents, or export **MCP** config for Cursor.
+find remote agents, or export **MCP** config for Cursor.
 
 ```sh
 make build-all      # build/svpchain-mcp + the Wails GUI (CGO required)

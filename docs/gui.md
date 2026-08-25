@@ -12,7 +12,7 @@ The GUI covers key management, MCP export, security policy, and the built-in ass
 | **Keys / Import** | Import, list, and delete signing keys; view derived `svp1…` and `0x` addresses per chain.                                                                                                                                                                                                                   |
 | **Security**      | Manage a **transfer whitelist** (chain id + Cosmos or EVM address, optional alias). The GUI assistant requires at least one entry before it will transfer; the standalone signer treats an empty list as unrestricted (see [Transfer whitelist](security-whitelist.md)).                                    |
 | **MCP**           | Generate stdio MCP client JSON for Cursor and other clients; auto-detect the bundled `svpchain-mcp` binary.                                                                                                                                                                                                 |
-| **Settings**      | Collapsible sections — **Basic** (language, default chain id, tool-step display, run logging), **LLM** (API key, base URL, model, context window, remote MCP URL), **Assistant Skills** (enable/disable prompt modules).                                                                                                                                                    |
+| **Settings**      | Collapsible sections — **Basic** (language, default chain id, tool-step display, run logging), **LLM** (API key, base URL, model, context window, remote MCP URL, Agent Market URL), **Assistant Skills** (enable/disable prompt modules).                                                                                                                                                    |
 | **Runs**          | Browse local assistant traces: outcome, tool timeline, LLM round latency/tokens, and tx hashes. Reads `agent_runs.jsonl` (see [Agent observability](agent-observability.md)). Toggle recording under Settings → Basic.                                                                                                                                                     |
 | **About**         | Version and trust-model summary.                                                                                                                                                                                                                                                                            |
 
@@ -30,7 +30,7 @@ The app supports **English and Chinese** (Settings → Basic; persisted). Overri
 
 The assistant system prompt is assembled from modular **skills** (`internal/agent/skills/bundled/*/SKILL.md`), not a
 single hard-coded string. Each skill covers one workflow (on-chain build/sign/broadcast, x402 payments, bank send to
-`0x`, ERC-20/721, A2A delegation, etc.).
+`0x`, ERC-20/721, A2A messaging, etc.).
 
 - **Bundled skills** are embedded in the binary. A skill may keep bulky detail (output templates, error catalogs) in
   `references/*.md` next to its `SKILL.md`; the assistant loads those on demand with the local `read_skill_reference`

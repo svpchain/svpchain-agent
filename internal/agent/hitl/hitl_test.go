@@ -18,8 +18,8 @@ func TestAsk_nilDenies(t *testing.T) {
 
 func TestAsk_falseDenies(t *testing.T) {
 	err := Ask(context.Background(), func(context.Context, Request) bool { return false }, Request{
-		Kind:  KindDelegateTask,
-		Title: "Delegate task",
+		Kind:  "some_other_action",
+		Title: "Some other action",
 	})
 	var denied *Denied
 	require.ErrorAs(t, err, &denied)

@@ -145,7 +145,7 @@ LangSmith 等 SaaS trace）的前提下，本地调试、回归与持续改进�
 }
 ```
 
-对照的是 **链上交易事件字段**（收款地址、ticker 等），不是持仓或订单账本的前后快照。EVM 交易通常没有可对照的 Cosmos 事件，只能标 `included`。查询走 CometBFT RPC（测试网 `https://rpc-testnet.svpchain.org/tx?hash=0x…`），**不是** Agent Hub 地址。
+对照的是 **链上交易事件字段**（收款地址、ticker 等），不是持仓或订单账本的前后快照。EVM 交易通常没有可对照的 Cosmos 事件，只能标 `included`。查询走 CometBFT RPC（测试网 `https://rpc-testnet.svpchain.org/tx?hash=0x…`），**不是** Agent Market 地址。
 
 `intent_checks[].status`：
 
@@ -177,7 +177,7 @@ LangSmith 等 SaaS trace）的前提下，本地调试、回归与持续改进�
 
 ### 3.6 查看
 
-**GUI：** 侧栏 **运行记录** — 按 outcome 筛选，点开一轮查看工具时间线、LLM 回复/`tool_calls`、skill 名、tx hash（含链上状态）以及 **意图核对**（收款地址 / 下单 ticker 是否出现在交易事件里）。**打开对话** 跳到该会话。**回查链上** 用 CometBFT RPC（`/tx?hash=0x…`）再查一次尚未收录的交易；与设置里的 Agent Hub 无关。可删除单条或清空全部。设置 → 基础 → **查看记录** 可跳转。
+**GUI：** 侧栏 **运行记录** — 按 outcome 筛选，点开一轮查看工具时间线、LLM 回复/`tool_calls`、skill 名、tx hash（含链上状态）以及 **意图核对**（收款地址 / 下单 ticker 是否出现在交易事件里）。**打开对话** 跳到该会话。**回查链上** 用 CometBFT RPC（`/tx?hash=0x…`）再查一次尚未收录的交易；与设置里的 Agent Market 无关。可删除单条或清空全部。设置 → 基础 → **查看记录** 可跳转。
 
 ```bash
 # 美化输出最近一条

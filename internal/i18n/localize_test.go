@@ -61,9 +61,9 @@ func TestLocalizeAgentAnswer(t *testing.T) {
 	require.Contains(t, sign, "签名已拒绝")
 	require.Contains(t, sign, "Sign Cosmos transaction")
 
-	grant := LocalizeAgentAnswer(`Declined — the user did not approve "Delegate task". No further action was taken.`)
+	grant := LocalizeAgentAnswer(`Declined — the user did not approve "Some other action". No further action was taken.`)
 	require.Contains(t, grant, "已拒绝")
-	require.Contains(t, grant, "Delegate task")
+	require.Contains(t, grant, "Some other action")
 
 	path := LocalizeAgentAnswer(`Write path rejected — signed_tx was altered; pass it verbatim from sign_*. No transaction was signed or broadcast.`)
 	require.Contains(t, path, "写入路径被拒绝")

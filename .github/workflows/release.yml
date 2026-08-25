@@ -177,7 +177,7 @@ jobs:
             Prebuilt `svpchain-mcp` and `svpchain-gui` binaries for macOS, Windows, and Linux.
 
             - **svpchain-mcp** — stdio MCP signing service (for Cursor and other MCP clients)
-            - **svpchain-gui** — the desktop app: assistant, agent discovery, delegations, keys
+            - **svpchain-gui** — the desktop app: assistant, agent search, keys
             - **svpchain-agent-*-macos.dmg** — macOS app disk image (open the DMG, drag `SVPChain Agent.app` to Applications)
             - **svpchain-agent-*-windows-amd64.zip** — Windows app folder (extract and run `svpchain-gui.exe`; includes `svpchain-mcp.exe`)
 

@@ -4,10 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-A local-key on-chain agent for svpchain (Cosmos SDK + EVM) that also **discovers remote agents from the chain and
-delegates tasks to them**. The defining constraint is a **three-party trust separation**: the signing key never leaves
-the local machine, the remote service builds and broadcasts but never holds a key, and an LLM assistant orchestrates the
-two.
+A local-key on-chain agent for svpchain (Cosmos SDK + EVM) that can also **find remote agents by task**. The defining
+constraint is a **three-party trust separation**: the signing key never leaves the local machine, the remote service
+builds and broadcasts but never holds a key, and an LLM assistant orchestrates the two.
 
 - **`svpchain-mcp`** — stdio MCP signing service. Holds the key (OS credential store), signs only payloads/challenges
   that pass strict cross-checks.
@@ -16,31 +15,21 @@ two.
 - **`svpchain-gui`** — Wails app (Go + embedded Vue) with a built-in LLM tool-calling assistant that runs the signer
   in-process.
 
-## Agent discovery & delegation (what makes this project distinct)
+## Agent search
 
-The assistant can find agents registered in the chain's `x/agent` registry and hand them tasks under **SVP-DT
-credentials** (`github.com/svpchain/svpdt`), so a remote agent acts on the user's account without ever holding the
-user's key.
+`search_agents` (the only discovery tool) takes a natural-language task and returns ranked agents — DID, A2A endpoint,
+capability tags, pricing, bond — from the **Agent Market** service (`internal/agentmarket`, `AgentMarketURL` in prefs,
+defaulting to `agentmarket.DefaultURL`). The tool surface lives in `internal/agent/discovery`.
 
-**The root-issuer model.** The user issues depth-1 credentials with their **own** account key, under the DID
-`did:svp:<their address>` — they are *not* registered as an agent, and pay no registration fee or bond. This works
-because the chain's `x/agentwallet` resolver falls back to the account's published x/auth pubkey when a root issuer is
-not a registered agent (a change made in the `svpagent` repo alongside this project; the DEX agent's off-chain preflight
-resolver has the same fallback). Registration stays what it is for: a directory of agents that act on *others'* behalf,
-backed by slashable stake.
+**The market service is the only source.** It indexes the chain's `x/agent` registry, but nothing in this repo reads
+the chain any more, so an agent's endpoint is that service's claim. What that bounds: the endpoint decides where an
+`a2a_send_message` goes (so a hostile index sees that message), but it cannot move funds — A2A carries no credential,
+and every write still goes remote `build_*` → local `sign_*` → remote `broadcast_*`. Keep it that way: do not let a
+market-supplied field reach a signing or transfer path.
 
-Flow: user creates one on-chain root delegation to their own DID (`create_root_delegation`) → per task, a **single-use,
-short-lived** credential is minted narrowing that grant (`delegate_task`) → the credential rides as `args.proof` in the
-A2A envelope `{skill, tool, args}` → the remote agent verifies it, wraps the action in `MsgAgentExecDelegated`, and
-broadcasts.
-
-**Every grant and every local `sign_*` (except `sign_challenge`) is gated on an explicit user confirmation**
-(`Config.Confirm` → Wails `agent:confirm` event → `ResolveConfirm`). A nil hook, a decline, or a timeout all deny. The
-whitelist gate still runs first and cannot be overridden by the dialog.
-
-Key packages: `internal/registry` (chain REST reads + broadcast, no SDK client), `internal/delegation` (lifecycle txs +
-minting), `internal/chainmsgs` (vendored `x/agentwallet` pb.go, wire-locked by golden-byte tests),
-`internal/agent/delegatecall` (the LLM tool surface).
+**Every local `sign_*` (except `sign_challenge`) is gated on an explicit user confirmation** (`Config.Confirm` → Wails
+`agent:confirm` event → `ResolveConfirm`). A nil hook, a decline, or a timeout all deny. The whitelist gate still runs
+first and cannot be overridden by the dialog.
 
 ## Commands
 
@@ -85,7 +74,7 @@ any text not starting with that prefix + matching chain id (never a generic sign
     - `internal/agent/llm/` — ChatModel adapter. `Client` owns retries and latency; `openaiModel` / `anthropicModel`
       implement `llm.Model` (stream + tool calls only). The runner never talks HTTP to a provider and **never** lets the
       model execute tools. Inject a fake via `NewClientWithModel` in tests.
-    - `internal/agent/hitl/` — first-class confirmation gate for grants and local `sign_transaction` /
+    - `internal/agent/hitl/` — first-class confirmation gate for local `sign_transaction` /
       `sign_evm_transaction` / `sign_typed_data`. Nil/decline/timeout deny. Does **not** override the whitelist.
       `sign_challenge` is excluded (MCP auth handshake).
     - `internal/agent/writepath/` — per-run state machine that enforces remote `build_*` → local `sign_*` → remote
@@ -100,6 +89,7 @@ any text not starting with that prefix + matching chain id (never a generic sign
       always on; others gate on available tools and `disabled_skills`. Bulky detail lives in
       `bundled/<name>/references/*.md`, loaded on demand by the LLM via the local `read_skill_reference` tool
       (`skills/references.go`).
+    - `internal/agent/discovery/` — the `search_agents` tool surface, read-only, backed by `internal/agentmarket`.
     - `guard/gate.go` — assistant pre-flight transfer gate (see below).
     - `memory.go` — session memory caching `whoami`/`signer_whoami` to `agent_memory.json`.
     - `history/` — multi-turn conversation persistence (`sessions/*.jsonl` next to `prefs.json`) + context management:
@@ -150,7 +140,8 @@ that's the GUI assistant's policy only. It gets the calldata decoding (layer 2) 
   **One key per chain.** No `--key-hex` flag by design (would leak into process args). Headless fallback:
   `SIGNER_KEY_HEX`.
 - Config: `prefs.json` in the app config dir (`~/Library/Application Support/com.svpchain.agent/` on macOS, `%AppData%`
-  on Windows). Holds LLM settings, remote MCP URL, whitelist, `disabled_skills`. `agent_memory.json` sits alongside it.
+  on Windows). Holds LLM settings, remote MCP URL, Agent Market URL, whitelist, `disabled_skills`. `agent_memory.json`
+  sits alongside it.
 - EVM chain id: parsed from `--chain-id` (`svp_2517-1` → `2517`) unless `--evm-chain-id` overrides. No chain number + no
   flag = EVM signing disabled, Cosmos unaffected.
 

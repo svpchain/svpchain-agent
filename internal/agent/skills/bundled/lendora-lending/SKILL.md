@@ -21,7 +21,6 @@ ONLY when needed — do not preload:
 |-----------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `output-templates.md` | Before formatting your FIRST user-facing reply for an intent (market scan, position check, risk assessment, what-if, balances, protocol overview, execution confirm/complete). Follow the matching template. |
 | `error-responses.md`  | When any `lendora_*` tool call fails or a build/sign/broadcast step errors. Pick the matching category and use its wording.                                                                                  |
-| `delegated-execution.md` | When the user asks a registered agent to execute a Lendora write. Read this after `get_agent_card` confirms the Lendora execution skill and tool.                                                            |
 
 ## Tools
 
@@ -88,16 +87,6 @@ it returns an `approval_required` object (and NO payload) naming `build_erc20_ap
 
 Present both steps (Approve, then Supply/Repay) upfront before the first signature; sign and broadcast sequentially; if
 any step fails, stop and report — never auto-retry write operations.
-
-### 5) Delegate execution to a registered Lendora agent
-
-When the user explicitly asks to use a registered agent, do not use the direct
-`lendora_build_*_tx` workflow above. First use `discover_agents` and
-`get_agent_card`; only proceed when the card advertises
-`svpchain-execution-lendora` and a compatible execution tool. Then read
-`delegated-execution.md` and create the narrow root/task delegation it
-describes. Never guess a Lendora contract address, ABI signature, or method
-arguments: take each from the verified agent card.
 
 ## Output formatting
 

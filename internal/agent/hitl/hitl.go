@@ -1,5 +1,5 @@
-// Package hitl is the assistant's human-in-the-loop gate: every grant and every
-// local sign_* call must get an explicit yes from the user before it proceeds.
+// Package hitl is the assistant's human-in-the-loop gate: every local sign_*
+// call must get an explicit yes from the user before it proceeds.
 //
 // A nil hook, a decline, a cancelled context, or a timeout all deny. There is
 // no default-approve path. Whitelist rejections stay in package guard — those
@@ -14,17 +14,13 @@ import (
 
 // Kind values are stable identifiers the GUI uses to style the dialog.
 const (
-	KindCreateDelegation = "create_delegation"
-	KindResumeDelegation = "resume_delegation"
-	KindRevokeDelegation = "revoke_delegation"
-	KindDelegateTask     = "delegate_task"
-	KindSignTransaction  = "sign_transaction"
-	KindSignEVM          = "sign_evm_transaction"
-	KindSignTypedData    = "sign_typed_data"
+	KindSignTransaction = "sign_transaction"
+	KindSignEVM         = "sign_evm_transaction"
+	KindSignTypedData   = "sign_typed_data"
 )
 
-// Request is what the user is shown. The GUI already understands this shape
-// (kind / title / lines) from the original delegation confirm dialog.
+// Request is what the user is shown. The GUI styles the dialog from the
+// kind / title / lines shape.
 type Request struct {
 	Kind  string   `json:"kind"`
 	Title string   `json:"title"`
@@ -37,7 +33,7 @@ type Func func(ctx context.Context, req Request) bool
 
 // Denied is returned when Ask does not get an explicit approval. The agent
 // loop stops the run (same as a whitelist Rejection) so the model cannot
-// retry the grant or the signature.
+// retry the signature.
 type Denied struct {
 	Kind  string
 	Title string

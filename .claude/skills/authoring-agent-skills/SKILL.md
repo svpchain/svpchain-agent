@@ -27,7 +27,7 @@ directory under `internal/agent/skills/bundled/<name>/` with a
 ```
 base              response-style     signer-identity
 onchain-workflow  bank-send-evm      erc-tokens
-delegation        x402               lendora-lending
+agent-discovery   x402               lendora-lending
 ```
 
 Read a couple before writing a new one to match voice and structure.

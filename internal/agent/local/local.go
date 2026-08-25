@@ -188,24 +188,6 @@ func ToolDefs() []llm.Tool {
 		{
 			Type: "function",
 			Function: llm.Function{
-				Name:        "a2a_build_lendora_collateral_tx",
-				Description: "Request a Lendora collateral build from an active, on-chain registered lending agent and import its verified EVM payload for local signing. The agent card hash, declared collateral-builder tool, local signer, Comptroller target, and enterMarkets/exitMarket selector are checked before the payload is accepted.",
-				Parameters: map[string]any{
-					"type": "object",
-					"properties": map[string]any{
-						"agent_id":  map[string]any{"type": "string", "description": "Registered lending agent ID (did:svp:...)"},
-						"asset":     map[string]any{"type": "string", "description": "Lendora underlying symbol or cToken address"},
-						"action":    map[string]any{"type": "string", "enum": []string{"enable", "disable"}},
-						"client_id": map[string]any{"type": "string", "description": "UUID used for the later broadcast_evm_tx call"},
-						"bearer":    map[string]any{"type": "string", "description": "Optional bearer issued by the lending agent's auth flow"},
-					},
-					"required": []string{"agent_id", "asset", "action", "client_id"},
-				},
-			},
-		},
-		{
-			Type: "function",
-			Function: llm.Function{
 				Name:        "sign_evm_transaction",
 				Description: "Sign an EvmTxPayload from remote EVM build_* tools. Returns signed_tx for broadcast_evm_tx.",
 				Parameters: map[string]any{
@@ -303,7 +285,7 @@ func ToolDefs() []llm.Tool {
 			Type: "function",
 			Function: llm.Function{
 				Name:        "a2a_send_message",
-				Description: "Send a message to another A2A-compatible agent and return its reply. Use for delegating sub-tasks (compliance review, research, etc.) to remote agents. agent_url is the base URL of the remote agent (Agent Card is fetched from /.well-known/agent-card.json).",
+				Description: "Send a message to another A2A-compatible agent and return its reply. Use for asking a remote agent for information (compliance review, research, etc.); the message carries no authority over the user's account. agent_url is the base URL of the remote agent (Agent Card is fetched from /.well-known/agent-card.json).",
 				Parameters: map[string]any{
 					"type": "object",
 					"properties": map[string]any{

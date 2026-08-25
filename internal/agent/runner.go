@@ -12,7 +12,7 @@ import (
 	"github.com/99designs/keyring"
 
 	"github.com/svpchain/svpchain-agent/internal/agent/chainid"
-	"github.com/svpchain/svpchain-agent/internal/agent/delegatecall"
+	"github.com/svpchain/svpchain-agent/internal/agent/discovery"
 	"github.com/svpchain/svpchain-agent/internal/agent/guard"
 	"github.com/svpchain/svpchain-agent/internal/agent/history"
 	"github.com/svpchain/svpchain-agent/internal/agent/hitl"
@@ -27,10 +27,8 @@ import (
 	"github.com/svpchain/svpchain-agent/internal/agent/writepath"
 	"github.com/svpchain/svpchain-agent/internal/agentmarket"
 	"github.com/svpchain/svpchain-agent/internal/chainrpc"
-	"github.com/svpchain/svpchain-agent/internal/delegation"
 	"github.com/svpchain/svpchain-agent/internal/keystore"
 	"github.com/svpchain/svpchain-agent/internal/manage"
-	"github.com/svpchain/svpchain-agent/internal/registry"
 	"github.com/svpchain/svpchain-agent/internal/signer"
 )
 
@@ -62,21 +60,15 @@ const (
 type Config struct {
 	ChainID   string
 	RemoteURL string
-	// AgentHubURL is the chain's REST (grpc-gateway) endpoint, enabling the
-	// agent-discovery and delegation tools. Empty disables them.
-	// It is not used to look up run-log transaction hashes.
-	AgentHubURL string
-
-	// AgentMarketURL is the SVP Agent Market service's base URL, enabling
-	// semantic agent search (search_agents). Empty leaves the assistant with
-	// chain-only discovery. Results from it are a ranking hint: every hit is
-	// re-read from the chain before it is shown or used.
+	// AgentMarketURL is the SVP Agent Market service's base URL, the backend
+	// for semantic agent search (search_agents). Empty falls back to
+	// agentmarket.DefaultURL.
 	AgentMarketURL string
 	// ChainRPCURL is the CometBFT RPC base used to look up broadcast tx
 	// hashes (GET /tx?hash=0x…). Empty falls back to chainrpc.URLForChain.
 	ChainRPCURL string
-	// Confirm is the HITL hook for grants and local sign_* calls.
-	// Nil, a decline, or a timeout all deny — nothing is signed or granted.
+	// Confirm is the HITL hook for local sign_* calls.
+	// Nil, a decline, or a timeout all deny — nothing is signed.
 	Confirm hitl.Func
 	LLM     LLMConfig
 	OnStep  func(Step)
@@ -112,7 +104,6 @@ var (
 func Run(ctx context.Context, cfg Config, userMessage string) (answer string, err error) {
 	var trace *runlog.Session
 	var ph *phoenix.Session
-	var chain *registry.Client
 	if cfg.RunLog != nil && cfg.RunLog.Enabled() {
 		trace = cfg.RunLog.Begin(runlog.Meta{
 			ChainID:      cfg.ChainID,
@@ -184,7 +175,7 @@ func Run(ctx context.Context, cfg Config, userMessage string) (answer string, er
 	// An empty RemoteURL switches the remote MCP off entirely — no connection,
 	// no authentication, no remote tools offered to the model. Useful for
 	// working against the chain alone, and the only way to be certain nothing
-	// leaves the machine except what the delegation tools send.
+	// leaves the machine except what the discovery tools read.
 	var remote *remotemcp.Client
 	if strings.TrimSpace(cfg.RemoteURL) != "" {
 		remote, err = remotemcp.Acquire(ctx, chainID, cfg.RemoteURL, owner, local.SignChallenge, emit)
@@ -209,28 +200,20 @@ func Run(ctx context.Context, cfg Config, userMessage string) (answer string, er
 			return orig(ctx, req)
 		}
 	}
-	deleg := &delegatecall.Service{Confirm: confirm}
-	if restURL := strings.TrimSpace(cfg.AgentHubURL); restURL != "" {
-		chain = registry.New(restURL)
-		deleg.Registry = chain
-		deleg.Lifecycle = &delegation.Lifecycle{Registry: chain, Priv: priv, ChainID: chainID}
-		// Search only makes sense with a chain client to verify hits against;
-		// nil when unset, which leaves search_agents out of the tool list.
-		deleg.Market = agentmarket.New(cfg.AgentMarketURL)
-	}
+	disc := &discovery.Service{Market: agentmarket.New(cfg.AgentMarketURL)}
 	writes := writepath.New()
 	env := dispatchEnv{
 		chainID: chainID,
 		remote:  remote,
 		local:   local,
-		deleg:   deleg,
+		disc:    disc,
 		confirm: confirm,
 		writes:  writes,
 		mem:     &sessionMem,
 		observe: composeObservers(trace, ph),
 	}
 
-	tools, err := buildToolList(ctx, remote, deleg)
+	tools, err := buildToolList(ctx, remote, disc)
 	if err != nil {
 		return "", err
 	}

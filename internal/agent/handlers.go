@@ -2,11 +2,9 @@ package agent
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
 
 	"github.com/svpchain/svpchain-agent/internal/agent/a2acall"
-	"github.com/svpchain/svpchain-agent/internal/agent/delegatecall"
+	"github.com/svpchain/svpchain-agent/internal/agent/discovery"
 	"github.com/svpchain/svpchain-agent/internal/agent/hitl"
 	"github.com/svpchain/svpchain-agent/internal/agent/httpfetch"
 	localsigner "github.com/svpchain/svpchain-agent/internal/agent/local"
@@ -26,8 +24,8 @@ func (env dispatchEnv) handlers() []toolHandler {
 	return []toolHandler{
 		httpHandler{},
 		x402Handler{},
-		a2aHandler{env: env},
-		delegateHandler{svc: env.deleg},
+		a2aHandler{},
+		discoverHandler{svc: env.disc},
 		skillRefHandler{},
 		localHandler{env: env},
 		remoteHandler{env: env},
@@ -66,32 +64,12 @@ func (x402Handler) Call(_ context.Context, name string, args map[string]any) (st
 	}
 }
 
-type a2aHandler struct{ env dispatchEnv }
+type a2aHandler struct{}
 
 func (a2aHandler) Match(name string) bool { return a2acall.IsTool(name) }
 
-func (h a2aHandler) Call(ctx context.Context, name string, args map[string]any) (string, error) {
-	if name == "a2a_send_message" {
-		return a2acall.SendFromArgs(ctx, args)
-	}
-	if h.env.local == nil {
-		return "", fmt.Errorf("local signer is unavailable")
-	}
-	if h.env.deleg == nil {
-		return "", fmt.Errorf("agent discovery is not configured: set the chain REST endpoint in Settings")
-	}
-	p, source, err := a2acall.BuildLendoraCollateral(ctx, args, h.env.deleg.Registry, h.env.local.EVMOwner(), h.env.local.EVMChainID())
-	if err != nil {
-		return "", err
-	}
-	if err := h.env.writes.ImportEVMPayload(p); err != nil {
-		return "", err
-	}
-	bz, err := json.Marshal(map[string]any{"payload": p, "source": source})
-	if err != nil {
-		return "", err
-	}
-	return string(bz), nil
+func (a2aHandler) Call(ctx context.Context, _ string, args map[string]any) (string, error) {
+	return a2acall.SendFromArgs(ctx, args)
 }
 
 type skillRefHandler struct{}
@@ -102,13 +80,13 @@ func (skillRefHandler) Call(_ context.Context, _ string, args map[string]any) (s
 	return skills.ReadReferenceFromArgs(args)
 }
 
-type delegateHandler struct {
-	svc *delegatecall.Service
+type discoverHandler struct {
+	svc *discovery.Service
 }
 
-func (h delegateHandler) Match(name string) bool { return delegatecall.IsTool(name) }
+func (h discoverHandler) Match(name string) bool { return discovery.IsTool(name) }
 
-func (h delegateHandler) Call(ctx context.Context, name string, args map[string]any) (string, error) {
+func (h discoverHandler) Call(ctx context.Context, name string, args map[string]any) (string, error) {
 	return h.svc.Call(ctx, name, args)
 }
 

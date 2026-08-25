@@ -59,13 +59,12 @@ func TestComposeSystemPrompt_includesX402SkillWhenToolsPresent(t *testing.T) {
 	require.Contains(t, got, "Never invent the nonce")
 }
 
-func TestComposeSystemPrompt_delegationExplainsNativeTransferBudgetShape(t *testing.T) {
+func TestComposeSystemPrompt_discoveryStatesTheMarketIsTheOnlySource(t *testing.T) {
 	hermetic(t)
-	got, err := skills.ComposeSystemPrompt([]string{"delegate_task"})
+	got, err := skills.ComposeSystemPrompt([]string{"search_agents"})
 	require.NoError(t, err)
-	require.Contains(t, got, "execute_evm_native_transfer")
-	require.Contains(t, got, "\"budget\": [")
-	require.Contains(t, got, "1000000000000000000 asvp")
+	require.Contains(t, got, "search_agents")
+	require.Contains(t, got, "the **only** source of these results")
 }
 
 func TestComposeSystemPrompt_alwaysIncludesBase(t *testing.T) {
@@ -119,19 +118,19 @@ func TestLoadAll_includesBundledSkills(t *testing.T) {
 	require.Contains(t, names, "base")
 	require.Contains(t, names, "onchain-workflow")
 	require.Contains(t, names, "x402")
-	require.Contains(t, names, "delegation")
+	require.Contains(t, names, "agent-discovery")
 	require.NotContains(t, names, "a2a")
 }
 
 func TestComposeSystemPrompt_doesNotInjectA2APlaybook(t *testing.T) {
 	hermetic(t)
 	got, err := skills.ComposeSystemPrompt([]string{
-		"a2a_send_message", "discover_agents", "delegate_task",
+		"a2a_send_message", "search_agents",
 	})
 	require.NoError(t, err)
 	require.NotContains(t, got, "## Tool: a2a_send_message")
-	require.Contains(t, got, "delegate_task")
-	require.Contains(t, got, "Never use `a2a_send_message`")
+	require.Contains(t, got, "search_agents")
+	require.Contains(t, got, "uncredentialed plain text")
 }
 
 func TestToolPatternMatch(t *testing.T) {

@@ -78,13 +78,7 @@ func isWriteIntentTool(name string) bool {
 	if strings.HasPrefix(n, "build_") || strings.HasPrefix(n, "lendora_build_") {
 		return true
 	}
-	switch n {
-	case "create_root_delegation", "update_delegation", "pause_delegation",
-		"resume_delegation", "revoke_delegation", "delegate_task":
-		return true
-	default:
-		return false
-	}
+	return false
 }
 
 func intentKind(tool string) string {
@@ -108,8 +102,6 @@ func intentKind(tool string) string {
 		return "bridge"
 	case strings.Contains(n, "lendora"):
 		return "lending"
-	case strings.Contains(n, "delegat"):
-		return "delegation"
 	default:
 		return "write"
 	}
@@ -285,8 +277,6 @@ func requiredFields(kind string, expect map[string]string) []string {
 		keys = []string{"to", "recipient"}
 	case "erc20_approve":
 		keys = []string{"spender", "operator"}
-	case "delegation":
-		keys = []string{"agent_id"}
 	}
 	var out []string
 	seen := map[string]bool{}
@@ -371,8 +361,6 @@ func actionHint(kind, blob string) bool {
 		return strings.Contains(blob, "msgplaceorder") || strings.Contains(blob, "place_order")
 	case "cancel_order":
 		return strings.Contains(blob, "msgcancelorder") || strings.Contains(blob, "cancel_order")
-	case "delegation":
-		return strings.Contains(blob, "agentwallet") || strings.Contains(blob, "delegation")
 	default:
 		return strings.Contains(blob, "ethereum_tx") || strings.Contains(blob, "msgethereumtx")
 	}

@@ -4,7 +4,7 @@ SVPChain Agent — Windows: Read Before Running
 This zip archive contains a folder:
 
   SVPChain Agent\
-    svpchain-gui.exe     The desktop agent: assistant, agent discovery, delegations, keys
+    svpchain-gui.exe     The desktop agent: assistant, agent search, keys
     svpchain-mcp.exe     Local MCP signing service (used by Cursor and other clients)
     READ-BEFORE-RUN.txt
     运行前先阅读.txt     Chinese version of this guide
@@ -16,7 +16,7 @@ This zip archive contains a folder:
 1. Extract the zip to any folder (e.g. Downloads or C:\Program Files).
 2. Open the extracted "SVPChain Agent" folder.
 3. Launch svpchain-gui.exe using the first-launch steps below.
-4. In the app: import your key → set the LLM key and chain REST URL in Settings → use Assistant.
+4. In the app: import your key → set the LLM key and Agent Market URL in Settings → use Assistant.
 
 Keep svpchain-gui.exe and svpchain-mcp.exe in the same folder — the GUI finds the signer automatically.
 
@@ -43,8 +43,8 @@ After moving the folder, regenerate the config so paths stay correct.
 4. After setup
 --------------
 
-The app is the product: use Assistant for on-chain actions, Agents to discover
-agents registered on chain, and Delegations to manage what they may spend.
+The app is the product: use Assistant for on-chain actions and to find
+remote agents by describing a task.
 
 It also bundles svpchain-mcp.exe, so you can point Cursor or another MCP client at
 the signer separately — generate that config from the Config tab.

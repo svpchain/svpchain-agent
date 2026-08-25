@@ -6,8 +6,6 @@ import {useAppTheme} from './composables/useAppTheme'
 import * as App from '../wailsjs/go/desktop/App'
 import {WindowToggleMaximise} from '../wailsjs/runtime/runtime'
 import AssistantTab from './tabs/AssistantTab.vue'
-import AgentsTab from './tabs/AgentsTab.vue'
-import DelegationsTab from './tabs/DelegationsTab.vue'
 import ConfigTab from './tabs/ConfigTab.vue'
 import KeysTab from './tabs/KeysTab.vue'
 import SecurityTab from './tabs/SecurityTab.vue'
@@ -24,12 +22,10 @@ const {isDark, sidebarCollapsed, navExpanded, toggleTheme, toggleSidebar, toggle
 
 const isMac = /Mac|iPhone|iPad|iPod/i.test(navigator.userAgent)
 
-type TabId = 'assistant' | 'agents' | 'delegations' | 'config' | 'keys' | 'security' | 'settings' | 'runs' | 'about'
+type TabId = 'assistant' | 'config' | 'keys' | 'security' | 'settings' | 'runs' | 'about'
 
 const navItems: { id: TabId; labelKey: string; icon: string }[] = [
   {id: 'assistant', labelKey: 'tab.assistant', icon: 'chat'},
-  {id: 'agents', labelKey: 'tab.agents', icon: 'agents'},
-  {id: 'delegations', labelKey: 'tab.delegations', icon: 'delegations'},
   {id: 'config', labelKey: 'tab.config', icon: 'config'},
   {id: 'keys', labelKey: 'tab.keys', icon: 'key'},
   {id: 'security', labelKey: 'tab.security', icon: 'shield'},
@@ -185,19 +181,6 @@ onMounted(async () => {
                     d="M12 3c5.523 0 10 3.582 10 8 0 2.4-1.2 4.56-3.12 6.08L21 21l-4.28-1.42C15.56 20.18 13.82 20.5 12 20.5 6.477 20.5 2 16.918 2 11.5S6.477 3 12 3z"
                     stroke-linejoin="round"/>
               </svg>
-              <svg v-else-if="item.icon === 'agents'" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                   stroke-width="1.75">
-                <circle cx="9" cy="8" r="3.5"/>
-                <path d="M2.5 20c0-3.3 2.9-5.5 6.5-5.5s6.5 2.2 6.5 5.5" stroke-linecap="round"/>
-                <path d="M16 5.2a3.5 3.5 0 0 1 0 5.6M18.5 14.9c1.8.9 3 2.4 3 4.6" stroke-linecap="round"/>
-              </svg>
-              <svg v-else-if="item.icon === 'delegations'" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                   stroke-width="1.75">
-                <rect x="3" y="3" width="7" height="7" rx="1.5"/>
-                <rect x="14" y="14" width="7" height="7" rx="1.5"/>
-                <path d="M10 6.5h5.5A2.5 2.5 0 0 1 18 9v2M14 17.5H8.5A2.5 2.5 0 0 1 6 15v-2" stroke-linecap="round"
-                      stroke-linejoin="round"/>
-              </svg>
               <svg v-else-if="item.icon === 'config'" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                    stroke-width="1.75">
                 <path d="M10 13a2 2 0 1 0 4 0 2 2 0 0 0-4 0z"/>
@@ -239,12 +222,6 @@ onMounted(async () => {
       <main class="main-content">
         <div v-show="activeTab === 'assistant'" class="tab-panel tab-panel--assistant">
           <AssistantTab ref="assistantTabRef" :entries="entries" @status="setStatus" @focus-assistant="activeTab = 'assistant'"/>
-        </div>
-        <div v-show="activeTab === 'agents'" class="tab-panel tab-panel--scroll">
-          <AgentsTab @status="setStatus"/>
-        </div>
-        <div v-show="activeTab === 'delegations'" class="tab-panel tab-panel--scroll">
-          <DelegationsTab @status="setStatus"/>
         </div>
         <div v-show="activeTab === 'config'" class="tab-panel tab-panel--scroll">
           <ConfigTab :entries="entries" @status="setStatus"/>

@@ -1,25 +1,19 @@
 // Package agentmarket is a read-only client for the SVP Agent Market service's
-// semantic search API, used to shortlist remote agents when the assistant does
-// not already know which one can handle a task.
+// semantic search API — the assistant's only way to find remote agents.
 //
 // # Trust
 //
-// The market service is a THIRD remote party, separate from the chain REST
-// endpoint (Agent Hub) and the remote MCP server. It is an indexer: it derives
-// its data from the chain, but nothing here can prove that. A delegated task
-// carries a spending credential, so an attacker who could substitute an agent's
-// endpoint could redirect that credential to themselves.
+// The market service is a remote party, separate from the remote MCP server.
+// It indexes the chain's x/agent registry, but nothing here can prove that:
+// this client reports what the service returns, including each agent's A2A
+// endpoint. Nothing verifies that endpoint against the chain.
 //
-// This client therefore treats a search response as a RANKING HINT ONLY. It
-// parses the agent id and the similarity score and discards every other field
-// the service returns — endpoint, capability hash, status, owner. Callers
-// re-read each shortlisted agent from the chain (registry.AgentByID) to get the
-// authoritative record. The worst a hostile or buggy market service can do is
-// return a useless ordering, or name agents that do not exist on chain and are
-// dropped when the caller fails to resolve them.
-//
-// Discarding those fields is structural, not a convention: they are absent from
-// the Hit type, so no caller can accidentally depend on them.
+// What that does and does not put at risk: a search result decides where an
+// `a2a_send_message` goes, so a hostile or stale index can point the assistant
+// at an endpoint of its choosing and see whatever is in that message. It cannot
+// move the user's funds — A2A messages carry no credential, and every on-chain
+// write still goes through remote build → local sign (user-confirmed, whitelist
+// checked) → remote broadcast.
 package agentmarket
 
 import (
@@ -39,12 +33,10 @@ type Client struct {
 	http *http.Client
 }
 
-// DefaultURL is used when no Agent Market URL is configured, so semantic search
+// DefaultURL is used when no Agent Market URL is configured, so agent search
 // works out of the box. Mirrors how the remote MCP client defaults its own
-// endpoint. Clearing the setting restores this default rather than disabling
-// search; search_agents is dropped only when the chain endpoint (Agent Hub) is
-// itself unset, since a hit that cannot be verified against the chain must
-// never be shown.
+// endpoint; clearing the setting restores this default rather than disabling
+// search.
 const DefaultURL = "https://dev02.svpchain.org"
 
 // New returns a client for baseURL, falling back to DefaultURL when empty.
@@ -64,18 +56,33 @@ func (c *Client) BaseURL() string {
 	return c.base
 }
 
-// Hit is one search result: which agent, and how well it matched.
-//
-// Deliberately minimal. See the package comment: everything else the service
-// reports about an agent is unverifiable here and must come from the chain.
-type Hit struct {
-	AgentID    string
-	Similarity float64
+// Coin is a chain coin with the amount kept as its decimal string.
+type Coin struct {
+	Denom  string `json:"denom,omitempty"`
+	Amount string `json:"amount,omitempty"`
 }
 
-// Query narrows a search. Status is intentionally not exposed: the market's
-// view of on-chain status is a cache, and the caller re-resolves every hit
-// against the chain anyway.
+// Pricing is an agent's advertised price, informational only.
+type Pricing struct {
+	PerCall []Coin `json:"per_call,omitempty"`
+	Unit    string `json:"unit,omitempty"`
+}
+
+// Hit is one search result: an agent as the market service describes it, plus
+// how well it matched. Every field except Similarity is the service's claim
+// about an on-chain record — see the package comment.
+type Hit struct {
+	AgentID      string   `json:"agent_id"`
+	Endpoint     string   `json:"endpoint,omitempty"`
+	Capabilities []string `json:"capabilities,omitempty"`
+	Pricing      Pricing  `json:"pricing,omitzero"`
+	Bond         Coin     `json:"bond,omitzero"`
+	Status       string   `json:"status,omitempty"`
+	Metadata     string   `json:"metadata,omitempty"`
+	Similarity   float64  `json:"similarity"`
+}
+
+// Query narrows a search.
 type Query struct {
 	Text       string
 	Capability string
@@ -83,14 +90,11 @@ type Query struct {
 }
 
 type searchResponse struct {
-	Agents []struct {
-		AgentID    string  `json:"agent_id"`
-		Similarity float64 `json:"similarity"`
-	} `json:"agents"`
-	Error string `json:"error"`
+	Agents []Hit  `json:"agents"`
+	Error  string `json:"error"`
 }
 
-// Search returns agent ids ranked by semantic similarity to q.Text.
+// Search returns agents ranked by semantic similarity to q.Text.
 func (c *Client) Search(ctx context.Context, q Query) ([]Hit, error) {
 	if c == nil {
 		return nil, fmt.Errorf("agent market search is not configured")
@@ -106,8 +110,8 @@ func (c *Client) Search(ctx context.Context, q Query) ([]Hit, error) {
 	values := url.Values{}
 	values.Set("q", text)
 	values.Set("limit", strconv.Itoa(limit))
-	// Only ACTIVE agents can accept delegated work, so never spend ranking
-	// slots on ones that cannot. The chain re-check still has the final say.
+	// Only ACTIVE agents can be acted on, so never spend ranking slots on ones
+	// that cannot.
 	values.Set("status", "AGENT_STATUS_ACTIVE")
 	if cap := strings.TrimSpace(q.Capability); cap != "" {
 		values.Set("capability", cap)
@@ -135,9 +139,12 @@ func (c *Client) Search(ctx context.Context, q Query) ([]Hit, error) {
 	}
 	hits := make([]Hit, 0, len(decoded.Agents))
 	for _, a := range decoded.Agents {
-		if id := strings.TrimSpace(a.AgentID); id != "" {
-			hits = append(hits, Hit{AgentID: id, Similarity: a.Similarity})
+		a.AgentID = strings.TrimSpace(a.AgentID)
+		if a.AgentID == "" {
+			continue
 		}
+		a.Endpoint = strings.TrimSpace(a.Endpoint)
+		hits = append(hits, a)
 	}
 	return hits, nil
 }

@@ -32,7 +32,7 @@ func (a *App) AgentClearRuns() error {
 
 // AgentRecheckRunTxs polls CometBFT RPC for this run's tx hashes and rewrites
 // tx_checks / intent_checks. Uses the RPC for the run's chain id (testnet:
-// https://rpc-testnet.svpchain.org). Agent Hub URL is not used.
+// https://rpc-testnet.svpchain.org). The Agent Market URL is not used.
 func (a *App) AgentRecheckRunTxs(runID string) (runlog.Run, error) {
 	chainID := strings.TrimSpace(a.AgentGetSettings().ChainID)
 	if runs, err := runlog.ReadAll(""); err == nil {

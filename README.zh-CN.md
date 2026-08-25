@@ -10,7 +10,8 @@
 - **内置 LLM 助手**（`svpchain-gui`）—— 支持流式工具调用（OpenAI 兼容 API 或原生 Anthropic），协调上述两者：远端 *构建* 与
   *广播*，本地 *签名*。密钥永不离开本机。可选的 **转账白名单**、模块化 **助手 Skills**（大体积细节放在 `references/*.md`，经
   `read_skill_reference` 按需加载）、多轮 **对话历史** 与本地 **运行日志**，用于约束转出、提示词与可观测性。
-- **Google A2A（Agent-to-Agent）** —— 通过 `a2a_send_message` 将子任务委托给其他 A2A Agent（仅客户端；本 Agent 不作为网络服务运行）。
+- **智能体检索** —— 用自然语言描述任务，通过 **Agent Market** 服务检索远程 Agent。
+- **Google A2A（Agent-to-Agent）** —— 通过 `a2a_send_message` 向其他 A2A Agent 提问（仅客户端；本 Agent 不作为网络服务运行）。该消息不携带任何账户权限。
 
 签名服务通过 **stdio** 运行（无网络端口；启动它的进程即为信任边界）。远端通过 HTTP 访问，并以签名 challenge 换取 bearer token
 鉴权，远端同样不持有密钥。
@@ -19,8 +20,18 @@
 
 ## 快速上手（GUI）
 
-导入密钥 → **设置**（语言、链 ID、LLM API Key / 提供商；按需展开 **LLM** 与 **Skills**）→ 可选 **安全** 白名单 → 在 **助手**
-中发起链上操作（兑换、转账、跨链、ERC-20/721、Lendora 借贷、x402 等），或导出 **MCP** 配置供 Cursor 使用。
+导入密钥 → **设置**（语言、链 ID、LLM API Key / 提供商、Agent Market 地址；按需展开 **LLM** 与 **Skills**）→ 可选 **安全**
+白名单 → 在 **助手** 中发起链上操作（兑换、转账、跨链、ERC-20/721、Lendora 借贷、x402 等）或检索远程 Agent，或导出 **MCP**
+配置供 Cursor 使用。
+
+## 智能体检索
+
+`search_agents` 接受一段自然语言任务描述，按语义相似度返回候选 Agent 及其 DID、A2A 服务地址、能力标签、定价与保证金；它在本机
+直连 **Agent Market** 服务（设置 → Agent Market 地址，结果中回报为 `agent_market_url`），不经过 Remote MCP。随后可用
+`a2a_send_message` 与对方通信 —— 该消息不携带任何凭证，链上写入仍走远端 `build_*` → 本地 `sign_*` → 远端 `broadcast_*`。
+
+这些结果**只**来自该检索服务：它索引链上 `x/agent` 注册表，但本地不再回链核对，因此服务地址与能力属于该服务的声明而非已验证的链上
+事实。服务地址决定 A2A 消息发往何处 —— 它动不了资金，但决定谁能读到这条消息。
 
 ```sh
 make build-all      # build/svpchain-mcp + Wails GUI（需要 CGO）

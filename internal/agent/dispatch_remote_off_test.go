@@ -7,13 +7,13 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/svpchain/svpchain-agent/internal/agent/delegatecall"
+	"github.com/svpchain/svpchain-agent/internal/agent/discovery"
 )
 
 // With the remote MCP switched off, the tool list must contain no remote
 // tools — the model should never be offered something that cannot run.
 func TestBuildToolListWithoutRemote(t *testing.T) {
-	tools, err := buildToolList(context.Background(), nil, &delegatecall.Service{})
+	tools, err := buildToolList(context.Background(), nil, &discovery.Service{})
 	require.NoError(t, err)
 	require.NotEmpty(t, tools, "local signing tools must still be offered")
 

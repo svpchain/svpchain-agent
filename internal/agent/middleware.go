@@ -43,6 +43,9 @@ type dispatchEnv struct {
 	disc    *discovery.Service
 	confirm hitl.Func
 	writes  *writepath.Tracker
+	// att carries tools attached mid-run from a remote A2A agent. Pointer:
+	// a2a_connect_agent fills it inside the tool loop and the next round reads it.
+	att     *attached
 	mem     *memory.Session
 	observe ToolObserver
 }

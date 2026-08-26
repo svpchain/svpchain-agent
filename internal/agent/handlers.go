@@ -25,9 +25,11 @@ func (env dispatchEnv) handlers() []toolHandler {
 		httpHandler{},
 		x402Handler{},
 		a2aHandler{},
+		connectHandler{env: env},
 		discoverHandler{svc: env.disc},
 		skillRefHandler{},
 		localHandler{env: env},
+		attachedHandler{env: env},
 		remoteHandler{env: env},
 	}
 }
@@ -108,6 +110,31 @@ func (h localHandler) Call(ctx context.Context, name string, args map[string]any
 		_ = memory.Save(*h.env.mem)
 	}
 	return result, err
+}
+
+// connectHandler attaches a discovered agent's tool surface to this run.
+type connectHandler struct {
+	env dispatchEnv
+}
+
+func (connectHandler) Match(name string) bool { return name == ConnectTool }
+
+func (h connectHandler) Call(ctx context.Context, _ string, args map[string]any) (string, error) {
+	return h.env.connect(ctx, args)
+}
+
+// attachedHandler routes a tool an attached A2A agent advertised. It sits after
+// localHandler and matches only names that survived the precedence filter in
+// attached.set, so it can never take a local or remote MCP tool — but it must
+// stay ahead of remoteHandler, whose Match is unconditional.
+type attachedHandler struct {
+	env dispatchEnv
+}
+
+func (h attachedHandler) Match(name string) bool { return h.env.att.handles(name) }
+
+func (h attachedHandler) Call(ctx context.Context, name string, args map[string]any) (string, error) {
+	return h.env.att.call(ctx, name, args)
 }
 
 // remoteHandler is the catch-all: build_*/broadcast_* and other remote MCP tools.

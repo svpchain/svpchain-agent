@@ -45,7 +45,13 @@ func buildToolList(ctx context.Context, remote *remotemcp.Client, disc *discover
 		})
 	}
 	out = append(out, localsigner.ToolDefs()...)
-	out = append(out, disc.ToolDefs()...)
+	discTools := disc.ToolDefs()
+	out = append(out, discTools...)
+	// Finding an agent is only useful if its tools can then be attached, so the
+	// two are offered together or not at all.
+	if len(discTools) > 0 {
+		out = append(out, ConnectToolDef())
+	}
 	return out, nil
 }
 

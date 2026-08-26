@@ -202,6 +202,15 @@ func Run(ctx context.Context, cfg Config, userMessage string) (answer string, er
 	}
 	disc := &discovery.Service{Market: agentmarket.New(cfg.AgentMarketURL)}
 	writes := writepath.New()
+	baseTools, err := buildToolList(ctx, remote, disc)
+	if err != nil {
+		return "", err
+	}
+	// Tools an attached A2A agent adds mid-run (see attach.go). The base list
+	// is the precedence floor: nothing attached may take a name already here.
+	att := newAttached(baseTools)
+	tools := baseTools
+
 	env := dispatchEnv{
 		chainID: chainID,
 		remote:  remote,
@@ -209,26 +218,32 @@ func Run(ctx context.Context, cfg Config, userMessage string) (answer string, er
 		disc:    disc,
 		confirm: confirm,
 		writes:  writes,
+		att:     att,
 		mem:     &sessionMem,
 		observe: composeObservers(trace, ph),
 	}
 
-	tools, err := buildToolList(ctx, remote, disc)
-	if err != nil {
-		return "", err
+	// composePrompt is used again if an attach changes the tool set, so the
+	// skills gated on what was just attached actually reach the model.
+	composePrompt := func(ts []llm.Tool) (string, []string, error) {
+		prompt, names, err := skills.Compose(toolNames(ts))
+		if err != nil {
+			return "", nil, fmt.Errorf("load agent skills: %w", err)
+		}
+		if block := memory.Prompt(sessionMem); block != "" {
+			prompt += "\n\n" + block
+		}
+		// Inject whitelist alias → address mappings so the assistant can resolve
+		// "transfer to <alias>" without the user typing the raw address.
+		if aliases := guard.AliasPrompt(chainID); aliases != "" {
+			prompt += "\n\n" + aliases
+		}
+		return prompt, names, nil
 	}
 
-	systemPrompt, skillNames, err := skills.Compose(toolNames(tools))
+	systemPrompt, skillNames, err := composePrompt(tools)
 	if err != nil {
-		return "", fmt.Errorf("load agent skills: %w", err)
-	}
-	if block := memory.Prompt(sessionMem); block != "" {
-		systemPrompt += "\n\n" + block
-	}
-	// Inject whitelist alias → address mappings so the assistant can resolve
-	// "transfer to <alias>" without the user typing the raw address.
-	if aliases := guard.AliasPrompt(chainID); aliases != "" {
-		systemPrompt += "\n\n" + aliases
+		return "", err
 	}
 	promptHash := runlog.PromptSHA256(systemPrompt)
 	if trace != nil {
@@ -275,6 +290,18 @@ func Run(ctx context.Context, cfg Config, userMessage string) (answer string, er
 		if trace != nil {
 			trace.SetRound(i + 1)
 		}
+		// An attach mid-run grows the tool list and can change which skills
+		// apply; both must be in place before the next round is composed.
+		if added := att.toolDefs(); len(added) != len(tools)-len(baseTools) {
+			tools = append(append([]llm.Tool(nil), baseTools...), added...)
+			if prompt, names, perr := composePrompt(tools); perr == nil {
+				messages[0].Content = prompt
+				if trace != nil {
+					trace.SetPrompt(runlog.PromptSHA256(prompt), names)
+				}
+			}
+		}
+
 		emit(Step{Kind: StepThink, Title: fmt.Sprintf("Thinking… (round %d)", i+1)})
 		llmResult, err := client.Chat(ctx, messages, tools, cfg.OnDelta)
 		if err != nil {

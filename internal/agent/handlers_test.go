@@ -28,6 +28,7 @@ func TestHandlers_firstMatchWins(t *testing.T) {
 		{"x402_prepare_typed_data", "x402Handler"},
 		{"x402_build_payment", "x402Handler"},
 		{"a2a_send_message", "a2aHandler"},
+		{ConnectTool, "connectHandler"},
 		{"search_agents", "discoverHandler"},
 		{skills.ReferenceToolName, "skillRefHandler"},
 		{"sign_transaction", "localHandler"},

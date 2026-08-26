@@ -133,6 +133,21 @@ func TestComposeSystemPrompt_doesNotInjectA2APlaybook(t *testing.T) {
 	require.Contains(t, got, "uncredentialed plain text")
 }
 
+// The attach playbook appears only when the attach tool does. Without it the
+// assistant must not offer to use a remote agent's tools.
+func TestComposeSystemPrompt_attachGatesOnTheConnectTool(t *testing.T) {
+	hermetic(t)
+	without, err := skills.ComposeSystemPrompt([]string{"search_agents", "a2a_send_message"})
+	require.NoError(t, err)
+	require.NotContains(t, without, "# Using a remote agent's tools")
+
+	with, err := skills.ComposeSystemPrompt([]string{"search_agents", "a2a_connect_agent"})
+	require.NoError(t, err)
+	require.Contains(t, with, "# Using a remote agent's tools")
+	require.Contains(t, with, "tools_skipped")
+	require.Contains(t, with, "do not conclude the task is impossible")
+}
+
 func TestToolPatternMatch(t *testing.T) {
 	require.True(t, skills.MatchesToolPattern("build_*", "build_bank_send"))
 	require.True(t, skills.MatchesToolPattern("http_fetch", "http_fetch"))

@@ -22,6 +22,14 @@ type SendResult struct {
 // SendToAgent resolves the remote Agent Card, sends a user message, and returns the agent reply.
 // The message carries no credentials: it is plain text with no authority over the caller's account.
 func SendToAgent(ctx context.Context, agentURL, message string) (SendResult, error) {
+	return SendTextIn(ctx, agentURL, "", message)
+}
+
+// SendTextIn is SendToAgent within an existing conversation. contextID keeps
+// the exchange on one A2A context, which is where a remote agent binds
+// per-conversation state — an auth bearer, most importantly. Empty starts a
+// new context; the id the agent assigns comes back on the result.
+func SendTextIn(ctx context.Context, agentURL, contextID, message string) (SendResult, error) {
 	agentURL = strings.TrimSpace(agentURL)
 	message = strings.TrimSpace(message)
 	if agentURL == "" {
@@ -31,20 +39,12 @@ func SendToAgent(ctx context.Context, agentURL, message string) (SendResult, err
 		return SendResult{}, fmt.Errorf("message is required")
 	}
 
-	card, err := agentcard.DefaultResolver.Resolve(ctx, agentURL)
-	if err != nil {
-		return SendResult{}, fmt.Errorf("resolve agent card: %w", err)
-	}
-
-	client, err := a2aclient.NewFromCard(ctx, card)
-	if err != nil {
-		return SendResult{}, fmt.Errorf("create a2a client: %w", err)
-	}
-
 	msg := a2a.NewMessage(a2a.MessageRoleUser, a2a.NewTextPart(message))
-	result, err := client.SendMessage(ctx, &a2a.SendMessageRequest{Message: msg})
+	msg.ContextID = strings.TrimSpace(contextID)
+
+	result, err := send(ctx, agentURL, msg)
 	if err != nil {
-		return SendResult{}, fmt.Errorf("send message: %w", err)
+		return SendResult{}, err
 	}
 
 	out := SendResult{Response: ResultText(result)}
@@ -62,6 +62,24 @@ func SendToAgent(ctx context.Context, agentURL, message string) (SendResult, err
 		}
 	}
 	return out, nil
+}
+
+// send resolves the remote Agent Card and delivers one message. Kept separate
+// from message construction so dialing an agent stays one code path.
+func send(ctx context.Context, agentURL string, msg *a2a.Message) (a2a.SendMessageResult, error) {
+	card, err := agentcard.DefaultResolver.Resolve(ctx, agentURL)
+	if err != nil {
+		return nil, fmt.Errorf("resolve agent card: %w", err)
+	}
+	client, err := a2aclient.NewFromCard(ctx, card)
+	if err != nil {
+		return nil, fmt.Errorf("create a2a client: %w", err)
+	}
+	result, err := client.SendMessage(ctx, &a2a.SendMessageRequest{Message: msg})
+	if err != nil {
+		return nil, fmt.Errorf("send message: %w", err)
+	}
+	return result, nil
 }
 
 // ResultText extracts human-readable text from a SendMessageResult.

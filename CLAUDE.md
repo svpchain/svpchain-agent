@@ -21,11 +21,18 @@ builds and broadcasts but never holds a key, and an LLM assistant orchestrates t
 capability tags, pricing, bond — from the **Agent Market** service (`internal/agentmarket`, `AgentMarketURL` in prefs,
 defaulting to `agentmarket.DefaultURL`). The tool surface lives in `internal/agent/discovery`.
 
+`a2a_connect_agent` then **attaches** a found agent's tool surface to the running conversation
+(`internal/agent/a2amcp`, `internal/agent/attach.go`). A remote svpchain agent exposes the same MCP tool handlers the
+remote MCP does — same names, same argument schemas — over an A2A envelope, so an attached `build_swap` is dispatched,
+gated and graphed exactly like the remote MCP's. It is a transport, not a second tool surface; never rename or reshape
+a tool crossing it, or `guard` and `writepath` both go blind.
+
 **The market service is the only source.** It indexes the chain's `x/agent` registry, but nothing in this repo reads
 the chain any more, so an agent's endpoint is that service's claim. What that bounds: the endpoint decides where an
-`a2a_send_message` goes (so a hostile index sees that message), but it cannot move funds — A2A carries no credential,
-and every write still goes remote `build_*` → local `sign_*` → remote `broadcast_*`. Keep it that way: do not let a
-market-supplied field reach a signing or transfer path.
+`a2a_send_message` goes and whose tools an attach brings in — but it cannot move funds. A2A carries no credential,
+every write still runs `build_*` → local `sign_*` (whitelist-checked, user-confirmed) → `broadcast_*`, and
+**precedence is absolute: local signer > remote MCP > attached agent.** An attached agent may never take a name
+already served; `attached.served` (not the agent's own advertised list) is what dispatch consults.
 
 **Every local `sign_*` (except `sign_challenge`) is gated on an explicit user confirmation** (`Config.Confirm` → Wails
 `agent:confirm` event → `ResolveConfirm`). A nil hook, a decline, or a timeout all deny. The whitelist gate still runs
@@ -90,6 +97,11 @@ any text not starting with that prefix + matching chain id (never a generic sign
       `bundled/<name>/references/*.md`, loaded on demand by the LLM via the local `read_skill_reference` tool
       (`skills/references.go`).
     - `internal/agent/discovery/` — the `search_agents` tool surface, read-only, backed by `internal/agentmarket`.
+    - `internal/agent/a2amcp/` — an A2A transport for a remote svpchain agent's MCP tool surface: `{skill, tool, args}`
+      → `{ok, result|error}` as message text, tools discovered via that agent's `svpchain-meta`/`list_tools`, and the
+      same `auth_challenge` → local `sign_challenge` → `auth_verify` handshake the remote MCP uses. Refuses to carry
+      any `sign_*` tool. `attach.go` in `internal/agent/` holds the per-run attachment and the precedence filter, and
+      the runner recomposes the system prompt when an attach changes the tool set.
     - `guard/gate.go` — assistant pre-flight transfer gate (see below).
     - `memory.go` — session memory caching `whoami`/`signer_whoami` to `agent_memory.json`.
     - `history/` — multi-turn conversation persistence (`sessions/*.jsonl` next to `prefs.json`) + context management:

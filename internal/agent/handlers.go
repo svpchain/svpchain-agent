@@ -147,6 +147,9 @@ func (remoteHandler) Match(string) bool { return true }
 
 func (h remoteHandler) Call(ctx context.Context, name string, args map[string]any) (string, error) {
 	if h.env.remote == nil {
+		if lostURL, lostErr := h.env.att.lost(); lostURL != "" {
+			return "", errAgentLost(name, lostURL, lostErr)
+		}
 		return "", errRemoteDisabled(name)
 	}
 	result, err := h.env.remote.CallTool(ctx, name, args)

@@ -182,3 +182,20 @@ func TestCompactIfNeeded_underBudgetNoop(t *testing.T) {
 	require.NoError(t, err)
 	require.False(t, compacted)
 }
+
+func TestStore_AttachedAgentPersists(t *testing.T) {
+	s := newTestStore(t)
+	sess, err := s.Create("svp_2517-1")
+	require.NoError(t, err)
+
+	require.NoError(t, s.SetAttachedAgent(sess.ID, " https://agent.example "))
+	cur, ok := s.Current()
+	require.True(t, ok)
+	require.Equal(t, "https://agent.example", cur.AttachedAgentURL)
+
+	require.NoError(t, s.SetAttachedAgent(sess.ID, ""))
+	cur, _ = s.Current()
+	require.Empty(t, cur.AttachedAgentURL)
+
+	require.NoError(t, s.SetAttachedAgent("nope", "https://x"), "unknown ids are ignored")
+}

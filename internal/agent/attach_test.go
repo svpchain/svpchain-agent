@@ -105,3 +105,42 @@ func TestConnectRequiresAnAgentURL(t *testing.T) {
 func TestConnectToolRidesWithAgentSearch(t *testing.T) {
 	require.Equal(t, ConnectTool, ConnectToolDef().Function.Name)
 }
+
+// A successful attach reports the endpoint so the caller can persist it and
+// re-attach on the next user message; the fake source stands in for the live
+// client, so only the bookkeeping around set() is exercised here.
+func TestAttachedReportsEndpointOnAttach(t *testing.T) {
+	var got []string
+	att := newAttached(nil)
+	att.onAttach = func(url string) { got = append(got, url) }
+	att.noteReattachFailure("https://agent.example", fmt.Errorf("connection refused"))
+
+	url, lostErr := att.lost()
+	require.Equal(t, "https://agent.example", url)
+	require.ErrorContains(t, lostErr, "connection refused")
+
+	// Mirrors the tail of connect(): a fresh attach clears the lost marker.
+	att.set(&fakeSource{tools: []string{"build_swap"}})
+	att.mu.Lock()
+	att.lostURL, att.lostErr = "", nil
+	att.mu.Unlock()
+	url, lostErr = att.lost()
+	require.Empty(t, url)
+	require.NoError(t, lostErr)
+	require.Empty(t, got, "set() alone does not report; connect() does")
+}
+
+// When the agent attached last turn cannot be re-attached and the remote MCP
+// is off, a call to one of its tools must point the model at reconnecting,
+// not at the remote-MCP setting — which would not bring these tools back.
+func TestLostAgentToolsExplainHowToReconnect(t *testing.T) {
+	att := newAttached(nil)
+	att.noteReattachFailure("https://agent.example", fmt.Errorf("connection refused"))
+	env := dispatchEnv{att: att}
+
+	_, err := env.dispatch(context.Background(), "build_swap", map[string]any{})
+	require.ErrorContains(t, err, "https://agent.example")
+	require.ErrorContains(t, err, "connection refused")
+	require.ErrorContains(t, err, ConnectTool)
+	require.NotContains(t, err.Error(), "Settings")
+}

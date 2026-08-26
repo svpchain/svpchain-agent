@@ -193,17 +193,23 @@ func (a *App) AgentSend(chainID, message string) error {
 		})
 
 		answer, err := agent.Run(ctx, agent.Config{
-			ChainID:        chainID,
-			RemoteURL:      remoteURL,
-			AgentMarketURL: settings.AgentMarketURL,
-			ChainRPCURL:    chainrpc.URLForChain(chainID),
-			Confirm:        a.confirmHook,
-			RunLog:         runlog.New(!settings.AgentRunLogDisabled),
-			PhoenixOTLPURL: settings.PhoenixOTLPURL,
-			LLM:            llmCfg,
-			Prior:          prior,
-			SessionID:      sess.ID,
-			SessionTitle:   sess.Title,
+			ChainID:          chainID,
+			RemoteURL:        remoteURL,
+			AgentMarketURL:   settings.AgentMarketURL,
+			ChainRPCURL:      chainrpc.URLForChain(chainID),
+			Confirm:          a.confirmHook,
+			RunLog:           runlog.New(!settings.AgentRunLogDisabled),
+			PhoenixOTLPURL:   settings.PhoenixOTLPURL,
+			LLM:              llmCfg,
+			Prior:            prior,
+			SessionID:        sess.ID,
+			SessionTitle:     sess.Title,
+			AttachedAgentURL: sess.AttachedAgentURL,
+			OnAttach: func(url string) {
+				if sess.ID != "" {
+					_ = hist.SetAttachedAgent(sess.ID, url)
+				}
+			},
 			OnTranscript: func(runID string, msgs []llm.Message) {
 				if sess.ID != "" {
 					_ = hist.Append(sess.ID, runID, msgs)

@@ -34,6 +34,13 @@ type attached struct {
 	// or a name dropped for colliding with a local or remote tool would still
 	// reach the agent when the model called it.
 	served map[string]bool
+	// onAttach reports a successful attach so the caller can persist the URL.
+	onAttach func(url string)
+	// lostURL / lostErr record a re-attach that failed at the start of the run,
+	// so a call to one of that agent's tools gets a useful error instead of
+	// the remote-MCP-is-off one.
+	lostURL string
+	lostErr error
 }
 
 // toolSource is an attached agent as this file uses it. *a2amcp.Client is the
@@ -113,6 +120,24 @@ func (a *attached) set(client toolSource) []string {
 	return names
 }
 
+// noteReattachFailure records that the agent at url, attached in an earlier
+// turn, could not be re-attached this run.
+func (a *attached) noteReattachFailure(url string, err error) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.lostURL, a.lostErr = url, err
+}
+
+// lost returns the agent that failed to re-attach, if any.
+func (a *attached) lost() (string, error) {
+	if a == nil {
+		return "", nil
+	}
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.lostURL, a.lostErr
+}
+
 // skipped reports the advertised names this run refused to take, so the
 // assistant can say so instead of silently using the local one.
 func (a *attached) skipped(client toolSource) []string {
@@ -176,6 +201,13 @@ func (env dispatchEnv) connect(ctx context.Context, args map[string]any) (string
 	if len(res.ToolsAvailable) == 0 {
 		return "", fmt.Errorf(
 			"agent %s advertised only tool names that are already served locally or by the remote MCP", url)
+	}
+	env.att.mu.Lock()
+	env.att.lostURL, env.att.lostErr = "", nil
+	onAttach := env.att.onAttach
+	env.att.mu.Unlock()
+	if onAttach != nil {
+		onAttach(url)
 	}
 
 	bz, err := json.Marshal(res)

@@ -90,6 +90,14 @@ type Config struct {
 	// conversation so the GUI can jump from a trace back to the chat.
 	SessionID    string
 	SessionTitle string
+	// AttachedAgentURL is an A2A agent endpoint attached earlier in this
+	// conversation. The run re-attaches it before the first LLM round so the
+	// agent's tools stay callable across user messages; a failed re-attach is
+	// reported as a step and the run continues without it.
+	AttachedAgentURL string
+	// OnAttach, if set, is called with the endpoint each time a2a_connect_agent
+	// attaches an agent, so the caller can persist it for the next run.
+	OnAttach func(url string)
 }
 
 const maxAgentIterations = 25
@@ -209,6 +217,7 @@ func Run(ctx context.Context, cfg Config, userMessage string) (answer string, er
 	// Tools an attached A2A agent adds mid-run (see attach.go). The base list
 	// is the precedence floor: nothing attached may take a name already here.
 	att := newAttached(baseTools)
+	att.onAttach = cfg.OnAttach
 	tools := baseTools
 
 	env := dispatchEnv{
@@ -239,6 +248,19 @@ func Run(ctx context.Context, cfg Config, userMessage string) (answer string, er
 			prompt += "\n\n" + aliases
 		}
 		return prompt, names, nil
+	}
+
+	// Re-attach the agent the conversation already connected to. Its tools
+	// were listed to the model in an earlier turn, so without this it would
+	// call names that no longer exist.
+	if u := strings.TrimSpace(cfg.AttachedAgentURL); u != "" {
+		emit(Step{Kind: StepThink, Title: "Re-attaching agent " + u})
+		if _, aerr := env.connect(ctx, map[string]any{"agent_url": u}); aerr != nil {
+			att.noteReattachFailure(u, aerr)
+			emit(Step{Kind: StepError, Title: "Re-attach failed", Detail: aerr.Error()})
+		} else {
+			tools = append(append([]llm.Tool(nil), baseTools...), att.toolDefs()...)
+		}
 	}
 
 	systemPrompt, skillNames, err := composePrompt(tools)
@@ -349,6 +371,15 @@ func Run(ctx context.Context, cfg Config, userMessage string) (answer string, er
 				}
 				emit(Step{Kind: StepError, Title: name + " failed", Detail: callErr.Error()})
 				emit(Step{Kind: StepAnswer, Title: "Stopped", Detail: answer})
+				// Pair the call with its real outcome. Left unpaired, the next
+				// turn's RepairPairing fills in "(not executed)" and the model
+				// reads a tool that errored as one that cannot run at all.
+				messages = append(messages, llm.Message{
+					Role:       "tool",
+					ToolCallID: tc.ID,
+					Name:       name,
+					Content:    "error: " + callErr.Error(),
+				})
 				return answer, nil
 			}
 			emit(Step{Kind: StepTool, Title: name + " ok", Detail: truncate(result, 4000)})

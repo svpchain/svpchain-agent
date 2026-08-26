@@ -78,9 +78,22 @@ func errRemoteDisabled(name string) error {
 	return fmt.Errorf(
 		"%q is not available in this conversation. The remote MCP is disabled in "+
 			"Settings, so its tools — build_*, broadcast_*, market data — are switched "+
-			"off; a name that is not one of those does not exist at all. Either way do "+
-			"not retry it: the tools an attached agent added are exactly the ones listed "+
-			"in the a2a_connect_agent result.", name,
+			"off; a name that is not one of those does not exist at all. Either way do not retry it "+
+			"as-is; if it came from an agent attached in an earlier turn, call "+
+			"a2a_connect_agent with that agent_url again; the tools an attached agent "+
+			"adds are exactly the ones listed in that result.", name,
+	)
+}
+
+// errAgentLost answers a name that reached the catch-all after the agent
+// attached in an earlier turn failed to re-attach this run. The model listed
+// its tools from that turn, so the useful instruction is to reconnect — not
+// the remote-MCP advice, which would not bring these tools back.
+func errAgentLost(name, url string, cause error) error {
+	return fmt.Errorf(
+		"%q is not available right now: the agent at %s attached earlier in this conversation "+
+			"could not be re-attached (%v). Call %s with that agent_url again to restore its tools, "+
+			"then retry.", name, url, cause, ConnectTool,
 	)
 }
 

@@ -32,3 +32,17 @@ func TestDispatchRefusesRemoteToolsWhenDisabled(t *testing.T) {
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "remote MCP is disabled")
 }
+
+// The remote handler is an unconditional catch-all, so it also collects names
+// nothing serves — a model inventing "list_tools" lands here. The refusal must
+// not claim such a name is a remote MCP tool: that sends the user to a Settings
+// toggle that would not have helped and stops a run that could still finish.
+func TestDispatchDoesNotCallUnknownToolsRemote(t *testing.T) {
+	_, err := dispatchTool(context.Background(), "svp-2517-1", nil, nil, nil, nil, nil,
+		"list_tools", map[string]any{}, nil)
+	require.Error(t, err)
+	require.NotContains(t, err.Error(), "is a remote MCP tool",
+		"an invented name must not be described as a remote tool")
+	require.Contains(t, err.Error(), "does not exist at all")
+	require.Contains(t, err.Error(), "do not retry")
+}

@@ -69,10 +69,18 @@ func dispatchTool(ctx context.Context, chainID string, remote *remotemcp.Client,
 	}.dispatch(ctx, name, args)
 }
 
+// errRemoteDisabled answers a name that reached the catch-all with no remote
+// MCP behind it. The name is usually NOT a remote tool — the catch-all also
+// collects names nothing serves — so this must not assert that it is one, or a
+// model that invented a tool is told to go enable a setting that would not have
+// helped, and stops on a task it could still finish.
 func errRemoteDisabled(name string) error {
 	return fmt.Errorf(
-		"%q is a remote MCP tool and the remote MCP is disabled in Settings — "+
-			"it is unavailable for this conversation", name,
+		"%q is not available in this conversation. The remote MCP is disabled in "+
+			"Settings, so its tools — build_*, broadcast_*, market data — are switched "+
+			"off; a name that is not one of those does not exist at all. Either way do "+
+			"not retry it: the tools an attached agent added are exactly the ones listed "+
+			"in the a2a_connect_agent result.", name,
 	)
 }
 

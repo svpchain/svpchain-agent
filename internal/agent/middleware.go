@@ -46,6 +46,7 @@ type dispatchEnv struct {
 	// att carries tools attached mid-run from a remote A2A agent. Pointer:
 	// a2a_connect_agent fills it inside the tool loop and the next round reads it.
 	att     *attached
+	paid    *paidAgentFlow
 	mem     *memory.Session
 	observe ToolObserver
 }

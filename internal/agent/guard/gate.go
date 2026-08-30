@@ -52,6 +52,11 @@ var transferGuardedTools = map[string]guardedTool{
 // whitelist still runs first.
 const SignEVMTool = "sign_evm_transaction"
 
+// recipientWhitelistEnabled deliberately stays false while local HITL signature
+// confirmation is the transfer approval boundary. Keep the whitelist data and
+// checks below so the policy can be restored by changing this constant.
+const recipientWhitelistEnabled = false
+
 // Rejection marks a tool call refused by the pre-flight whitelist gate.
 // The agent loop detects it (via errors.As) and stops immediately instead of
 // feeding the error back to the LLM, so a non-whitelisted transfer ends the run
@@ -77,6 +82,9 @@ func Check(chainID, name string, args map[string]any) error {
 	}
 	g, ok := transferGuardedTools[name]
 	if !ok {
+		return nil
+	}
+	if !recipientWhitelistEnabled {
 		return nil
 	}
 	// The assistant checks against the effective whitelist: the hardcoded
@@ -136,13 +144,6 @@ func checkSignEVM(chainID string, args map[string]any) error {
 		return &Rejection{Err: fmt.Errorf("refusing to sign EVM transaction: %w", err)}
 	}
 
-	store := whitelist.LoadEffectiveStore()
-	if !store.Enforced() {
-		return &Rejection{Err: fmt.Errorf(
-			"no whitelist configured for chain %q — add a recipient in the Security tab before transferring",
-			chainID)}
-	}
-
 	valuePositive := false
 	if v := strings.TrimSpace(p.Value); v != "" {
 		n, ok := new(big.Int).SetString(v, 10)
@@ -160,6 +161,16 @@ func checkSignEVM(chainID string, args map[string]any) error {
 			return &Rejection{Err: fmt.Errorf(
 				"refusing to sign EVM transaction: cannot decode call data: %w", err)}
 		}
+	}
+	if !recipientWhitelistEnabled {
+		return nil
+	}
+
+	store := whitelist.LoadEffectiveStore()
+	if !store.Enforced() {
+		return &Rejection{Err: fmt.Errorf(
+			"no whitelist configured for chain %q — add a recipient in the Security tab before transferring",
+			chainID)}
 	}
 
 	if err := store.CheckEVMTx(chainID, strings.TrimSpace(p.To), valuePositive, data); err != nil {

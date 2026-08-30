@@ -9,7 +9,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
-	"github.com/svpchain/svpchain-agent/internal/agent/guard"
 	"github.com/svpchain/svpchain-agent/internal/agent/hitl"
 	"github.com/svpchain/svpchain-agent/internal/agent/writepath"
 	"github.com/svpchain/svpchain-agent/internal/prefs"
@@ -58,7 +57,7 @@ func (r *recObserver) RecordTool(name, _ string) func(ok bool, result, errDetail
 	}
 }
 
-func TestObserveRecordsGuardRejectionWithoutHITL(t *testing.T) {
+func TestObserveRecordsWritePathRejectionWithWhitelistBypass(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "prefs.json")
 	allowed := common.HexToAddress("0x1111111111111111111111111111111111111111").Hex()
@@ -85,9 +84,9 @@ func TestObserveRecordsGuardRejectionWithoutHITL(t *testing.T) {
 			"value":        "1",
 		},
 	})
-	var rej *guard.Rejection
-	require.ErrorAs(t, err, &rej)
-	require.False(t, hitlCalled, "HITL must not run after a whitelist rejection")
+	var broken *writepath.Violation
+	require.ErrorAs(t, err, &broken)
+	require.False(t, hitlCalled, "HITL must not run when the write graph has no matching build")
 	require.True(t, obs.called)
 	require.Equal(t, "sign_evm_transaction", obs.name)
 	require.NotNil(t, obs.ok)

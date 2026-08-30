@@ -22,6 +22,7 @@ import (
 	"github.com/svpchain/svpchain-agent/internal/agent/phoenix"
 	remotemcp "github.com/svpchain/svpchain-agent/internal/agent/remote"
 	"github.com/svpchain/svpchain-agent/internal/agent/runlog"
+	agentsettlement "github.com/svpchain/svpchain-agent/internal/agent/settlement"
 	"github.com/svpchain/svpchain-agent/internal/agent/skills"
 	"github.com/svpchain/svpchain-agent/internal/agent/step"
 	"github.com/svpchain/svpchain-agent/internal/agent/writepath"
@@ -98,6 +99,16 @@ type Config struct {
 	// OnAttach, if set, is called with the endpoint each time a2a_connect_agent
 	// attaches an agent, so the caller can persist it for the next run.
 	OnAttach func(url string)
+	// Settlement is an optional, explicitly assigned AgentSettlement task. It
+	// reports exactly one broadcast hash to agent-validator when the run ends.
+	// The TaskID must be the settlement contract bytes32 task ID, never an A2A
+	// task ID. Nil leaves generic chat runs unchanged.
+	Settlement *agentsettlement.Config
+	// SettlementValidatorURL enables user-funded agent execution from the chat
+	// loop. It is intentionally separate from Settlement, which is retained for
+	// trusted callers that already assigned a task.
+	SettlementValidatorURL string
+	SettlementRPCURL       string
 }
 
 const maxAgentIterations = 25
@@ -110,6 +121,34 @@ var (
 
 // Run executes one user message through the agent loop.
 func Run(ctx context.Context, cfg Config, userMessage string) (answer string, err error) {
+	settlementReporter := agentsettlement.NewDeferred()
+	var emit func(Step)
+	if cfg.Settlement != nil {
+		if err = settlementReporter.Configure(*cfg.Settlement); err != nil {
+			return "", err
+		}
+	}
+	defer func() {
+		reportCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 12*time.Second)
+		reportErr := settlementReporter.Report(reportCtx)
+		cancel()
+		if reportErr != nil && err == nil {
+			err = fmt.Errorf("settlement callback: %w", reportErr)
+			return
+		}
+		if reportErr == nil && emit != nil {
+			if taskID, txHash, ok := settlementReporter.Callback(); ok {
+				answer = strings.TrimSpace(answer) + "\n\n✅ Agent Validator callback succeeded" +
+					"\n- task_id: " + taskID +
+					"\n- execution tx_hash: " + txHash
+				emit(Step{
+					Kind:   StepTool,
+					Title:  "Agent Validator callback succeeded",
+					Detail: "task_id=" + taskID + " tx_hash=" + txHash,
+				})
+			}
+		}
+	}()
 	var trace *runlog.Session
 	var ph *phoenix.Session
 	if cfg.RunLog != nil && cfg.RunLog.Enabled() {
@@ -147,7 +186,7 @@ func Run(ctx context.Context, cfg Config, userMessage string) (answer string, er
 		}()
 	}
 
-	emit := func(s Step) {
+	emit = func(s Step) {
 		if trace != nil {
 			trace.RecordStep(string(s.Kind), s.Title, s.Detail)
 		}
@@ -208,17 +247,31 @@ func Run(ctx context.Context, cfg Config, userMessage string) (answer string, er
 			return orig(ctx, req)
 		}
 	}
-	disc := &discovery.Service{Market: agentmarket.New(cfg.AgentMarketURL)}
+	market := agentmarket.New(cfg.AgentMarketURL)
+	disc := &discovery.Service{Market: market}
 	writes := writepath.New()
 	baseTools, err := buildToolList(ctx, remote, disc)
 	if err != nil {
 		return "", err
+	}
+	var paid *paidAgentFlow
+	if strings.TrimSpace(cfg.SettlementValidatorURL) != "" {
+		paid, err = newPaidAgentFlow(cfg.SettlementValidatorURL, cfg.SettlementRPCURL, chainID, priv, confirm, market, settlementReporter)
+		if err != nil {
+			return "", err
+		}
+		baseTools = append(baseTools, paid.ToolDef())
 	}
 	// Tools an attached A2A agent adds mid-run (see attach.go). The base list
 	// is the precedence floor: nothing attached may take a name already here.
 	att := newAttached(baseTools)
 	att.onAttach = cfg.OnAttach
 	tools := baseTools
+
+	observers := []ToolObserver{trace, ph}
+	if settlementReporter != nil {
+		observers = append(observers, settlementReporter)
+	}
 
 	env := dispatchEnv{
 		chainID: chainID,
@@ -228,8 +281,9 @@ func Run(ctx context.Context, cfg Config, userMessage string) (answer string, er
 		confirm: confirm,
 		writes:  writes,
 		att:     att,
+		paid:    paid,
 		mem:     &sessionMem,
-		observe: composeObservers(trace, ph),
+		observe: composeObservers(observers...),
 	}
 
 	// composePrompt is used again if an attach changes the tool set, so the
@@ -250,16 +304,20 @@ func Run(ctx context.Context, cfg Config, userMessage string) (answer string, er
 		return prompt, names, nil
 	}
 
-	// Re-attach the agent the conversation already connected to. Its tools
-	// were listed to the model in an earlier turn, so without this it would
-	// call names that no longer exist.
+	// A paid market agent is one quoted call, so it must be selected and funded
+	// again on a later user message. Do not revive an old attachment and let a
+	// new execution reuse it without a fresh settlement task.
 	if u := strings.TrimSpace(cfg.AttachedAgentURL); u != "" {
-		emit(Step{Kind: StepThink, Title: "Re-attaching agent " + u})
-		if _, aerr := env.connect(ctx, map[string]any{"agent_url": u}); aerr != nil {
-			att.noteReattachFailure(u, aerr)
-			emit(Step{Kind: StepError, Title: "Re-attach failed", Detail: aerr.Error()})
+		if paid != nil {
+			emit(Step{Kind: StepThink, Title: "A fresh settlement is required before reusing agent " + u})
 		} else {
-			tools = append(append([]llm.Tool(nil), baseTools...), att.toolDefs()...)
+			emit(Step{Kind: StepThink, Title: "Re-attaching agent " + u})
+			if _, aerr := env.connect(ctx, map[string]any{"agent_url": u}); aerr != nil {
+				att.noteReattachFailure(u, aerr)
+				emit(Step{Kind: StepError, Title: "Re-attach failed", Detail: aerr.Error()})
+			} else {
+				tools = append(append([]llm.Tool(nil), baseTools...), att.toolDefs()...)
+			}
 		}
 	}
 

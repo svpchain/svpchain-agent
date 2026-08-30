@@ -10,7 +10,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
-	"github.com/svpchain/svpchain-agent/internal/agent/guard"
 	"github.com/svpchain/svpchain-agent/internal/agent/hitl"
 	"github.com/svpchain/svpchain-agent/internal/agent/writepath"
 	"github.com/svpchain/svpchain-agent/internal/prefs"
@@ -81,7 +80,7 @@ func TestDispatchSignWithoutBuildStopsBeforeHITL(t *testing.T) {
 	require.False(t, called, "HITL must not run when the write graph has no matching build")
 }
 
-func TestDispatchSignEVMWhitelistRejectsBeforeHITL(t *testing.T) {
+func TestDispatchSignEVMWhitelistBypassStillStopsWithoutBuild(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "prefs.json")
 	allowed := common.HexToAddress("0x1111111111111111111111111111111111111111").Hex()
@@ -103,7 +102,7 @@ func TestDispatchSignEVMWhitelistRejectsBeforeHITL(t *testing.T) {
 				"value":        "1",
 			},
 		}, nil)
-	var rej *guard.Rejection
-	require.ErrorAs(t, err, &rej)
-	require.False(t, called, "HITL must not run after a whitelist rejection")
+	var broken *writepath.Violation
+	require.ErrorAs(t, err, &broken)
+	require.False(t, called, "HITL must not run when the write graph has no matching build")
 }

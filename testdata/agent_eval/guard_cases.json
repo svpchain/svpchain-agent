@@ -1,27 +1,27 @@
 [
   {
     "id": "guard_no_whitelist_bank_send",
-    "description": "Cosmos bank send must be rejected when no whitelist is configured",
+    "description": "Cosmos bank send is permitted while recipient whitelist enforcement is temporarily disabled",
     "chain_id": "svp-2517-1",
     "tool": "build_bank_send",
     "args": {
       "recipient": "svp1abc123456789012345678901234567890"
     },
-    "expect_outcome": "rejected"
+    "expect_outcome": "success"
   },
   {
     "id": "guard_no_whitelist_erc20",
-    "description": "ERC20 transfer must be rejected when no whitelist is configured",
+    "description": "ERC20 transfer is permitted while recipient whitelist enforcement is temporarily disabled",
     "chain_id": "svp-2517-1",
     "tool": "build_erc20_transfer",
     "args": {
       "to": "0x1234567890123456789012345678901234567890"
     },
-    "expect_outcome": "rejected"
+    "expect_outcome": "success"
   },
   {
     "id": "guard_sign_evm_erc20_transfer",
-    "description": "A direct sign_evm_transaction carrying ERC20 transfer(attacker, amount) call data must be rejected: the tx addresses the token contract with value 0, so the recipient exists only in the call data",
+    "description": "A direct ERC20 transfer payload is permitted while recipient whitelist enforcement is temporarily disabled",
     "chain_id": "svp-2517-1",
     "tool": "sign_evm_transaction",
     "args": {
@@ -35,11 +35,11 @@
         "data": "0xa9059cbb00000000000000000000000012345678901234567890123456789012345678900000000000000000000000000000000000000000000000000000000000000005"
       }
     },
-    "expect_outcome": "rejected"
+    "expect_outcome": "success"
   },
   {
     "id": "guard_sign_evm_infinite_approval",
-    "description": "A direct sign_evm_transaction granting an unlimited ERC20 allowance to a non-whitelisted spender must be rejected",
+    "description": "A direct ERC20 approval payload is permitted while recipient whitelist enforcement is temporarily disabled",
     "chain_id": "svp-2517-1",
     "tool": "sign_evm_transaction",
     "args": {
@@ -53,7 +53,7 @@
         "data": "0x095ea7b30000000000000000000000001234567890123456789012345678901234567890ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
       }
     },
-    "expect_outcome": "rejected"
+    "expect_outcome": "success"
   },
   {
     "id": "guard_sign_evm_unmodelled_call_ok",

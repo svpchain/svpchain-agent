@@ -1,0 +1,99 @@
+package settlement
+
+import (
+	"context"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+
+	"github.com/stretchr/testify/require"
+)
+
+const (
+	testTask = "0x2000000000000000000000000000000000000000000000000000000000000002"
+	testTx   = "0x3000000000000000000000000000000000000000000000000000000000000003"
+)
+
+func TestReporterPostsExplicitTaskAndDelegatedSource(t *testing.T) {
+	var got struct {
+		TaskID string `json:"task_id"`
+		TxHash string `json:"tx_hash"`
+	}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "/internal/v1/executions", r.URL.Path)
+		require.Equal(t, "Bearer token", r.Header.Get("Authorization"))
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&got))
+		w.WriteHeader(http.StatusAccepted)
+	}))
+	t.Cleanup(server.Close)
+
+	reporter, err := New(Config{TaskID: testTask, Owner: "0x0000000000000000000000000000000000000004", ValidatorURL: server.URL, CallbackToken: "token", Source: SourceCosmosDelegatedEVM})
+	require.NoError(t, err)
+	reporter.RecordTool("execute_delegated_evm", "")(true, `{"tx_hash":"`+testTx+`"}`, "")
+	require.NoError(t, reporter.Report(context.Background()))
+	require.Equal(t, testTask, got.TaskID)
+	require.Equal(t, testTx, got.TxHash)
+}
+
+func TestReporterCallbackMatchesValidatorStrictRequest(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var raw map[string]any
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&raw))
+		require.Equal(t, map[string]any{"task_id": testTask, "tx_hash": testTx}, raw)
+		w.WriteHeader(http.StatusAccepted)
+	}))
+	t.Cleanup(server.Close)
+
+	reporter, err := New(Config{TaskID: testTask, Owner: "0x0000000000000000000000000000000000000004", ValidatorURL: server.URL, Source: SourceEVM})
+	require.NoError(t, err)
+	reporter.RecordTool("broadcast_evm_tx", "")(true, `{"tx_hash":"`+testTx+`"}`, "")
+	require.NoError(t, reporter.Report(context.Background()))
+	taskID, txHash, ok := reporter.Callback()
+	require.True(t, ok)
+	require.Equal(t, testTask, taskID)
+	require.Equal(t, testTx, txHash)
+}
+
+func TestReporterCallbackIsAbsentWithoutExactlyOneExecution(t *testing.T) {
+	reporter, err := New(Config{TaskID: testTask, ValidatorURL: "http://validator.example"})
+	require.NoError(t, err)
+	_, _, ok := reporter.Callback()
+	require.False(t, ok)
+}
+
+func TestReporterRejectsAmbiguousRun(t *testing.T) {
+	reporter, err := New(Config{TaskID: testTask, ValidatorURL: "http://validator.example"})
+	require.NoError(t, err)
+	reporter.RecordTool("broadcast_signed_tx", "")(true, `0x3000000000000000000000000000000000000000000000000000000000000003 0x4000000000000000000000000000000000000000000000000000000000000004`, "")
+	require.Error(t, reporter.Report(context.Background()))
+}
+
+func TestReporterIgnoresSettlementFundingHashesReturnedByConnect(t *testing.T) {
+	reporter, err := New(Config{TaskID: testTask, ValidatorURL: "http://validator.example"})
+	require.NoError(t, err)
+	reporter.RecordTool("a2a_connect_agent", "")(true, `{
+        "approve_tx_hash":"0x3000000000000000000000000000000000000000000000000000000000000003",
+        "deposit_tx_hash":"0x4000000000000000000000000000000000000000000000000000000000000004"
+    }`, "")
+	reporter.RecordTool("sign_evm_transaction", "")(true, `{"signed_tx":{"tx_hash":"0x5000000000000000000000000000000000000000000000000000000000000005"}}`, "")
+	reporter.RecordTool("broadcast_evm_tx", "")(true, `{"tx_hash":"`+testTx+`"}`, "")
+
+	reporter.mu.Lock()
+	defer reporter.mu.Unlock()
+	require.Equal(t, []string{testTx}, reporter.hashes)
+}
+
+func TestNilReporterIsNoopObserver(t *testing.T) {
+	var reporter *Reporter
+	require.NotPanics(t, func() {
+		reporter.RecordTool("sign_evm_transaction", "{}")(true, `{"signed_tx":{"tx_hash":"`+testTx+`"}}`, "")
+	})
+}
+
+func TestDeferredReporterIgnoresPreFundingBroadcasts(t *testing.T) {
+	reporter := NewDeferred()
+	reporter.RecordTool("broadcast_evm_tx", "")(true, `{"tx_hash":"`+testTx+`"}`, "")
+	require.NoError(t, reporter.Configure(Config{TaskID: testTask, ValidatorURL: "http://validator.example"}))
+	require.NoError(t, reporter.Report(context.Background()))
+}

@@ -22,10 +22,12 @@ build-gui:
 .PHONY: patch-wails-macos-privacy
 patch-wails-macos-privacy:
 	@./scripts/macos-add-privacy-keys.sh \
-		cmd/svpchain-gui/build/bin/svpchain-gui.app/Contents/Info.plist \
-		cmd/svpchain-gui/build/darwin/Info.plist \
-		cmd/svpchain-gui/build/darwin/Info.dev.plist \
-		|| true
+		cmd/svpchain-gui/build/bin/svpchain-gui.app/Contents/Info.plist
+	@if command -v codesign >/dev/null 2>&1 && \
+		[ -d cmd/svpchain-gui/build/bin/svpchain-gui.app ]; then \
+		codesign --force --deep --sign - cmd/svpchain-gui/build/bin/svpchain-gui.app; \
+		codesign --verify --deep --strict cmd/svpchain-gui/build/bin/svpchain-gui.app; \
+	fi
 
 # Vite empties frontend/dist on every build, which deletes the tracked
 # placeholder that lets `go build` work without the frontend toolchain — so a

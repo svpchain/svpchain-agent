@@ -2,6 +2,8 @@ package agent
 
 import (
 	"context"
+	"fmt"
+	"strings"
 
 	"github.com/svpchain/svpchain-agent/internal/agent/a2acall"
 	"github.com/svpchain/svpchain-agent/internal/agent/discovery"
@@ -26,6 +28,7 @@ func (env dispatchEnv) handlers() []toolHandler {
 		x402Handler{},
 		a2aHandler{},
 		connectHandler{env: env},
+		paidSettlementHandler{env: env},
 		discoverHandler{svc: env.disc},
 		skillRefHandler{},
 		localHandler{env: env},
@@ -117,10 +120,36 @@ type connectHandler struct {
 	env dispatchEnv
 }
 
+// paidSettlementHandler funds and assigns the selected market agent before
+// its execution tools are used in this run.
+type paidSettlementHandler struct {
+	env dispatchEnv
+}
+
+func (h paidSettlementHandler) Match(name string) bool {
+	return h.env.paid != nil && name == BeginSettlementTool
+}
+
+func (h paidSettlementHandler) Call(ctx context.Context, _ string, args map[string]any) (string, error) {
+	return h.env.paid.Start(ctx, args, func(ctx context.Context, endpoint string) (string, error) {
+		return h.env.connect(ctx, map[string]any{"agent_url": endpoint})
+	})
+}
+
 func (connectHandler) Match(name string) bool { return name == ConnectTool }
 
 func (h connectHandler) Call(ctx context.Context, _ string, args map[string]any) (string, error) {
-	return h.env.connect(ctx, args)
+	if h.env.paid == nil {
+		return h.env.connect(ctx, args)
+	}
+	endpoint, _ := args["agent_url"].(string)
+	endpoint = strings.TrimSpace(endpoint)
+	if endpoint == "" {
+		return "", fmt.Errorf("agent_url is required")
+	}
+	return h.env.paid.StartEndpoint(ctx, endpoint, func(ctx context.Context, endpoint string) (string, error) {
+		return h.env.connect(ctx, map[string]any{"agent_url": endpoint})
+	})
 }
 
 // attachedHandler routes a tool an attached A2A agent advertised. It sits after
@@ -134,6 +163,14 @@ type attachedHandler struct {
 func (h attachedHandler) Match(name string) bool { return h.env.att.handles(name) }
 
 func (h attachedHandler) Call(ctx context.Context, name string, args map[string]any) (string, error) {
+	if h.env.paid != nil {
+		endpoint := h.env.att.endpoint()
+		if err := h.env.paid.EnsureEndpoint(ctx, endpoint, func(ctx context.Context, endpoint string) (string, error) {
+			return h.env.connect(ctx, map[string]any{"agent_url": endpoint})
+		}); err != nil {
+			return "", err
+		}
+	}
 	return h.env.att.call(ctx, name, args)
 }
 

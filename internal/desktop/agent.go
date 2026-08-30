@@ -3,8 +3,10 @@ package desktop
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 	"sync"
+	"time"
 
 	wruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 
@@ -12,11 +14,15 @@ import (
 	"github.com/svpchain/svpchain-agent/internal/agent/history"
 	"github.com/svpchain/svpchain-agent/internal/agent/llm"
 	"github.com/svpchain/svpchain-agent/internal/agent/runlog"
+	agentsettlement "github.com/svpchain/svpchain-agent/internal/agent/settlement"
 	"github.com/svpchain/svpchain-agent/internal/agent/skills"
+	"github.com/svpchain/svpchain-agent/internal/agentmarket"
 	"github.com/svpchain/svpchain-agent/internal/chainrpc"
 	"github.com/svpchain/svpchain-agent/internal/i18n"
+	"github.com/svpchain/svpchain-agent/internal/keystore"
 	"github.com/svpchain/svpchain-agent/internal/manage"
 	"github.com/svpchain/svpchain-agent/internal/prefs"
+	"github.com/svpchain/svpchain-agent/internal/signer"
 )
 
 // SkillSetting is one assistant skill row for the Settings UI.
@@ -115,6 +121,35 @@ func resolveRemoteURL(s AgentSettings) string {
 var agentMu sync.Mutex
 var agentCancel context.CancelFunc
 
+// SettlementTask identifies one selected agent's quoted execution. Owner and
+// Amount come from Agent Market; intent/task IDs are generated locally when
+// the user starts the paid run.
+type SettlementTask struct {
+	// IntentID and TaskID are populated during funding and then used only by the
+	// in-process validator assignment/reporting path.
+	IntentID string `json:"intent_id"`
+	TaskID   string `json:"task_id"`
+	AgentID  string `json:"agent_id"`
+	Endpoint string `json:"endpoint"`
+	Amount   string `json:"amount"`
+	Owner    string `json:"owner"`
+	Source   string `json:"source"`
+}
+
+// SettlementNetworkConfig is the validator-resolved network payment setup.
+type SettlementNetworkConfig = agentsettlement.NetworkConfig
+
+// AgentSettlementNetworkConfig returns the deployed settlement contract and
+// its payment token. Agent owner and advertised amount come from Agent Market.
+func (a *App) AgentSettlementNetworkConfig() (SettlementNetworkConfig, error) {
+	validatorURL := settlementValidatorURL()
+	client, err := agentsettlement.NewClient(validatorURL, "")
+	if err != nil {
+		return SettlementNetworkConfig{}, err
+	}
+	return client.NetworkConfig(a.ctx)
+}
+
 func emitAgentStep(ctx context.Context, step agent.Step) {
 	detail := step.Detail
 	if detail != "" {
@@ -138,6 +173,32 @@ func emitAgentDelta(ctx context.Context, text string) {
 // AgentSend starts processing a user message asynchronously.
 // Progress is emitted on "agent:step"; completion on "agent:done" or "agent:error".
 func (a *App) AgentSend(chainID, message string) error {
+	return a.agentSend(chainID, message, nil)
+}
+
+// AgentSendSettlement escrows the selected agent's quoted payment, asks the
+// validator to assign it, then runs the request. On completion it reports the
+// one execution transaction observed to that validator. The validator URL
+// defaults to the local deployment and may be overridden by
+// AGENT_VALIDATOR_URL; no shared validator callback token is carried by this
+// open-source client.
+func (a *App) AgentSendSettlement(chainID, message string, task SettlementTask) error {
+	validatorURL := settlementValidatorURL()
+	client, err := agentsettlement.NewClient(validatorURL, "")
+	if err != nil {
+		return err
+	}
+	return a.agentSend(chainID, message, &settlementRun{task: task, client: client, validatorURL: validatorURL})
+}
+
+type settlementRun struct {
+	task         SettlementTask
+	client       *agentsettlement.Client
+	validatorURL string
+	config       *agentsettlement.Config
+}
+
+func (a *App) agentSend(chainID, message string, settlement *settlementRun) error {
 	agentMu.Lock()
 	if agentCancel != nil {
 		agentMu.Unlock()
@@ -192,19 +253,37 @@ func (a *App) AgentSend(chainID, message string) error {
 			emitAgentStep(a.ctx, step)
 		})
 
+		if settlement != nil {
+			if err := a.fundSettlement(ctx, chainID, settlement); err != nil {
+				emitAgentError(a.ctx, err)
+				return
+			}
+			if _, err := settlement.client.CreateTask(ctx, agentsettlement.Task{
+				IntentID: settlement.task.IntentID,
+				TaskID:   settlement.task.TaskID,
+				Amount:   settlement.task.Amount,
+				Owner:    settlement.task.Owner,
+			}); err != nil {
+				emitAgentError(a.ctx, fmt.Errorf("assign settlement task: %w", err))
+				return
+			}
+		}
+
 		answer, err := agent.Run(ctx, agent.Config{
-			ChainID:          chainID,
-			RemoteURL:        remoteURL,
-			AgentMarketURL:   settings.AgentMarketURL,
-			ChainRPCURL:      chainrpc.URLForChain(chainID),
-			Confirm:          a.confirmHook,
-			RunLog:           runlog.New(!settings.AgentRunLogDisabled),
-			PhoenixOTLPURL:   settings.PhoenixOTLPURL,
-			LLM:              llmCfg,
-			Prior:            prior,
-			SessionID:        sess.ID,
-			SessionTitle:     sess.Title,
-			AttachedAgentURL: sess.AttachedAgentURL,
+			ChainID:                chainID,
+			RemoteURL:              remoteURL,
+			AgentMarketURL:         settings.AgentMarketURL,
+			ChainRPCURL:            chainrpc.URLForChain(chainID),
+			SettlementValidatorURL: settlementValidatorURL(),
+			SettlementRPCURL:       settlementRPCURL(),
+			Confirm:                a.confirmHook,
+			RunLog:                 runlog.New(!settings.AgentRunLogDisabled),
+			PhoenixOTLPURL:         settings.PhoenixOTLPURL,
+			LLM:                    llmCfg,
+			Prior:                  prior,
+			SessionID:              sess.ID,
+			SessionTitle:           sess.Title,
+			AttachedAgentURL:       settlementAgentURL(sess.AttachedAgentURL, settlement),
 			OnAttach: func(url string) {
 				if sess.ID != "" {
 					_ = hist.SetAttachedAgent(sess.ID, url)
@@ -221,6 +300,7 @@ func (a *App) AgentSend(chainID, message string) error {
 			OnDelta: func(text string) {
 				emitAgentDelta(a.ctx, text)
 			},
+			Settlement: settlementConfig(settlement),
 		}, message)
 
 		if err != nil {
@@ -231,6 +311,127 @@ func (a *App) AgentSend(chainID, message string) error {
 		wruntime.EventsEmit(a.ctx, "agent:done", map[string]string{"answer": answer})
 	}()
 	return nil
+}
+
+func settlementConfig(settlement *settlementRun) *agentsettlement.Config {
+	if settlement == nil {
+		return nil
+	}
+	return settlement.config
+}
+
+func settlementAgentURL(sessionURL string, settlement *settlementRun) string {
+	if settlement != nil && strings.TrimSpace(settlement.task.Endpoint) != "" {
+		return strings.TrimSpace(settlement.task.Endpoint)
+	}
+	return sessionURL
+}
+
+// fundSettlement derives the user's EVM account, reads the payment network
+// from validator, confirms approve+deposit locally, and fills the generated
+// task identifiers used by assignment and execution reporting.
+func (a *App) fundSettlement(ctx context.Context, chainID string, settlement *settlementRun) error {
+	if settlement == nil || settlement.client == nil {
+		return fmt.Errorf("settlement run is not configured")
+	}
+	if err := a.resolveSettlementAgent(ctx, settlement); err != nil {
+		return err
+	}
+	owner, err := agentsettlement.EVMOwner(settlement.task.Owner)
+	if err != nil {
+		return err
+	}
+	network, err := settlement.client.NetworkConfig(ctx)
+	if err != nil {
+		return err
+	}
+	ring, err := keystore.Open()
+	if err != nil {
+		return err
+	}
+	hexKey, _, err := manage.SelectKey(ring, chainID, os.Getenv("SIGNER_KEY_HEX"))
+	if err != nil {
+		return err
+	}
+	priv, err := signer.ParsePrivKey(hexKey)
+	if err != nil {
+		return fmt.Errorf("parse key: %w", err)
+	}
+	emitAgentStep(a.ctx, agent.Step{Kind: agent.StepThink, Title: "Funding agent settlement…"})
+	fundingCtx, cancel := context.WithTimeout(ctx, 90*time.Second)
+	defer cancel()
+	funded, err := agentsettlement.Fund(fundingCtx, agentsettlement.FundingConfig{
+		ChainID:            chainID,
+		RPCURL:             settlementRPCURL(),
+		SettlementContract: network.SettlementContract,
+		PaymentToken:       network.PaymentToken,
+		Amount:             settlement.task.Amount,
+		PrivateKey:         priv,
+		Confirm:            a.confirmHook,
+	})
+	if err != nil {
+		return fmt.Errorf("fund agent settlement: %w", err)
+	}
+	settlement.task.IntentID = funded.IntentID
+	settlement.task.TaskID = funded.TaskID
+	settlement.task.Owner = owner.Hex()
+	if strings.TrimSpace(settlement.task.Source) == "" {
+		settlement.task.Source = agentsettlement.SourceEVM
+	}
+	settlement.config = &agentsettlement.Config{
+		TaskID:       funded.TaskID,
+		Owner:        owner.Hex(),
+		ValidatorURL: settlement.validatorURL,
+		Source:       settlement.task.Source,
+	}
+	if _, err := agentsettlement.New(*settlement.config); err != nil {
+		return err
+	}
+	emitAgentStep(a.ctx, agent.Step{Kind: agent.StepThink, Title: "Agent payment funded", Detail: funded.DepositTxHash})
+	return nil
+}
+
+func (a *App) resolveSettlementAgent(ctx context.Context, settlement *settlementRun) error {
+	if settlement == nil {
+		return fmt.Errorf("settlement run is not configured")
+	}
+	if strings.TrimSpace(settlement.task.AgentID) != "" {
+		market := agentmarket.New(a.AgentGetSettings().AgentMarketURL)
+		hit, err := market.Get(ctx, settlement.task.AgentID)
+		if err != nil {
+			return err
+		}
+		if hit.Status != "AGENT_STATUS_ACTIVE" {
+			return fmt.Errorf("selected agent %q is not active", settlement.task.AgentID)
+		}
+		if strings.TrimSpace(hit.Owner) == "" || strings.TrimSpace(hit.Pricing.Amount) == "" {
+			return fmt.Errorf("selected agent %q has incomplete owner or pricing data", settlement.task.AgentID)
+		}
+		settlement.task.Owner = hit.Owner
+		settlement.task.Amount = hit.Pricing.Amount
+		settlement.task.Endpoint = hit.Endpoint
+	}
+	if strings.TrimSpace(settlement.task.Owner) == "" {
+		return fmt.Errorf("selected agent has no owner address")
+	}
+	if strings.TrimSpace(settlement.task.Amount) == "" {
+		return fmt.Errorf("selected agent has no quoted settlement amount")
+	}
+	return nil
+}
+
+func settlementRPCURL() string {
+	if value := strings.TrimSpace(os.Getenv("AGENT_SETTLEMENT_RPC_URL")); value != "" {
+		return value
+	}
+	return "http://127.0.0.1:8545"
+}
+
+func settlementValidatorURL() string {
+	if value := strings.TrimSpace(os.Getenv("AGENT_VALIDATOR_URL")); value != "" {
+		return value
+	}
+	return "http://127.0.0.1:7080"
 }
 
 // prepareHistory resolves the active session (creating one on first use or

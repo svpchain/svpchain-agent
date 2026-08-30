@@ -8,30 +8,20 @@ if [[ $# -lt 1 ]]; then
 	exit 1
 fi
 
-python3 - "$@" <<'PY'
-import plistlib
-import sys
-from pathlib import Path
+mic='Voice input transcribes your command into the assistant text box. Recognition uses the system speech service; SVPChain does not upload the recording.'
+speech='Voice input uses Speech Recognition to transcribe your command into the assistant text box. Recognition uses the system speech service; SVPChain does not upload the recording.'
 
-mic = (
-    "Voice input transcribes your command into the assistant text box. "
-    "Recognition uses the system speech service; SVPChain does not upload the recording."
-)
-speech = (
-    "Voice input uses Speech Recognition to transcribe your command into the "
-    "assistant text box. Recognition uses the system speech service; SVPChain "
-    "does not upload the recording."
-)
-
-for raw in sys.argv[1:]:
-    path = Path(raw)
-    if not path.is_file():
-        continue
-    with path.open("rb") as f:
-        data = plistlib.load(f)
-    data["NSMicrophoneUsageDescription"] = mic
-    data["NSSpeechRecognitionUsageDescription"] = speech
-    with path.open("wb") as f:
-        plistlib.dump(data, f, sort_keys=False)
-    print(f"patched {path}")
-PY
+for path in "$@"; do
+	[[ -f "$path" ]] || continue
+	# Wails' build/darwin/Info.plist is a Go template; only patch plist files
+	# after Wails has expanded that template into the app bundle.
+	if ! plutil -lint "$path" >/dev/null 2>&1; then
+		echo "skipped non-plist template $path"
+		continue
+	fi
+	/usr/libexec/PlistBuddy -c "Add :NSMicrophoneUsageDescription string $mic" "$path" 2>/dev/null \
+		|| /usr/libexec/PlistBuddy -c "Set :NSMicrophoneUsageDescription $mic" "$path"
+	/usr/libexec/PlistBuddy -c "Add :NSSpeechRecognitionUsageDescription string $speech" "$path" 2>/dev/null \
+		|| /usr/libexec/PlistBuddy -c "Set :NSSpeechRecognitionUsageDescription $speech" "$path"
+	echo "patched $path"
+done

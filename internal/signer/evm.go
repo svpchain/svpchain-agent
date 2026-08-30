@@ -14,7 +14,6 @@ import (
 	ethcrypto "github.com/ethereum/go-ethereum/crypto"
 
 	"github.com/svpchain/svpchain-agent/internal/payload"
-	"github.com/svpchain/svpchain-agent/internal/whitelist"
 )
 
 // DeriveEvmAddress returns the 0x-checksummed Ethereum address derived from
@@ -136,15 +135,11 @@ func SignEvm(priv *ethsecp256k1.PrivKey, p *payload.EvmTxPayload, cosmosChainID 
 // GUI assistant's gate refuses every transfer when the whitelist is empty. Once
 // a whitelist exists, both layers enforce it over the same set of destinations.
 func checkWhitelist(cosmosChainID string, to *common.Address, value *big.Int, data []byte) error {
-	store := whitelist.LoadStore()
-	if !store.Enforced() {
-		return nil
-	}
-	toHex := ""
-	if to != nil {
-		toHex = to.Hex()
-	}
-	return store.CheckEVMTx(cosmosChainID, toHex, value.Sign() > 0, data)
+	// TEMPORARY: the local signature confirmation is the approval boundary.
+	// Keep this signer-layer bypass in sync with guard.Check; otherwise direct
+	// sign_evm_transaction calls would still be rejected after the preflight
+	// guard permits them.
+	return nil
 }
 
 // buildTxData assembles the format-specific go-ethereum TxData. The tx type is

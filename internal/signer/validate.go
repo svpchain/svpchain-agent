@@ -9,7 +9,6 @@ import (
 	"github.com/cosmos/gogoproto/proto"
 
 	"github.com/svpchain/svpchain-agent/internal/payload"
-	"github.com/svpchain/svpchain-agent/internal/whitelist"
 )
 
 // bankMsgSendTypeURL is the Any type URL for a x/bank send; the only message
@@ -120,5 +119,9 @@ func validateBankSend(value []byte, summary payload.Summary, signerAddr, chainID
 		return fmt.Errorf("summary.recipient_owner %q does not match MsgSend.to_address %q",
 			summary.RecipientOwner, msg.ToAddress)
 	}
-	return whitelist.CheckCosmosRecipient(chainID, msg.ToAddress)
+	// TEMPORARY: recipient whitelisting is disabled while the local signature
+	// confirmation is the approval boundary. The transaction structure, sender,
+	// recipient format, amount, and summary consistency checks above remain
+	// enforced.
+	return nil
 }

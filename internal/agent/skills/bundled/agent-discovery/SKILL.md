@@ -4,13 +4,13 @@ description: Find remote agents by describing a task, through the SVP Agent Mark
 priority: 30
 tools:
   - search_agents
+  - begin_agent_settlement
 ---
 
 # Agent search
 
-This assistant can find remote agents by **describing the task in natural language**. `search_agents` ranks agents by
-semantic similarity against their published A2A cards and returns each one's DID, A2A endpoint, capability tags,
-pricing and bond.
+This assistant can list active remote agents or find one for a concrete task. `search_agents` returns each Agent's
+DID, A2A endpoint, capability tags, pricing and bond.
 
 ## Where this runs (state this correctly if asked)
 
@@ -28,9 +28,22 @@ Two different URLs are involved, and confusing them causes real trouble:
 
 ## Using it
 
-Describe the task, not the tag: `"check perpetual funding rates on BTC-USD"` finds agents whose cards say they do that,
-including ones whose capability tags you would never have guessed. Narrow with `capability` only when the user names an
-exact tag, and use `limit` to keep the shortlist small.
+## Paid execution
+
+When the user asks to execute a task through a market agent, first find the active candidate and state its advertised
+price. Use `begin_agent_settlement` with that exact `agent_id` before invoking any execution tool from the selected
+agent. It reads the latest owner and price from Agent Market, then opens local confirmations for payment-token
+approval and escrow deposit. Once both are confirmed, it assigns the validator task and attaches that exact endpoint.
+Do not call it for questions that merely ask about an agent or the market.
+
+When the user asks a generic market question, such as "what agents are available?" or "what is in the market?", call
+`search_agents` with `{"mode":"list"}`. Do not turn that question into a semantic `query`: this calls the paginated
+Agent Market list endpoint and returns `cursor` / `next_cursor` for follow-up pages.
+
+For a concrete task, use `{"mode":"search","query":"..."}`. Describe the task, not the tag: `"check perpetual
+funding rates on BTC-USD"` finds agents whose cards say they do that, including ones whose capability tags you would
+never have guessed. Narrow with `capability` only when the user names an exact tag, and use `limit` to keep the
+shortlist small.
 
 `similarity` is `0..1`. Treat anything below about `0.4` as a weak match: say so and offer to broaden the search rather
 than acting on a guess. If the search returns nothing, say the market service found no match — never claim no agent

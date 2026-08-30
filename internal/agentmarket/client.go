@@ -62,10 +62,12 @@ type Coin struct {
 	Amount string `json:"amount,omitempty"`
 }
 
-// Pricing is an agent's advertised price, informational only.
+// Pricing is an agent's advertised price in the network AgentSettlement
+// payment token's smallest unit. The token is selected by the network
+// settlement deployment, not by an individual agent record.
 type Pricing struct {
-	PerCall []Coin `json:"per_call,omitempty"`
-	Unit    string `json:"unit,omitempty"`
+	Amount string `json:"amount,omitempty"`
+	Unit   string `json:"unit,omitempty"`
 }
 
 // Hit is one search result: an agent as the market service describes it, plus
@@ -73,6 +75,7 @@ type Pricing struct {
 // about an on-chain record — see the package comment.
 type Hit struct {
 	AgentID      string   `json:"agent_id"`
+	Owner        string   `json:"owner,omitempty"`
 	Endpoint     string   `json:"endpoint,omitempty"`
 	Capabilities []string `json:"capabilities,omitempty"`
 	Pricing      Pricing  `json:"pricing,omitzero"`
@@ -92,6 +95,136 @@ type Query struct {
 type searchResponse struct {
 	Agents []Hit  `json:"agents"`
 	Error  string `json:"error"`
+}
+
+// ListQuery narrows a paginated listing of active Agent records.
+type ListQuery struct {
+	Capability string
+	Limit      int
+	Cursor     int
+}
+
+// Page is one page from the Agent Market listing API.
+type Page struct {
+	Agents     []Hit `json:"agents"`
+	Limit      int   `json:"limit"`
+	Cursor     int   `json:"cursor"`
+	NextCursor int   `json:"next_cursor"`
+}
+
+// Get returns the current on-chain-derived record for one agent.
+func (c *Client) Get(ctx context.Context, agentID string) (Hit, error) {
+	if c == nil {
+		return Hit{}, fmt.Errorf("agent market search is not configured")
+	}
+	agentID = strings.TrimSpace(agentID)
+	if agentID == "" {
+		return Hit{}, fmt.Errorf("agent id is required")
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.base+"/v1/agents/"+url.PathEscape(agentID), nil)
+	if err != nil {
+		return Hit{}, err
+	}
+	response, err := c.http.Do(req)
+	if err != nil {
+		return Hit{}, fmt.Errorf("agent market unreachable: %w", err)
+	}
+	defer response.Body.Close()
+	var hit Hit
+	if err := json.NewDecoder(response.Body).Decode(&hit); err != nil && response.StatusCode == http.StatusOK {
+		return Hit{}, fmt.Errorf("decode agent market response: %w", err)
+	}
+	if response.StatusCode != http.StatusOK {
+		return Hit{}, fmt.Errorf("agent market lookup failed (HTTP %d)", response.StatusCode)
+	}
+	hits := usableHits([]Hit{hit})
+	if len(hits) != 1 {
+		return Hit{}, fmt.Errorf("agent market lookup returned an invalid agent record")
+	}
+	return hits[0], nil
+}
+
+type listResponse struct {
+	Page
+	Error string `json:"error"`
+}
+
+// List returns a page of active Agent records without semantic ranking.
+func (c *Client) List(ctx context.Context, q ListQuery) (Page, error) {
+	if c == nil {
+		return Page{}, fmt.Errorf("agent market search is not configured")
+	}
+	limit := q.Limit
+	if limit <= 0 {
+		limit = 10
+	}
+	values := url.Values{}
+	values.Set("limit", strconv.Itoa(limit))
+	values.Set("cursor", strconv.Itoa(max(q.Cursor, 0)))
+	values.Set("status", "AGENT_STATUS_ACTIVE")
+	if cap := strings.TrimSpace(q.Capability); cap != "" {
+		values.Set("capability", cap)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.base+"/v1/agents?"+values.Encode(), nil)
+	if err != nil {
+		return Page{}, err
+	}
+	response, err := c.http.Do(req)
+	if err != nil {
+		return Page{}, fmt.Errorf("agent market unreachable: %w", err)
+	}
+	defer response.Body.Close()
+
+	var decoded listResponse
+	if err := json.NewDecoder(response.Body).Decode(&decoded); err != nil && response.StatusCode == http.StatusOK {
+		return Page{}, fmt.Errorf("decode agent market response: %w", err)
+	}
+	if response.StatusCode != http.StatusOK {
+		if decoded.Error != "" {
+			return Page{}, fmt.Errorf("agent market list failed (HTTP %d): %s", response.StatusCode, decoded.Error)
+		}
+		return Page{}, fmt.Errorf("agent market list failed (HTTP %d)", response.StatusCode)
+	}
+	decoded.Agents = usableHits(decoded.Agents)
+	return decoded.Page, nil
+}
+
+// FindActiveByEndpoint resolves an active market record by its advertised A2A
+// endpoint. The market currently exposes no endpoint index, so this walks its
+// bounded paginated listing. A caller must not fall back to a free execution
+// when this lookup fails: that would let a market agent evade settlement on a
+// later chat turn, after the original search result has left process memory.
+func (c *Client) FindActiveByEndpoint(ctx context.Context, endpoint string) (Hit, bool, error) {
+	if c == nil {
+		return Hit{}, false, fmt.Errorf("agent market search is not configured")
+	}
+	want := normalizeEndpoint(endpoint)
+	if want == "" {
+		return Hit{}, false, fmt.Errorf("agent endpoint is required")
+	}
+
+	const (
+		pageSize = 200
+		maxPages = 50
+	)
+	cursor := 0
+	for pageNumber := 0; pageNumber < maxPages; pageNumber++ {
+		page, err := c.List(ctx, ListQuery{Limit: pageSize, Cursor: cursor})
+		if err != nil {
+			return Hit{}, false, err
+		}
+		for _, hit := range page.Agents {
+			if normalizeEndpoint(hit.Endpoint) == want {
+				return hit, true, nil
+			}
+		}
+		if len(page.Agents) == 0 || page.NextCursor <= cursor {
+			return Hit{}, false, nil
+		}
+		cursor = page.NextCursor
+	}
+	return Hit{}, false, fmt.Errorf("agent market endpoint lookup exceeded %d pages", maxPages)
 }
 
 // Search returns agents ranked by semantic similarity to q.Text.
@@ -137,14 +270,25 @@ func (c *Client) Search(ctx context.Context, q Query) ([]Hit, error) {
 		}
 		return nil, fmt.Errorf("agent market search failed (HTTP %d)", response.StatusCode)
 	}
-	hits := make([]Hit, 0, len(decoded.Agents))
-	for _, a := range decoded.Agents {
+	return usableHits(decoded.Agents), nil
+}
+
+func usableHits(agents []Hit) []Hit {
+	hits := make([]Hit, 0, len(agents))
+	for _, a := range agents {
 		a.AgentID = strings.TrimSpace(a.AgentID)
 		if a.AgentID == "" {
 			continue
 		}
-		a.Endpoint = strings.TrimSpace(a.Endpoint)
+		a.Endpoint = normalizeEndpoint(a.Endpoint)
 		hits = append(hits, a)
 	}
-	return hits, nil
+	return hits
+}
+
+// normalizeEndpoint makes an endpoint emitted by the market and the same
+// endpoint sent back to a2a_connect_agent compare consistently. A trailing
+// slash is not meaningful for the A2A base endpoint used here.
+func normalizeEndpoint(endpoint string) string {
+	return strings.TrimRight(strings.TrimSpace(endpoint), "/")
 }

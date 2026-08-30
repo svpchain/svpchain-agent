@@ -83,6 +83,20 @@ func (a *attached) handles(name string) bool {
 	return a.client != nil && a.served[strings.TrimSpace(name)]
 }
 
+// endpoint returns the currently attached A2A endpoint. It is used by the
+// settlement gate immediately before dispatching an attached agent's tool.
+func (a *attached) endpoint() string {
+	if a == nil {
+		return ""
+	}
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.client == nil {
+		return ""
+	}
+	return a.client.URL()
+}
+
 func (a *attached) call(ctx context.Context, name string, args map[string]any) (string, error) {
 	name = strings.TrimSpace(name)
 	a.mu.Lock()

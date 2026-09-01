@@ -38,6 +38,7 @@ type AgentSettings struct {
 	LLMContextWindow    int      `json:"llm_context_window"`
 	RemoteMCPURL        string   `json:"remote_mcp_url"`
 	AgentMarketURL      string   `json:"agent_market_url"`
+	AgentValidatorURL   string   `json:"agent_validator_url"`
 	RemoteMCPDisabled   bool     `json:"remote_mcp_disabled"`
 	DisabledSkills      []string `json:"disabled_skills"`
 	SkillsConfigBase    string   `json:"skills_config_base"`
@@ -58,6 +59,7 @@ func (a *App) AgentGetSettings() AgentSettings {
 		LLMContextWindow:    s.LLMContextWindow,
 		RemoteMCPURL:        s.RemoteMCPURL,
 		AgentMarketURL:      s.AgentMarketURL,
+		AgentValidatorURL:   s.AgentValidatorURL,
 		RemoteMCPDisabled:   s.RemoteMCPDisabled,
 		DisabledSkills:      s.DisabledSkills,
 		SkillsConfigBase:    s.SkillsConfigBase,
@@ -88,6 +90,7 @@ func (a *App) AgentSetSettings(s AgentSettings) {
 		LLMContextWindow:    s.LLMContextWindow,
 		RemoteMCPURL:        s.RemoteMCPURL,
 		AgentMarketURL:      s.AgentMarketURL,
+		AgentValidatorURL:   s.AgentValidatorURL,
 		RemoteMCPDisabled:   s.RemoteMCPDisabled,
 		DisabledSkills:      s.DisabledSkills,
 		SkillsConfigBase:    s.SkillsConfigBase,
@@ -142,7 +145,7 @@ type SettlementNetworkConfig = agentsettlement.NetworkConfig
 // AgentSettlementNetworkConfig returns the deployed settlement contract and
 // its payment token. Agent owner and advertised amount come from Agent Market.
 func (a *App) AgentSettlementNetworkConfig() (SettlementNetworkConfig, error) {
-	validatorURL := settlementValidatorURL()
+	validatorURL := resolveSettlementValidatorURL(a.AgentGetSettings())
 	client, err := agentsettlement.NewClient(validatorURL, "")
 	if err != nil {
 		return SettlementNetworkConfig{}, err
@@ -183,7 +186,7 @@ func (a *App) AgentSend(chainID, message string) error {
 // AGENT_VALIDATOR_URL; no shared validator callback token is carried by this
 // open-source client.
 func (a *App) AgentSendSettlement(chainID, message string, task SettlementTask) error {
-	validatorURL := settlementValidatorURL()
+	validatorURL := resolveSettlementValidatorURL(a.AgentGetSettings())
 	client, err := agentsettlement.NewClient(validatorURL, "")
 	if err != nil {
 		return err
@@ -223,6 +226,7 @@ func (a *App) agentSend(chainID, message string, settlement *settlementRun) erro
 	}
 
 	remoteURL := resolveRemoteURL(settings)
+	validatorURL := resolveSettlementValidatorURL(settings)
 
 	agentMu.Lock()
 	ctx, cancel := context.WithCancel(a.ctx)
@@ -274,7 +278,7 @@ func (a *App) agentSend(chainID, message string, settlement *settlementRun) erro
 			RemoteURL:              remoteURL,
 			AgentMarketURL:         settings.AgentMarketURL,
 			ChainRPCURL:            chainrpc.URLForChain(chainID),
-			SettlementValidatorURL: settlementValidatorURL(),
+			SettlementValidatorURL: validatorURL,
 			SettlementRPCURL:       settlementRPCURL(),
 			Confirm:                a.confirmHook,
 			RunLog:                 runlog.New(!settings.AgentRunLogDisabled),
@@ -424,14 +428,17 @@ func settlementRPCURL() string {
 	if value := strings.TrimSpace(os.Getenv("AGENT_SETTLEMENT_RPC_URL")); value != "" {
 		return value
 	}
-	return "http://127.0.0.1:8545"
+	return "https://svp-devnet.svpchain.org/evm/"
 }
 
-func settlementValidatorURL() string {
+func resolveSettlementValidatorURL(s AgentSettings) string {
 	if value := strings.TrimSpace(os.Getenv("AGENT_VALIDATOR_URL")); value != "" {
 		return value
 	}
-	return "http://127.0.0.1:7080"
+	if value := strings.TrimSpace(s.AgentValidatorURL); value != "" {
+		return value
+	}
+	return "https://agent-validator-devnet.svpstars.com"
 }
 
 // prepareHistory resolves the active session (creating one on first use or

@@ -19,10 +19,11 @@ func TestReadAndStoreRoundTrip(t *testing.T) {
 	store := prefs.Load()
 	store.SetLanguage("zh")
 	store.SetAgentSettings(prefs.AgentSettings{
-		ChainID:          "localsvp-1",
-		SkillsConfigBase: "/tmp/custom-config",
-		DisabledSkills:   []string{"x402"},
-		PhoenixOTLPURL:   "http://127.0.0.1:6006/v1/traces",
+		ChainID:           "localsvp-1",
+		SkillsConfigBase:  "/tmp/custom-config",
+		DisabledSkills:    []string{"x402"},
+		PhoenixOTLPURL:    "http://127.0.0.1:6006/v1/traces",
+		AgentValidatorURL: "http://validator.example:7080",
 	})
 
 	got := prefs.Read()
@@ -31,6 +32,7 @@ func TestReadAndStoreRoundTrip(t *testing.T) {
 	require.Equal(t, "/tmp/custom-config", got.SkillsConfigBase)
 	require.Equal(t, []string{"x402"}, got.DisabledSkills)
 	require.Equal(t, "http://127.0.0.1:6006/v1/traces", got.PhoenixOTLPURL)
+	require.Equal(t, "http://validator.example:7080", got.AgentValidatorURL)
 
 	reloaded := prefs.Load()
 	require.Equal(t, store.File(), reloaded.File())

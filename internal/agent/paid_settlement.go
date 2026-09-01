@@ -38,7 +38,7 @@ func newPaidAgentFlow(validatorURL, rpcURL, chainID string, priv *ethsecp256k1.P
 		return nil, err
 	}
 	if strings.TrimSpace(rpcURL) == "" {
-		rpcURL = "http://127.0.0.1:8545"
+		rpcURL = "https://svp-devnet.svpchain.org/evm/"
 	}
 	return &paidAgentFlow{
 		validatorURL: strings.TrimSpace(validatorURL), rpcURL: rpcURL, chainID: chainID,

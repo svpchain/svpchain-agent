@@ -43,6 +43,7 @@ const llmBaseURL = ref('')
 const llmModel = ref('')
 const remoteMCPURL = ref('')
 const agentMarketURL = ref('')
+const agentValidatorURL = ref('')
 const remoteMCPDisabled = ref(false)
 const agentChainId = ref('')
 const chainOptions = computed(() =>
@@ -102,6 +103,7 @@ async function loadAgentSettings() {
       llm_model?: string
       remote_mcp_url?: string
       agent_market_url?: string
+      agent_validator_url?: string
       remote_mcp_disabled?: boolean
       skills_config_base?: string
       show_tool_steps?: boolean
@@ -116,6 +118,7 @@ async function loadAgentSettings() {
     llmContextWindow.value = s.llm_context_window ? String(s.llm_context_window) : ''
     remoteMCPURL.value = s.remote_mcp_url || ''
     agentMarketURL.value = s.agent_market_url || ''
+    agentValidatorURL.value = s.agent_validator_url || ''
     remoteMCPDisabled.value = !!s.remote_mcp_disabled
     agentChainId.value = s.chain_id || ''
     showToolSteps.value = !!s.show_tool_steps
@@ -152,6 +155,7 @@ function settingsPayload() {
     llm_context_window: Number.parseInt(llmContextWindow.value, 10) || 0,
     remote_mcp_url: remoteMCPURL.value,
     agent_market_url: agentMarketURL.value.trim(),
+    agent_validator_url: agentValidatorURL.value.trim(),
     remote_mcp_disabled: remoteMCPDisabled.value,
     disabled_skills: skillSettings.value
         .filter((s) => !s.enabled && !s.locked)
@@ -473,6 +477,9 @@ onMounted(init)
           </n-form-item>
           <n-form-item :label="t('field.agentMarketURL')">
             <n-input v-model:value="agentMarketURL" :placeholder="t('ph.agentMarketURL')" @blur="persist()"/>
+          </n-form-item>
+          <n-form-item :label="t('field.agentValidatorURL')">
+            <n-input v-model:value="agentValidatorURL" :placeholder="t('ph.agentValidatorURL')" @blur="persist()"/>
           </n-form-item>
         </n-form>
         <n-text depth="3" class="hint">{{ t('hint.assistantSettings') }}</n-text>

@@ -37,7 +37,7 @@ type Client struct {
 // works out of the box. Mirrors how the remote MCP client defaults its own
 // endpoint; clearing the setting restores this default rather than disabling
 // search.
-const DefaultURL = "https://dev02.svpchain.org"
+const DefaultURL = "https://agent-market-devnet.svpstars.com"
 
 // New returns a client for baseURL, falling back to DefaultURL when empty.
 func New(baseURL string) *Client {

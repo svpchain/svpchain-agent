@@ -25,3 +25,16 @@ func TestResolveRemoteURL(t *testing.T) {
 	require.Empty(t, resolveRemoteURL(AgentSettings{RemoteMCPDisabled: true}),
 		"the toggle must override the default")
 }
+
+func TestResolveSettlementValidatorURL(t *testing.T) {
+	t.Setenv("AGENT_VALIDATOR_URL", "")
+	require.Equal(t, "http://validator.example:7080", resolveSettlementValidatorURL(AgentSettings{
+		AgentValidatorURL: " http://validator.example:7080 ",
+	}))
+	require.Equal(t, "https://agent-validator-devnet.svpstars.com", resolveSettlementValidatorURL(AgentSettings{}))
+
+	t.Setenv("AGENT_VALIDATOR_URL", "http://env-validator.example:7080")
+	require.Equal(t, "http://env-validator.example:7080", resolveSettlementValidatorURL(AgentSettings{
+		AgentValidatorURL: "http://validator.example:7080",
+	}))
+}

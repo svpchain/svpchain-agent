@@ -46,6 +46,7 @@ type request struct {
 	Tool   string `json:"tool"`
 	Args   any    `json:"args,omitempty"`
 	Bearer string `json:"bearer,omitempty"`
+	Caller string `json:"caller,omitempty"`
 }
 
 // reply is its a2aserver.Response. A refused or failed operation arrives as a
@@ -79,6 +80,7 @@ type Client struct {
 	contextID   string
 	bearer      string
 	bearerUntil time.Time
+	caller      string
 	skills      map[string]string // tool → the skill it dispatches under
 	tools       []llm.Tool
 }
@@ -88,6 +90,15 @@ func New(agentURL string) *Client {
 }
 
 func (c *Client) URL() string { return c.url }
+
+// SetCaller supplies the local signer address for transaction construction.
+// It is deliberately not an authentication assertion: the EVM Agent's private
+// MCP trusts the relay connection and only needs this address for nonce/gas.
+func (c *Client) SetCaller(caller string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.caller = strings.TrimSpace(caller)
+}
 
 // Connect asks the agent what it serves and records the result. It is the only
 // thing that populates the tool list, so an agent that does not answer
@@ -196,7 +207,7 @@ func (c *Client) CallTool(ctx context.Context, name string, args map[string]any)
 // same refusal text the MCP transport would have produced.
 func (c *Client) call(ctx context.Context, skill, tool string, args any) (json.RawMessage, error) {
 	c.mu.Lock()
-	req := request{Skill: skill, Tool: tool, Args: args, Bearer: c.bearer}
+	req := request{Skill: skill, Tool: tool, Args: args, Bearer: c.bearer, Caller: c.caller}
 	contextID := c.contextID
 	c.mu.Unlock()
 
@@ -236,7 +247,32 @@ func (c *Client) call(ctx context.Context, skill, tool string, args any) (json.R
 	if len(out.Result) == 0 {
 		return json.RawMessage("{}"), nil
 	}
-	return out.Result, nil
+	return unwrapStructuredResult(out.Result), nil
+}
+
+// unwrapStructuredResult accepts older EVM Agent releases that serialized an
+// MCP JSON result as an A2A string. Current agents return an object directly;
+// retaining this normalization makes write-path handling robust during rolling
+// upgrades and for compatible third-party agents.
+func unwrapStructuredResult(raw json.RawMessage) json.RawMessage {
+	var text string
+	if err := json.Unmarshal(raw, &text); err != nil {
+		return raw
+	}
+	text = strings.TrimSpace(text)
+	if !json.Valid([]byte(text)) {
+		return raw
+	}
+	var decoded any
+	if err := json.Unmarshal([]byte(text), &decoded); err != nil {
+		return raw
+	}
+	switch decoded.(type) {
+	case map[string]any, []any:
+		return json.RawMessage(text)
+	default:
+		return raw
+	}
 }
 
 func truncate(s string, n int) string {

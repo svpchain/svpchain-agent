@@ -35,10 +35,11 @@ type Config struct {
 // Reporter collects successful broadcast results and reports their hash to
 // the validator after the enclosing run has finished.
 type Reporter struct {
-	cfg    *Config
-	client *http.Client
-	mu     sync.Mutex
-	hashes []string
+	cfg             *Config
+	client          *http.Client
+	mu              sync.Mutex
+	hashes          []string
+	approvalClients map[string]struct{}
 }
 
 // Callback returns the one task/execution pair that was eligible for a
@@ -103,7 +104,7 @@ func (r *Reporter) Configure(cfg Config) error {
 }
 
 // RecordTool implements agent.ToolObserver.
-func (r *Reporter) RecordTool(name, _ string) func(ok bool, result, _ string) {
+func (r *Reporter) RecordTool(name, args string) func(ok bool, result, _ string) {
 	if r == nil {
 		return func(bool, string, string) {}
 	}
@@ -113,7 +114,14 @@ func (r *Reporter) RecordTool(name, _ string) func(ok bool, result, _ string) {
 		// in the a2a_connect_agent result after Configure has run. They are not
 		// the agent's execution and must never be reported as one. Only a tool
 		// that actually broadcasts the requested work may produce tx_hash.
-		if !ok || !isExecutionBroadcast(name) {
+		if !ok {
+			return
+		}
+		if isApprovalBuild(name) {
+			r.recordApprovalClient(extractPayloadClientID(result))
+			return
+		}
+		if !isExecutionBroadcast(name) {
 			return
 		}
 		r.mu.Lock()
@@ -122,10 +130,65 @@ func (r *Reporter) RecordTool(name, _ string) func(ok bool, result, _ string) {
 		if !configured {
 			return
 		}
+		if r.isApprovalClient(extractClientID(args)) {
+			return
+		}
 		for _, hash := range runlog.ExtractTxHashes(name, result) {
 			r.add(hash)
 		}
 	}
+}
+
+func isApprovalBuild(name string) bool {
+	name = strings.ToLower(strings.TrimSpace(name))
+	return name == "build_token_approval" || name == "build_erc20_approve"
+}
+
+func extractPayloadClientID(result string) string {
+	var value struct {
+		Payload struct {
+			ClientID string `json:"client_id"`
+		} `json:"payload"`
+	}
+	if err := json.Unmarshal([]byte(result), &value); err != nil {
+		return ""
+	}
+	return strings.TrimSpace(value.Payload.ClientID)
+}
+
+func extractClientID(args string) string {
+	var value struct {
+		ClientID string `json:"client_id"`
+	}
+	if err := json.Unmarshal([]byte(args), &value); err != nil {
+		return ""
+	}
+	return strings.TrimSpace(value.ClientID)
+}
+
+func (r *Reporter) recordApprovalClient(clientID string) {
+	if clientID == "" {
+		return
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.cfg == nil {
+		return
+	}
+	if r.approvalClients == nil {
+		r.approvalClients = make(map[string]struct{})
+	}
+	r.approvalClients[clientID] = struct{}{}
+}
+
+func (r *Reporter) isApprovalClient(clientID string) bool {
+	if clientID == "" {
+		return false
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	_, ok := r.approvalClients[clientID]
+	return ok
 }
 
 func isExecutionBroadcast(name string) bool {

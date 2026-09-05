@@ -168,7 +168,7 @@ func (a *attached) skipped(client toolSource) []string {
 
 type connectResult struct {
 	AgentURL       string   `json:"agent_url"`
-	Authenticated  bool     `json:"authenticated"`
+	Authenticated  bool     `json:"authenticated,omitempty"`
 	ToolsAvailable []string `json:"tools_available"`
 	ToolsSkipped   []string `json:"tools_skipped,omitempty"`
 	Note           string   `json:"note,omitempty"`
@@ -196,19 +196,26 @@ func (env dispatchEnv) connect(ctx context.Context, args map[string]any) (string
 	}
 
 	res := connectResult{AgentURL: url}
-	// Authentication is best-effort: the read-only tools work without it, and
-	// the gated ones refuse with their own instructions. Failing the whole
-	// attach here would hide a usable surface behind an auth problem.
+	// The caller address is data for remote EVM transaction construction, not a
+	// credential. Its local signer still verifies payload.signer_address before
+	// signing the resulting transaction.
 	if env.local != nil {
-		if err := client.EnsureAuth(ctx, env.local.Owner(), env.local.SignChallenge); err != nil {
-			res.Note = "not authenticated: " + err.Error() +
-				" — read-only tools work; tools needing a bearer will refuse"
-		} else {
-			res.Authenticated = true
-		}
+		client.SetCaller(env.local.Owner())
 	} else {
-		res.Note = "no local signer, so no authentication was attempted"
+		res.Note = "no local signer; read-only tools remain available, but transaction builders need a caller address"
 	}
+
+	// Legacy direct-A2A bearer handshake. Keep the implementation in a2amcp for
+	// now, but do not execute it: private DeFi MCP access is authenticated by the
+	// EVM Agent's shared internal token instead.
+	//
+	// if env.local != nil {
+	// 	if err := client.EnsureAuth(ctx, env.local.Owner(), env.local.SignChallenge); err != nil {
+	// 		res.Note = "not authenticated: " + err.Error()
+	// 	} else {
+	// 		res.Authenticated = true
+	// 	}
+	// }
 
 	res.ToolsSkipped = env.att.skipped(client)
 	res.ToolsAvailable = env.att.set(client)

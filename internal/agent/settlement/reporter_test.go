@@ -69,6 +69,28 @@ func TestReporterRejectsAmbiguousRun(t *testing.T) {
 	require.Error(t, reporter.Report(context.Background()))
 }
 
+func TestReporterIgnoresApprovalBroadcastBeforeSwap(t *testing.T) {
+	var got struct {
+		TaskID string `json:"task_id"`
+		TxHash string `json:"tx_hash"`
+	}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&got))
+		w.WriteHeader(http.StatusAccepted)
+	}))
+	t.Cleanup(server.Close)
+
+	reporter, err := New(Config{TaskID: testTask, ValidatorURL: server.URL})
+	require.NoError(t, err)
+	reporter.RecordTool("build_token_approval", "")(true, `{"payload":{"client_id":"approval-client"}}`, "")
+	reporter.RecordTool("broadcast_evm_tx", `{"client_id":"approval-client"}`)(true, `{"tx_hash":"0x4000000000000000000000000000000000000000000000000000000000000004"}`, "")
+	reporter.RecordTool("broadcast_evm_tx", `{"client_id":"swap-client"}`)(true, `{"tx_hash":"`+testTx+`"}`, "")
+
+	require.NoError(t, reporter.Report(context.Background()))
+	require.Equal(t, testTask, got.TaskID)
+	require.Equal(t, testTx, got.TxHash)
+}
+
 func TestReporterIgnoresSettlementFundingHashesReturnedByConnect(t *testing.T) {
 	reporter, err := New(Config{TaskID: testTask, ValidatorURL: "http://validator.example"})
 	require.NoError(t, err)

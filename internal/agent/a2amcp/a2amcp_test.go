@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	svpa2a "github.com/svpchain/svpchain-agent/internal/a2a"
+	"github.com/svpchain/svpchain-agent/internal/agent/writepath"
 )
 
 // fakeAgent scripts replies by tool name and records what was sent.
@@ -115,6 +116,36 @@ func TestCallToolSendsTheEnvelopeAndReturnsTheResult(t *testing.T) {
 	require.Equal(t, "svpchain-evm", sent.Skill)
 	require.Equal(t, "build_swap", sent.Tool)
 	require.Equal(t, map[string]any{"token_in": "svp"}, sent.Args)
+}
+
+func TestCallToolUnwrapsLegacyJSONObjectResult(t *testing.T) {
+	agent := &fakeAgent{replies: map[string]string{
+		"list_tools":           listing("build_erc20_transfer"),
+		"build_erc20_transfer": `{"skill":"svpchain-evm","tool":"build_erc20_transfer","ok":true,"result":"{\"payload\":{\"evm_chain_id\":\"2517\",\"to\":\"0x1234\"}}"}`,
+	}}
+	c := connected(t, agent)
+
+	out, err := c.CallTool(context.Background(), "build_erc20_transfer", map[string]any{"token": "usdv"})
+	require.NoError(t, err)
+	require.JSONEq(t, `{"payload":{"evm_chain_id":"2517","to":"0x1234"}}`, out)
+
+	var build map[string]any
+	require.NoError(t, json.Unmarshal([]byte(out), &build))
+	tracker := writepath.New()
+	require.NoError(t, tracker.After("build_erc20_transfer", nil, out))
+	require.NoError(t, tracker.Before("sign_evm_transaction", map[string]any{"payload": build["payload"]}))
+}
+
+func TestCallToolCarriesCallerForTransactionConstruction(t *testing.T) {
+	agent := &fakeAgent{replies: map[string]string{
+		"list_tools": listing("build_swap"),
+		"build_swap": `{"skill":"svpchain-evm","tool":"build_swap","ok":true,"result":{}}`,
+	}}
+	c := connected(t, agent)
+	c.SetCaller("svp1caller")
+	_, err := c.CallTool(context.Background(), "build_swap", nil)
+	require.NoError(t, err)
+	require.Equal(t, "svp1caller", agent.sent[len(agent.sent)-1].Caller)
 }
 
 // ok:false is the agent answering "no". It must reach the model as a tool

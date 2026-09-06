@@ -73,7 +73,13 @@ func loadSessionMemory(chainID, remoteURL, localOwner string) (Session, bool) {
 	if !mem.validFor(chainID, remoteURL, localOwner) {
 		return Session{}, false
 	}
-	if strings.TrimSpace(mem.SignerWhoami) == "" || strings.TrimSpace(mem.RemoteWhoami) == "" {
+	if strings.TrimSpace(mem.SignerWhoami) == "" {
+		return Session{}, false
+	}
+	// A direct-service session also needs tenant policy. Agent-Market-only
+	// sessions intentionally have no such service, so the local identity alone
+	// is sufficient and must not make the model look for an unavailable tool.
+	if strings.TrimSpace(remoteURL) != "" && strings.TrimSpace(mem.RemoteWhoami) == "" {
 		return Session{}, false
 	}
 	return mem, true
@@ -180,8 +186,13 @@ func Prompt(mem Session) string {
 	}
 	var b strings.Builder
 	b.WriteString("## Cached session context\n\n")
-	b.WriteString("The following identity and tenant data is cached for this chain and key. ")
-	b.WriteString("Do NOT call signer_whoami or whoami at the start of the conversation — use this directly.\n")
+	if mem.RemoteWhoami == "" {
+		b.WriteString("The following local signing identity is cached for this chain and key. ")
+		b.WriteString("Do NOT call signer_whoami at the start of the conversation — use this directly.\n")
+	} else {
+		b.WriteString("The following identity and tenant data is cached for this chain and key. ")
+		b.WriteString("Do NOT call signer_whoami or whoami at the start of the conversation — use this directly.\n")
+	}
 	if mem.SignerWhoami != "" {
 		b.WriteString("\nLocal signer (signer_whoami):\n")
 		b.WriteString(mem.SignerWhoami)

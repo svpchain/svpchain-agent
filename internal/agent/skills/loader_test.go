@@ -67,6 +67,21 @@ func TestComposeSystemPrompt_discoveryStatesTheMarketIsTheOnlySource(t *testing.
 	require.Contains(t, got, "the **only** source of these results")
 }
 
+// In Agent-Market-only mode the model must not be primed with a direct-service
+// capability. It should discover and attach an agent before it sees any
+// execution tool name.
+func TestComposeSystemPrompt_marketOnlyDoesNotMentionDirectMCP(t *testing.T) {
+	hermetic(t)
+	got, err := skills.ComposeSystemPrompt([]string{
+		"search_agents", "begin_agent_settlement", "a2a_connect_agent", "a2a_send_message",
+		"sign_transaction", "sign_evm_transaction", "signer_whoami",
+	})
+	require.NoError(t, err)
+	require.NotContains(t, got, "MCP")
+	require.NotContains(t, got, "build_swap")
+	require.Contains(t, got, "Find a suitable active agent through `search_agents`")
+}
+
 func TestComposeSystemPrompt_alwaysIncludesBase(t *testing.T) {
 	hermetic(t)
 	got, err := skills.ComposeSystemPrompt([]string{"build_bank_send"})

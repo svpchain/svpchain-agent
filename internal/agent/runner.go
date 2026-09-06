@@ -230,7 +230,7 @@ func Run(ctx context.Context, cfg Config, userMessage string) (answer string, er
 			return "", fmt.Errorf("remote mcp: %w", err)
 		}
 	} else {
-		emit(Step{Kind: StepThink, Title: "Remote MCP is disabled — running with local tools only"})
+		emit(Step{Kind: StepThink, Title: "Direct execution is disabled — use Agent Market to find an agent"})
 	}
 
 	sessionMem, err := memory.Resolve(ctx, chainID, cfg.RemoteURL, owner, local, remote, emit)

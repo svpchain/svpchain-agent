@@ -74,6 +74,30 @@ func TestSessionMemoryPrompt(t *testing.T) {
 	require.Contains(t, out, "auto-1")
 }
 
+func TestMarketOnlySessionMemoryNeedsNoRemoteIdentity(t *testing.T) {
+	dir := t.TempDir()
+	memPath := filepath.Join(dir, "agent_memory.json")
+	prefsPath := filepath.Join(dir, "prefs.json")
+	require.NoError(t, os.WriteFile(prefsPath, []byte(`{}`), 0o600))
+	t.Cleanup(func() {
+		prefs.SetPathOverride("")
+		SetPathOverride("")
+	})
+	prefs.SetPathOverride(prefsPath)
+	SetPathOverride(memPath)
+
+	require.NoError(t, Save(Session{
+		ChainID: "svp-2517-1", LocalOwner: "svp1abc", SignerWhoami: `{"owner":"svp1abc"}`,
+	}))
+	got, ok := loadSessionMemory("svp-2517-1", "", "svp1abc")
+	require.True(t, ok)
+	require.Empty(t, got.RemoteWhoami)
+
+	prompt := Prompt(got)
+	require.Contains(t, prompt, "Do NOT call signer_whoami")
+	require.NotContains(t, prompt, "or whoami")
+}
+
 func TestMemoryStorePersistsMultipleChains(t *testing.T) {
 	dir := t.TempDir()
 	memPath := filepath.Join(dir, "agent_memory.json")

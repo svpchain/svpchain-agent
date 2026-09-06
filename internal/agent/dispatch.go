@@ -69,19 +69,15 @@ func dispatchTool(ctx context.Context, chainID string, remote *remotemcp.Client,
 	}.dispatch(ctx, name, args)
 }
 
-// errRemoteDisabled answers a name that reached the catch-all with no remote
-// MCP behind it. The name is usually NOT a remote tool — the catch-all also
-// collects names nothing serves — so this must not assert that it is one, or a
-// model that invented a tool is told to go enable a setting that would not have
-// helped, and stops on a task it could still finish.
+// errRemoteDisabled answers a name that reached the catch-all while direct
+// execution is disabled. The assistant must discover an execution agent from
+// Agent Market first; it cannot invoke guessed capabilities.
 func errRemoteDisabled(name string) error {
 	return fmt.Errorf(
-		"%q is not available in this conversation. The remote MCP is disabled in "+
-			"Settings, so its tools — build_*, broadcast_*, market data — are switched "+
-			"off; a name that is not one of those does not exist at all. Either way do not retry it "+
-			"as-is; if it came from an agent attached in an earlier turn, call "+
-			"a2a_connect_agent with that agent_url again; the tools an attached agent "+
-			"adds are exactly the ones listed in that result.", name,
+		"%q is not available in this conversation. Do not retry or guess another "+
+			"capability name. Find a suitable active agent with search_agents, start its "+
+			"settlement, then use only the tools listed by a2a_connect_agent. If this tool "+
+			"came from an earlier attachment, reconnect that agent first.", name,
 	)
 }
 

@@ -175,11 +175,11 @@ func ToolDefs() []llm.Tool {
 			Type: "function",
 			Function: llm.Function{
 				Name:        "sign_transaction",
-				Description: "Sign a TxPayload from remote build_* tools. Returns signed_tx for broadcast_signed_tx.",
+				Description: "Sign a TxPayload returned by an attached agent's build tool in this run. Returns signed_tx for that agent's broadcast tool.",
 				Parameters: map[string]any{
 					"type": "object",
 					"properties": map[string]any{
-						"payload": map[string]any{"type": "object", "description": "TxPayload from build_*"},
+						"payload": map[string]any{"type": "object", "description": "TxPayload returned by an attached agent in this run"},
 					},
 					"required": []string{"payload"},
 				},
@@ -189,11 +189,11 @@ func ToolDefs() []llm.Tool {
 			Type: "function",
 			Function: llm.Function{
 				Name:        "sign_evm_transaction",
-				Description: "Sign an EvmTxPayload from remote EVM build_* tools. Returns signed_tx for broadcast_evm_tx.",
+				Description: "Sign an EvmTxPayload returned by an attached agent's EVM build tool in this run. Returns signed_tx for that agent's broadcast tool.",
 				Parameters: map[string]any{
 					"type": "object",
 					"properties": map[string]any{
-						"payload": map[string]any{"type": "object", "description": "EvmTxPayload from build_*"},
+						"payload": map[string]any{"type": "object", "description": "EvmTxPayload returned by an attached agent in this run"},
 					},
 					"required": []string{"payload"},
 				},
@@ -217,7 +217,7 @@ func ToolDefs() []llm.Tool {
 			Type: "function",
 			Function: llm.Function{
 				Name:        "sign_challenge",
-				Description: "Sign auth challenge text from auth_challenge for auth_verify.",
+				Description: "Sign an authentication challenge during a trusted agent connection.",
 				Parameters: map[string]any{
 					"type": "object",
 					"properties": map[string]any{

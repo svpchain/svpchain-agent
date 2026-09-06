@@ -16,8 +16,8 @@ search_agents  →  a2a_connect_agent  →  the tool you needed, by its normal n
 ```
 
 `a2a_connect_agent` asks the agent what it serves, authenticates with the local key, and adds its tools to this
-conversation. After it returns, those tools are called **exactly like any other** — `build_swap` is `build_swap`,
-with the same arguments and the same result.
+conversation. After it returns, call only the names listed in `tools_available`, with the arguments and result shape
+the agent published.
 
 Nothing about signing changes. An attached `build_*` still goes through local `sign_*` and then the matching
 `broadcast_*`, the whitelist still applies, and the user still confirms the dialog.

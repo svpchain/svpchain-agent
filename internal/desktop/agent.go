@@ -225,7 +225,11 @@ func (a *App) agentSend(chainID, message string, settlement *settlementRun) erro
 		return localized(i18n.ErrLLMKeyRequired)
 	}
 
-	remoteURL := resolveRemoteURL(settings)
+	// Remote MCP is temporarily disabled at the GUI entry point. Keep the
+	// configured endpoint and resolver intact so re-enabling only requires
+	// restoring the line below.
+	remoteURL := ""
+	// remoteURL := resolveRemoteURL(settings)
 	validatorURL := resolveSettlementValidatorURL(settings)
 
 	agentMu.Lock()

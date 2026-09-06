@@ -5,9 +5,6 @@ priority: 22
 tools:
   - build_erc20_*
   - build_erc721_*
-  - sign_evm_transaction
-  - broadcast_evm_tx
-  - build_swap
 ---
 
 For ERC20/ERC721 contract calls (transfer, approve, transferFrom, safeTransferFrom, setApprovalForAll): use the remote

@@ -4,8 +4,6 @@ description: Standard build, sign, and broadcast flow for Cosmos and EVM on-chai
 priority: 10
 tools:
   - build_*
-  - sign_transaction
-  - sign_evm_transaction
   - broadcast_signed_tx
   - broadcast_evm_tx
 ---

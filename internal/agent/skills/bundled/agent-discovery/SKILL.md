@@ -15,8 +15,7 @@ DID, A2A endpoint, capability tags, pricing and bond.
 ## Where this runs (state this correctly if asked)
 
 `search_agents` runs **locally, in this app**, against the **Agent Market** service configured in Settings → Agent
-Market URL, which every result reports back as `agent_market_url`. It does **not** go through the remote MCP server,
-and its endpoint is **not** part of any MCP client configuration. If the user asks which service the results came from,
+Market URL, which every result reports back as `agent_market_url`. If the user asks which service the results came from,
 read it from a tool result or tell them to check Settings — never speculate about server-side configuration.
 
 Two different URLs are involved, and confusing them causes real trouble:

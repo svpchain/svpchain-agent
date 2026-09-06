@@ -24,13 +24,14 @@ func TestBuildToolListWithoutRemote(t *testing.T) {
 	}
 }
 
-// A remote tool called anyway must be refused with an explanation, not a nil
-// dereference.
+// A capability called before an agent is attached must be refused with the
+// Agent Market flow, not a nil dereference.
 func TestDispatchRefusesRemoteToolsWhenDisabled(t *testing.T) {
 	_, err := dispatchTool(context.Background(), "svp-2517-1", nil, nil, nil, nil, nil,
 		"build_bank_send", map[string]any{}, nil)
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "remote MCP is disabled")
+	require.Contains(t, err.Error(), "search_agents")
+	require.NotContains(t, err.Error(), "MCP")
 }
 
 // The remote handler is an unconditional catch-all, so it also collects names
@@ -43,6 +44,6 @@ func TestDispatchDoesNotCallUnknownToolsRemote(t *testing.T) {
 	require.Error(t, err)
 	require.NotContains(t, err.Error(), "is a remote MCP tool",
 		"an invented name must not be described as a remote tool")
-	require.Contains(t, err.Error(), "does not exist at all")
-	require.Contains(t, err.Error(), "do not retry")
+	require.Contains(t, err.Error(), "Do not retry")
+	require.Contains(t, err.Error(), "a2a_connect_agent")
 }

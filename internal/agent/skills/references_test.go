@@ -81,6 +81,16 @@ func TestComposeSystemPrompt_lendoraGatedOnTools(t *testing.T) {
 	require.NotContains(t, without, "Lendora Lending")
 }
 
+func TestComposeSystemPrompt_LendoraKeepsBuildSignBroadcastInOneRun(t *testing.T) {
+	hermetic(t)
+	got, err := skills.ComposeSystemPrompt([]string{
+		"lendora_build_supply_tx", "sign_evm_transaction", "broadcast_evm_tx",
+	})
+	require.NoError(t, err)
+	require.Contains(t, got, "Build payloads are run-local")
+	require.Contains(t, got, "do NOT stop for a text/chat confirmation")
+}
+
 func TestReadReferenceFromArgs(t *testing.T) {
 	got, err := skills.ReadReferenceFromArgs(map[string]any{
 		"skill": "lendora-lending",

@@ -71,9 +71,14 @@ urgent recommendation + block risk-increasing actions.
 Operation tools return an `EVMTxPayload` (EVM path). The write flow:
 
 ```
-lendora_build_*_tx → present simulation, ask confirmation
-  → user confirms → sign_evm_transaction (local signer) → broadcast_evm_tx → report tx hash
+user confirms asset + amount → lendora_build_*_tx → sign_evm_transaction
+  (local confirmation dialog) → broadcast_evm_tx → report simulation + tx hash
 ```
+
+Build payloads are run-local. After a successful build, do NOT stop for a text/chat confirmation or wait for another
+user turn: call `sign_evm_transaction` immediately with the returned `payload`. The local signing dialog is the final
+explicit authorization. If the user declines it, stop. For a high-risk simulation that must be discussed before
+signing, stop after the build; a later execution must start a fresh settlement and rebuild a fresh payload.
 
 Approval (supply / repay of an ERC-20 underlying): when the market's allowance is short the build tool does NOT error —
 it returns an `approval_required` object (and NO payload) naming `build_erc20_approve` with `token` = the underlying and
@@ -85,8 +90,8 @@ it returns an `approval_required` object (and NO payload) naming `build_erc20_ap
    → sign_evm_transaction → broadcast_evm_tx
 ```
 
-Present both steps (Approve, then Supply/Repay) upfront before the first signature; sign and broadcast sequentially; if
-any step fails, stop and report — never auto-retry write operations.
+Present both steps (Approve, then Supply/Repay) upfront before the first signature; after each build, sign and
+broadcast sequentially in the same run. If any step fails, stop and report — never auto-retry write operations.
 
 ## Output formatting
 
@@ -110,7 +115,8 @@ Category-specific wording (connection/auth, data query, build_tx, signing, broad
 ## Guardrails
 
 - Never skip simulate — always show impact before execution.
-- Never call `sign_evm_transaction` without explicit user confirmation.
+- Never call `sign_evm_transaction` before the user has confirmed the asset and amount. The local signing dialog is
+  the final explicit authorization.
 - Never promise safety or returns — this is a tool, not investment advice.
 - Never suggest all-in operations — always recommend a safety buffer.
 - HF < 1.0 → block the operation; HF 1.0–1.2 → warn and require explicit confirmation; proactively warn when HF

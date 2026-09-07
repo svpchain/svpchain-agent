@@ -18,3 +18,8 @@ Workflow for on-chain writes:
 
 The runtime enforces this sequence. Skipping a step, signing a hand-crafted payload, or editing signed_tx stops the
 run — do not work around it.
+
+The unsigned payload is valid only within the current run. Confirm the intended asset, amount, and recipient BEFORE
+calling a build tool. Once a build succeeds, do not pause for a text/chat confirmation or wait for a later user turn:
+immediately call the appropriate local sign_* tool with that exact payload. Its local confirmation dialog is the
+user's final authorization; after approval, immediately broadcast the returned signed_tx in the same run.

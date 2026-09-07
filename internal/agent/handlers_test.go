@@ -49,6 +49,19 @@ func TestHandlers_firstMatchWins(t *testing.T) {
 	}
 }
 
+func TestResumePaidToolRequiresSavedPublishedCapability(t *testing.T) {
+	env := dispatchEnv{
+		paid:           &paidAgentFlow{},
+		resumeAgentURL: "https://agent.example",
+		resumeAgentTools: map[string]struct{}{
+			"build_example": {},
+		},
+	}
+	require.True(t, env.canResumePaidTool("build_example"))
+	require.False(t, env.canResumePaidTool("invented_tool"))
+	require.False(t, dispatchEnv{paid: &paidAgentFlow{}, resumeAgentURL: "https://agent.example"}.canResumePaidTool("build_example"))
+}
+
 func firstHandlerName(env dispatchEnv, name string) string {
 	for _, h := range env.handlers() {
 		if h.Match(name) {

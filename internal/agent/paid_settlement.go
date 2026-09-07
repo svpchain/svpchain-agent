@@ -15,8 +15,9 @@ import (
 	"github.com/svpchain/svpchain-agent/internal/agentmarket"
 )
 
-// BeginSettlementTool escrows the selected market agent's advertised price,
-// assigns the task through validator, and attaches that exact agent.
+// BeginSettlementTool escrows the selected market agent's advertised price for
+// one user-requested behavior, assigns its task through validator, and attaches
+// that exact agent. The behavior may need several sequential transactions.
 const BeginSettlementTool = "begin_agent_settlement"
 
 type paidAgentFlow struct {
@@ -49,7 +50,7 @@ func newPaidAgentFlow(validatorURL, rpcURL, chainID string, priv *ethsecp256k1.P
 func (f *paidAgentFlow) ToolDef() llm.Tool {
 	return llm.Tool{Type: "function", Function: llm.Function{
 		Name:        BeginSettlementTool,
-		Description: "Pay the selected active market agent's advertised price through AgentSettlement before using its execution tools. Requires the agent_id returned by search_agents. This opens local confirmations for ERC-20 approval and deposit, assigns the task through validator, then attaches that exact agent.",
+		Description: "Pay the selected active market agent's advertised price through AgentSettlement for one user-requested behavior before using its execution tools. Requires the agent_id returned by search_agents. This opens local confirmations for ERC-20 approval and deposit, assigns one validator task for the behavior, then attaches that exact agent. The behavior may require several sequential transactions; its final successful broadcast is reported to the validator.",
 		Parameters: map[string]any{"type": "object", "properties": map[string]any{
 			"agent_id": map[string]any{"type": "string", "description": "The exact agent_id from search_agents"},
 		}, "required": []string{"agent_id"}},

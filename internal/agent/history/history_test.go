@@ -188,14 +188,16 @@ func TestStore_AttachedAgentPersists(t *testing.T) {
 	sess, err := s.Create("svp_2517-1")
 	require.NoError(t, err)
 
-	require.NoError(t, s.SetAttachedAgent(sess.ID, " https://agent.example "))
+	require.NoError(t, s.SetAttachedAgent(sess.ID, " https://agent.example ", []string{"build_example", "build_example", " broadcast_example "}))
 	cur, ok := s.Current()
 	require.True(t, ok)
 	require.Equal(t, "https://agent.example", cur.AttachedAgentURL)
+	require.Equal(t, []string{"build_example", "broadcast_example"}, cur.AttachedAgentTools)
 
-	require.NoError(t, s.SetAttachedAgent(sess.ID, ""))
+	require.NoError(t, s.SetAttachedAgent(sess.ID, "", nil))
 	cur, _ = s.Current()
 	require.Empty(t, cur.AttachedAgentURL)
+	require.Empty(t, cur.AttachedAgentTools)
 
-	require.NoError(t, s.SetAttachedAgent("nope", "https://x"), "unknown ids are ignored")
+	require.NoError(t, s.SetAttachedAgent("nope", "https://x", nil), "unknown ids are ignored")
 }

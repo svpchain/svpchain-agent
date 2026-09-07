@@ -1,4 +1,4 @@
-// Package settlement reports one explicitly configured agent execution to the
+// Package settlement reports one explicitly configured agent behavior to the
 // internal validator service. It deliberately does not infer a settlement task
 // from a chat run or an A2A task ID.
 package settlement
@@ -32,29 +32,31 @@ type Config struct {
 	Source        string
 }
 
-// Reporter collects successful broadcast results and reports their hash to
-// the validator after the enclosing run has finished.
+// Reporter records the final successful execution broadcast and reports its
+// hash to the validator after the enclosing run has finished. A settlement task
+// may cover a workflow whose prerequisite transactions all need to be mined;
+// the final broadcast is the workflow's completion signal.
 type Reporter struct {
 	cfg             *Config
 	client          *http.Client
 	mu              sync.Mutex
-	hashes          []string
+	finalHash       string
 	approvalClients map[string]struct{}
 }
 
-// Callback returns the one task/execution pair that was eligible for a
-// validator callback. It is intended for post-callback UI status only; false
-// means the run did not broadcast an execution transaction.
+// Callback returns the task and final transaction for the completed behavior.
+// It is intended for post-callback UI status only; false means the run did not
+// broadcast an execution transaction.
 func (r *Reporter) Callback() (taskID, txHash string, ok bool) {
 	if r == nil {
 		return "", "", false
 	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	if r.cfg == nil || len(r.hashes) != 1 {
+	if r.cfg == nil || r.finalHash == "" {
 		return "", "", false
 	}
-	return r.cfg.TaskID, r.hashes[0], true
+	return r.cfg.TaskID, r.finalHash, true
 }
 
 func New(cfg Config) (*Reporter, error) {
@@ -72,7 +74,9 @@ func NewDeferred() *Reporter {
 	return &Reporter{client: &http.Client{Timeout: 10 * time.Second}}
 }
 
-// Configure validates and activates a reporter for exactly one task.
+// Configure validates and activates a reporter for one user-requested behavior
+// represented by one settlement task. That behavior may require multiple
+// sequential on-chain transactions.
 func (r *Reporter) Configure(cfg Config) error {
 	if r == nil {
 		return fmt.Errorf("settlement reporter is nil")
@@ -134,7 +138,7 @@ func (r *Reporter) RecordTool(name, args string) func(ok bool, result, _ string)
 			return
 		}
 		for _, hash := range runlog.ExtractTxHashes(name, result) {
-			r.add(hash)
+			r.setFinal(hash)
 		}
 	}
 }
@@ -196,9 +200,8 @@ func isExecutionBroadcast(name string) bool {
 	return strings.Contains(name, "broadcast") || name == "execute_delegated_evm"
 }
 
-// Report posts the one collected transaction hash. A configured settlement
-// task with multiple hashes is rejected rather than guessing which execution
-// belongs to the task. No collected hash is a no-op because nothing broadcast.
+// Report posts the final successful execution transaction hash. No collected
+// hash is a no-op because nothing broadcast.
 func (r *Reporter) Report(ctx context.Context) error {
 	if r == nil {
 		return nil
@@ -209,13 +212,10 @@ func (r *Reporter) Report(ctx context.Context) error {
 		return nil
 	}
 	cfg := *r.cfg
-	hashes := append([]string(nil), r.hashes...)
+	finalHash := r.finalHash
 	r.mu.Unlock()
-	if len(hashes) == 0 {
+	if finalHash == "" {
 		return nil
-	}
-	if len(hashes) != 1 {
-		return fmt.Errorf("settlement task %s observed %d transaction hashes; configure one task per execution", cfg.TaskID, len(hashes))
 	}
 	// agent-validator deliberately accepts only this immutable execution
 	// identity. Owner belongs to task assignment and source is client-side
@@ -223,7 +223,7 @@ func (r *Reporter) Report(ctx context.Context) error {
 	body, err := json.Marshal(struct {
 		TaskID string `json:"task_id"`
 		TxHash string `json:"tx_hash"`
-	}{TaskID: cfg.TaskID, TxHash: hashes[0]})
+	}{TaskID: cfg.TaskID, TxHash: finalHash})
 	if err != nil {
 		return err
 	}
@@ -246,15 +246,10 @@ func (r *Reporter) Report(ctx context.Context) error {
 	return nil
 }
 
-func (r *Reporter) add(hash string) {
+func (r *Reporter) setFinal(hash string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	for _, existing := range r.hashes {
-		if existing == hash {
-			return
-		}
-	}
-	r.hashes = append(r.hashes, hash)
+	r.finalHash = hash
 }
 
 func normalizeHash(value string) string {

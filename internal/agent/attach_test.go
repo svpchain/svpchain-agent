@@ -66,6 +66,14 @@ func TestAttachedCannotClaimTheConnectToolItself(t *testing.T) {
 	require.Empty(t, att.set(&fakeSource{tools: []string{ConnectTool}}))
 }
 
+func TestAttachedMayServeOnlyUnreservedPublishedTools(t *testing.T) {
+	att := newAttached(toolList("sign_evm_transaction"))
+	src := &fakeSource{tools: []string{"build_example", "sign_evm_transaction"}}
+	require.True(t, att.mayServe(src, "build_example"))
+	require.False(t, att.mayServe(src, "sign_evm_transaction"))
+	require.False(t, att.mayServe(src, "invented"))
+}
+
 // Precedence must hold at dispatch too, not just in the advertised list.
 func TestAttachedHandlerNeverTakesALocalOrRemoteTool(t *testing.T) {
 	att := newAttached(toolList("sign_evm_transaction", "build_bank_send"))
@@ -112,7 +120,7 @@ func TestConnectToolRidesWithAgentSearch(t *testing.T) {
 func TestAttachedReportsEndpointOnAttach(t *testing.T) {
 	var got []string
 	att := newAttached(nil)
-	att.onAttach = func(url string) { got = append(got, url) }
+	att.onAttach = func(url string, _ []string) { got = append(got, url) }
 	att.noteReattachFailure("https://agent.example", fmt.Errorf("connection refused"))
 
 	url, lostErr := att.lost()

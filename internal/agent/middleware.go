@@ -45,10 +45,12 @@ type dispatchEnv struct {
 	writes  *writepath.Tracker
 	// att carries tools attached mid-run from a remote A2A agent. Pointer:
 	// a2a_connect_agent fills it inside the tool loop and the next round reads it.
-	att     *attached
-	paid    *paidAgentFlow
-	mem     *memory.Session
-	observe ToolObserver
+	att              *attached
+	paid             *paidAgentFlow
+	resumeAgentURL   string
+	resumeAgentTools map[string]struct{}
+	mem              *memory.Session
+	observe          ToolObserver
 }
 
 func (env dispatchEnv) dispatch(ctx context.Context, name string, args map[string]any) (string, error) {

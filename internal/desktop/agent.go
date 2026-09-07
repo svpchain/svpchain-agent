@@ -292,9 +292,10 @@ func (a *App) agentSend(chainID, message string, settlement *settlementRun) erro
 			SessionID:              sess.ID,
 			SessionTitle:           sess.Title,
 			AttachedAgentURL:       settlementAgentURL(sess.AttachedAgentURL, settlement),
-			OnAttach: func(url string) {
+			AttachedAgentTools:     sess.AttachedAgentTools,
+			OnAttach: func(url string, tools []string) {
 				if sess.ID != "" {
-					_ = hist.SetAttachedAgent(sess.ID, url)
+					_ = hist.SetAttachedAgent(sess.ID, url, tools)
 				}
 			},
 			OnTranscript: func(runID string, msgs []llm.Message) {

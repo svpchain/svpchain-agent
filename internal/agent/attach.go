@@ -35,7 +35,7 @@ type attached struct {
 	// reach the agent when the model called it.
 	served map[string]bool
 	// onAttach reports a successful attach so the caller can persist the URL.
-	onAttach func(url string)
+	onAttach func(url string, tools []string)
 	// lostURL / lostErr record a re-attach that failed at the start of the run,
 	// so a call to one of that agent's tools gets a useful error instead of
 	// the remote-MCP-is-off one.
@@ -81,6 +81,22 @@ func (a *attached) handles(name string) bool {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	return a.client != nil && a.served[strings.TrimSpace(name)]
+}
+
+// mayServe checks whether a freshly discovered source can contribute name
+// without colliding with a local or otherwise reserved tool. It is used before
+// renewing settlement for a capability remembered from an earlier turn.
+func (a *attached) mayServe(source toolSource, name string) bool {
+	if a == nil || source == nil {
+		return false
+	}
+	name = strings.TrimSpace(name)
+	if name == "" || !source.Handles(name) {
+		return false
+	}
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return !a.reserved[name]
 }
 
 // endpoint returns the currently attached A2A endpoint. It is used by the
@@ -228,7 +244,7 @@ func (env dispatchEnv) connect(ctx context.Context, args map[string]any) (string
 	onAttach := env.att.onAttach
 	env.att.mu.Unlock()
 	if onAttach != nil {
-		onAttach(url)
+		onAttach(url, res.ToolsAvailable)
 	}
 
 	bz, err := json.Marshal(res)

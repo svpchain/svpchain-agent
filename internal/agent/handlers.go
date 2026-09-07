@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/svpchain/svpchain-agent/internal/agent/a2acall"
+	"github.com/svpchain/svpchain-agent/internal/agent/a2amcp"
 	"github.com/svpchain/svpchain-agent/internal/agent/discovery"
 	"github.com/svpchain/svpchain-agent/internal/agent/hitl"
 	"github.com/svpchain/svpchain-agent/internal/agent/httpfetch"
@@ -184,6 +185,9 @@ func (remoteHandler) Match(string) bool { return true }
 
 func (h remoteHandler) Call(ctx context.Context, name string, args map[string]any) (string, error) {
 	if h.env.remote == nil {
+		if h.env.canResumePaidTool(name) {
+			return h.env.resumePaidTool(ctx, name, args)
+		}
 		if lostURL, lostErr := h.env.att.lost(); lostURL != "" {
 			return "", errAgentLost(name, lostURL, lostErr)
 		}
@@ -195,4 +199,33 @@ func (h remoteHandler) Call(ctx context.Context, name string, args map[string]an
 		_ = memory.Save(*h.env.mem)
 	}
 	return result, err
+}
+
+func (env dispatchEnv) canResumePaidTool(name string) bool {
+	if env.paid == nil || strings.TrimSpace(env.resumeAgentURL) == "" {
+		return false
+	}
+	_, ok := env.resumeAgentTools[strings.TrimSpace(name)]
+	return ok
+}
+
+// resumePaidTool handles an explicit follow-up that names a capability the
+// current conversation's market agent published in an earlier turn. Probe the
+// Agent Card before collecting another payment, then create a fresh task and
+// attach it for this behavior.
+func (env dispatchEnv) resumePaidTool(ctx context.Context, name string, args map[string]any) (string, error) {
+	endpoint := strings.TrimSpace(env.resumeAgentURL)
+	candidate := a2amcp.New(endpoint)
+	if err := candidate.Connect(ctx); err != nil {
+		return "", fmt.Errorf("check saved market agent %s: %w", endpoint, err)
+	}
+	if !env.att.mayServe(candidate, name) {
+		return "", fmt.Errorf("saved market agent %s no longer publishes %q; search Agent Market for a current agent", endpoint, name)
+	}
+	if _, err := env.paid.StartEndpoint(ctx, endpoint, func(ctx context.Context, endpoint string) (string, error) {
+		return env.connect(ctx, map[string]any{"agent_url": endpoint})
+	}); err != nil {
+		return "", fmt.Errorf("renew settlement for saved market agent: %w", err)
+	}
+	return env.att.call(ctx, name, args)
 }

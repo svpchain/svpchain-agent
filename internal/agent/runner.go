@@ -96,13 +96,18 @@ type Config struct {
 	// agent's tools stay callable across user messages; a failed re-attach is
 	// reported as a step and the run continues without it.
 	AttachedAgentURL string
+	// AttachedAgentTools is the filtered tool list that the previously attached
+	// market agent published. It lets an explicit follow-up safely resume the
+	// exact capability after a fresh settlement.
+	AttachedAgentTools []string
 	// OnAttach, if set, is called with the endpoint each time a2a_connect_agent
 	// attaches an agent, so the caller can persist it for the next run.
-	OnAttach func(url string)
-	// Settlement is an optional, explicitly assigned AgentSettlement task. It
-	// reports exactly one broadcast hash to agent-validator when the run ends.
-	// The TaskID must be the settlement contract bytes32 task ID, never an A2A
-	// task ID. Nil leaves generic chat runs unchanged.
+	OnAttach func(url string, tools []string)
+	// Settlement is an optional, explicitly assigned AgentSettlement task for
+	// one user-requested behavior. It reports that behavior's final successful
+	// broadcast hash to agent-validator when the run ends. The TaskID must be
+	// the settlement contract bytes32 task ID, never an A2A task ID. Nil leaves
+	// generic chat runs unchanged.
 	Settlement *agentsettlement.Config
 	// SettlementValidatorURL enables user-funded agent execution from the chat
 	// loop. It is intentionally separate from Settlement, which is retained for
@@ -267,6 +272,13 @@ func Run(ctx context.Context, cfg Config, userMessage string) (answer string, er
 	att := newAttached(baseTools)
 	att.onAttach = cfg.OnAttach
 	tools := baseTools
+	resumeTools := toolNameSet(cfg.AttachedAgentTools)
+	if len(resumeTools) == 0 && strings.TrimSpace(cfg.AttachedAgentURL) != "" {
+		// Sessions created before AttachedAgentTools was persisted can still
+		// resume a known capability. The Agent Card preflight in resumePaidTool
+		// remains the authority before any new settlement is funded.
+		resumeTools = historicalAgentToolNames(cfg.Prior, baseTools)
+	}
 
 	observers := []ToolObserver{trace, ph}
 	if settlementReporter != nil {
@@ -274,16 +286,18 @@ func Run(ctx context.Context, cfg Config, userMessage string) (answer string, er
 	}
 
 	env := dispatchEnv{
-		chainID: chainID,
-		remote:  remote,
-		local:   local,
-		disc:    disc,
-		confirm: confirm,
-		writes:  writes,
-		att:     att,
-		paid:    paid,
-		mem:     &sessionMem,
-		observe: composeObservers(observers...),
+		chainID:          chainID,
+		remote:           remote,
+		local:            local,
+		disc:             disc,
+		confirm:          confirm,
+		writes:           writes,
+		att:              att,
+		paid:             paid,
+		resumeAgentURL:   strings.TrimSpace(cfg.AttachedAgentURL),
+		resumeAgentTools: resumeTools,
+		mem:              &sessionMem,
+		observe:          composeObservers(observers...),
 	}
 
 	// composePrompt is used again if an attach changes the tool set, so the
@@ -304,9 +318,9 @@ func Run(ctx context.Context, cfg Config, userMessage string) (answer string, er
 		return prompt, names, nil
 	}
 
-	// A paid market agent is one quoted call, so it must be selected and funded
-	// again on a later user message. Do not revive an old attachment and let a
-	// new execution reuse it without a fresh settlement task.
+	// A paid market agent is funded for one user-requested behavior, so it must
+	// be selected and funded again on a later user message. Do not revive an old
+	// attachment and let a new behavior reuse it without a fresh settlement task.
 	if u := strings.TrimSpace(cfg.AttachedAgentURL); u != "" {
 		if paid != nil {
 			emit(Step{Kind: StepThink, Title: "A fresh settlement is required before reusing agent " + u})
@@ -450,6 +464,41 @@ func Run(ctx context.Context, cfg Config, userMessage string) (answer string, er
 		}
 	}
 	return "", fmt.Errorf("agent exceeded %d tool rounds", maxAgentIterations)
+}
+
+func toolNameSet(names []string) map[string]struct{} {
+	if len(names) == 0 {
+		return nil
+	}
+	set := make(map[string]struct{}, len(names))
+	for _, name := range names {
+		if name = strings.TrimSpace(name); name != "" {
+			set[name] = struct{}{}
+		}
+	}
+	return set
+}
+
+func historicalAgentToolNames(prior []llm.Message, base []llm.Tool) map[string]struct{} {
+	baseNames := toolNameSet(toolNames(base))
+	remembered := make(map[string]struct{})
+	for _, msg := range prior {
+		if msg.Role != "tool" {
+			continue
+		}
+		name := strings.TrimSpace(msg.Name)
+		if name == "" {
+			continue
+		}
+		if _, isBaseTool := baseNames[name]; isBaseTool {
+			continue
+		}
+		remembered[name] = struct{}{}
+	}
+	if len(remembered) == 0 {
+		return nil
+	}
+	return remembered
 }
 
 // truncate shortens s for step/detail display (the llm package keeps its own copy).

@@ -73,9 +73,11 @@ type SessionInfo struct {
 	UpdatedAt time.Time `json:"updated_at"`
 	Messages  int       `json:"messages"`
 	// AttachedAgentURL is the A2A agent endpoint attached to this conversation
-	// with a2a_connect_agent, so the next run can re-attach it. An attachment
-	// is otherwise per-run state and would vanish at the next user message.
-	AttachedAgentURL string `json:"attached_agent_url,omitempty"`
+	// with a2a_connect_agent. AttachedAgentTools is the filtered tool list that
+	// endpoint actually contributed, used to safely resume a paid behavior on a
+	// later turn without treating an invented name as payable work.
+	AttachedAgentURL   string   `json:"attached_agent_url,omitempty"`
+	AttachedAgentTools []string `json:"attached_agent_tools,omitempty"`
 }
 
 type indexFile struct {
@@ -197,10 +199,10 @@ func (s *Store) SetCurrent(id string) error {
 	return fmt.Errorf("unknown session %q", id)
 }
 
-// SetAttachedAgent records the A2A agent endpoint attached to a session (empty
-// clears it). Unknown ids are ignored: the attachment is a convenience, not
-// state the run depends on.
-func (s *Store) SetAttachedAgent(id, url string) error {
+// SetAttachedAgent records the A2A agent endpoint and its accepted tools for a
+// session. An empty URL clears both. Unknown ids are ignored: the attachment
+// is a convenience, not state the run depends on.
+func (s *Store) SetAttachedAgent(id, url string, tools []string) error {
 	if !s.Enabled() || id == "" {
 		return nil
 	}
@@ -210,10 +212,28 @@ func (s *Store) SetAttachedAgent(id, url string) error {
 	for i := range idx.Sessions {
 		if idx.Sessions[i].ID == id {
 			idx.Sessions[i].AttachedAgentURL = strings.TrimSpace(url)
+			idx.Sessions[i].AttachedAgentTools = normalizedToolNames(tools)
 			return s.saveIndexLocked(idx)
 		}
 	}
 	return nil
+}
+
+func normalizedToolNames(tools []string) []string {
+	seen := make(map[string]struct{}, len(tools))
+	out := make([]string, 0, len(tools))
+	for _, tool := range tools {
+		tool = strings.TrimSpace(tool)
+		if tool == "" {
+			continue
+		}
+		if _, ok := seen[tool]; ok {
+			continue
+		}
+		seen[tool] = struct{}{}
+		out = append(out, tool)
+	}
+	return out
 }
 
 // Create starts a new session and makes it current.

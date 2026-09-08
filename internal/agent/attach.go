@@ -113,6 +113,21 @@ func (a *attached) endpoint() string {
 	return a.client.URL()
 }
 
+// retrier exposes the attached client as an authRetrier when its transport can
+// run the handshake. *a2amcp.Client does; a test fake need not, so a nil result
+// simply means "call it, but do not try to re-authenticate".
+func (a *attached) retrier() authRetrier {
+	if a == nil {
+		return nil
+	}
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if r, ok := a.client.(authRetrier); ok {
+		return r
+	}
+	return nil
+}
+
 func (a *attached) call(ctx context.Context, name string, args map[string]any) (string, error) {
 	name = strings.TrimSpace(name)
 	a.mu.Lock()

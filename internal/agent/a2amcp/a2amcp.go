@@ -306,6 +306,17 @@ func (c *Client) BearerValid() bool {
 	return c.bearer != "" && time.Now().Before(c.bearerUntil)
 }
 
+// InvalidateBearer drops the cached bearer so the next EnsureAuth runs the
+// handshake rather than short-circuiting on BearerValid. An agent may refuse a
+// token this client still considers unexpired -- the bearer is bound to the A2A
+// context, so anything that loses that binding invalidates it remotely while it
+// still looks valid here.
+func (c *Client) InvalidateBearer() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.bearer, c.bearerUntil = "", time.Time{}
+}
+
 // EnsureAuth runs the agent's handshake: auth_challenge → signChallenge →
 // auth_verify. It is the same exchange the remote MCP uses, and deliberately
 // so: the challenge the agent issues carries the svpchain-mcp-auth-v1 prefix

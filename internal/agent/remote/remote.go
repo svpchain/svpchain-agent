@@ -118,6 +118,19 @@ func (r *Client) BearerValid() bool {
 	return r.bearer != "" && time.Now().Before(r.bearerUntil.Add(-time.Minute))
 }
 
+// InvalidateBearer drops the cached bearer so the next EnsureAuth actually runs
+// the handshake instead of short-circuiting on BearerValid.
+//
+// Needed because a bearer can stop working without expiring: the service binds
+// it to an MCP session, and Reconnect deliberately keeps bearers across a fresh
+// session. A token this client still considers valid is then refused, and only
+// a new handshake recovers.
+func (r *Client) InvalidateBearer() {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.bearer, r.bearerUntil = "", time.Time{}
+}
+
 // currentBearer returns the live bearer token if still valid, else "".
 func (r *Client) currentBearer() string {
 	r.mu.Lock()

@@ -172,7 +172,9 @@ func (h attachedHandler) Call(ctx context.Context, name string, args map[string]
 			return "", err
 		}
 	}
-	return h.env.att.call(ctx, name, args)
+	return h.env.callWithReauth(ctx, name, h.env.att.retrier(), func(ctx context.Context) (string, error) {
+		return h.env.att.call(ctx, name, args)
+	})
 }
 
 // remoteHandler is the catch-all: build_*/broadcast_* and other remote MCP tools.
@@ -193,7 +195,9 @@ func (h remoteHandler) Call(ctx context.Context, name string, args map[string]an
 		}
 		return "", errRemoteDisabled(name)
 	}
-	result, err := h.env.remote.CallTool(ctx, name, args)
+	result, err := h.env.callWithReauth(ctx, name, h.env.remote, func(ctx context.Context) (string, error) {
+		return h.env.remote.CallTool(ctx, name, args)
+	})
 	if err == nil && h.env.mem != nil && name == "whoami" {
 		h.env.mem.SetToolResult(name, result)
 		_ = memory.Save(*h.env.mem)

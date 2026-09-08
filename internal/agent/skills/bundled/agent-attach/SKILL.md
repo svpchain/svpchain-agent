@@ -25,6 +25,8 @@ Nothing about signing changes. An attached `build_*` still goes through local `s
 ## Running it
 
 1. `search_agents` with the task in plain language. Below about `0.4` similarity, treat it as no usable match.
+   Pick between candidates on each one's `card` — what the agent says it does, and the tools its skills list — not on
+   the capability tags, which are too coarse to choose with.
 2. Name the agent and endpoint to the user before attaching. They are gaining a counterparty, not just a tool.
 3. `a2a_connect_agent` with that `agent_url`. Read the result:
     - `tools_available` — what you can now call.

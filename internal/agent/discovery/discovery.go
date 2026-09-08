@@ -119,9 +119,63 @@ func endpointKey(endpoint string) string {
 	return strings.TrimRight(strings.TrimSpace(endpoint), "/")
 }
 
+// agentView is one agent as a tool result shows it. A Hit is never marshalled
+// straight through: it carries the raw Agent Card, and those bytes exist to be
+// hashed, not read. A bounded projection goes to the model instead, and only
+// for a card that verified.
+type agentView struct {
+	AgentID      string              `json:"agent_id"`
+	Owner        string              `json:"owner,omitempty"`
+	Endpoint     string              `json:"endpoint,omitempty"`
+	Capabilities []string            `json:"capabilities,omitempty"`
+	Pricing      agentmarket.Pricing `json:"pricing,omitzero"`
+	Bond         agentmarket.Coin    `json:"bond,omitzero"`
+	Status       string              `json:"status,omitempty"`
+	Metadata     string              `json:"metadata,omitempty"`
+	Similarity   float64             `json:"similarity"`
+	// CardTrust is this client's own verdict, not the market's health field.
+	CardTrust string `json:"card_trust"`
+	// Card is present only when CardTrust is "verified". A superseded card
+	// describes an agent that has since repudiated it, so withholding it is the
+	// point: capability tags stay, the prose does not.
+	Card *agentmarket.Card `json:"card,omitempty"`
+	// HealthStatus / HealthError explain a missing card without the model
+	// having to guess whether the agent is broken or merely uncommitted.
+	HealthStatus string `json:"health_status,omitempty"`
+	HealthError  string `json:"health_error,omitempty"`
+}
+
+func viewOf(hits []agentmarket.Hit) []agentView {
+	views := make([]agentView, 0, len(hits))
+	for _, hit := range hits {
+		trust := hit.CardTrust()
+		view := agentView{
+			AgentID:      hit.AgentID,
+			Owner:        hit.Owner,
+			Endpoint:     hit.Endpoint,
+			Capabilities: hit.Capabilities,
+			Pricing:      hit.Pricing,
+			Bond:         hit.Bond,
+			Status:       hit.Status,
+			Metadata:     hit.Metadata,
+			Similarity:   hit.Similarity,
+			CardTrust:    string(trust),
+			HealthStatus: hit.HealthStatus,
+			HealthError:  hit.HealthError,
+		}
+		if trust == agentmarket.CardVerified && hit.Card != nil {
+			if card, ok := agentmarket.ParseCard(*hit.Card); ok {
+				view.Card = &card
+			}
+		}
+		views = append(views, view)
+	}
+	return views
+}
+
 func marketResult(hits []agentmarket.Hit, mode, query string, cursor, nextCursor int, marketURL string) (string, error) {
 	out, err := json.Marshal(map[string]any{
-		"agents":      hits,
+		"agents":      viewOf(hits),
 		"count":       len(hits),
 		"mode":        mode,
 		"query":       query,

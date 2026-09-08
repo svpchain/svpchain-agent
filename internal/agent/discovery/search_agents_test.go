@@ -186,3 +186,122 @@ func TestSearchAgentsQueryParameters(t *testing.T) {
 		}
 	}
 }
+
+// The Agent Card, and the base64 SHA-256 of these exact bytes.
+const (
+	cardBody = `{"name":"Orderbook Analyst","description":"Analyzes order books and funding rates.","skills":[{"name":"depth","description":"Order book depth analysis."}]}`
+	cardHash = "WflqJrx0K07EBJ2zNfRBdnR9QJjyATd2dWzY12niCj8="
+)
+
+func marketBody(t *testing.T, hit map[string]any) string {
+	t.Helper()
+	body, err := json.Marshal(map[string]any{"agents": []any{hit}})
+	require.NoError(t, err)
+	return string(body)
+}
+
+type cardResult struct {
+	Agents []struct {
+		AgentID      string   `json:"agent_id"`
+		Capabilities []string `json:"capabilities"`
+		CardTrust    string   `json:"card_trust"`
+		HealthStatus string   `json:"health_status"`
+		HealthError  string   `json:"health_error"`
+		Card         *struct {
+			Name        string `json:"name"`
+			Description string `json:"description"`
+			Skills      []struct {
+				Name        string `json:"name"`
+				Description string `json:"description"`
+			} `json:"skills"`
+		} `json:"card"`
+	} `json:"agents"`
+}
+
+// A card that verifies against the chain's committed hash is what makes a
+// result decidable: the tags say "trading", the card says what it trades.
+func TestSearchAgentsSurfacesVerifiedCard(t *testing.T) {
+	market := marketStub(t, marketBody(t, map[string]any{
+		"agent_id":        "did:svp:svp1real",
+		"endpoint":        "https://real.example",
+		"capabilities":    []string{"trading"},
+		"capability_hash": cardHash,
+		"health_status":   "healthy",
+		"card":            cardBody,
+	}))
+	defer market.Close()
+
+	svc := &Service{Market: agentmarket.New(market.URL)}
+	out, err := svc.Call(context.Background(), "search_agents", map[string]any{"query": "order books"})
+	require.NoError(t, err)
+
+	var decoded cardResult
+	require.NoError(t, json.Unmarshal([]byte(out), &decoded))
+	require.Len(t, decoded.Agents, 1)
+	got := decoded.Agents[0]
+	require.Equal(t, "verified", got.CardTrust)
+	require.NotNil(t, got.Card)
+	require.Equal(t, "Orderbook Analyst", got.Card.Name)
+	require.Equal(t, "Analyzes order books and funding rates.", got.Card.Description)
+	require.Len(t, got.Card.Skills, 1)
+	require.Equal(t, "depth", got.Card.Skills[0].Name)
+
+	// The raw card exists to be hashed, not read: only the projection may reach
+	// the model, or a page of agents spends the context budget on card JSON.
+	require.NotContains(t, out, "supportedInterfaces")
+	require.NotContains(t, out, `\"skills\"`)
+}
+
+// On a failed check the market keeps the last card that DID verify. Showing its
+// text would describe the agent with words it has since repudiated, so the
+// prose is withheld while the tags — which come from the chain record — stay.
+func TestSearchAgentsWithholdsSupersededCard(t *testing.T) {
+	market := marketStub(t, marketBody(t, map[string]any{
+		"agent_id":        "did:svp:svp1stale",
+		"endpoint":        "https://stale.example",
+		"capabilities":    []string{"trading"},
+		"capability_hash": cardHash,
+		"health_status":   "hash_mismatch",
+		"health_error":    "agent card SHA-256 differs from on-chain capability_hash",
+		"card":            cardBody,
+	}))
+	defer market.Close()
+
+	svc := &Service{Market: agentmarket.New(market.URL)}
+	out, err := svc.Call(context.Background(), "search_agents", map[string]any{"query": "order books"})
+	require.NoError(t, err)
+
+	var decoded cardResult
+	require.NoError(t, json.Unmarshal([]byte(out), &decoded))
+	require.Len(t, decoded.Agents, 1)
+	got := decoded.Agents[0]
+	require.Equal(t, "mismatch", got.CardTrust)
+	require.Nil(t, got.Card, "a superseded card must not be shown as a description")
+	require.Equal(t, []string{"trading"}, got.Capabilities)
+	// The reason must survive, so the assistant can say why rather than
+	// silently presenting a thinner result.
+	require.Equal(t, "hash_mismatch", got.HealthStatus)
+	require.Contains(t, got.HealthError, "capability_hash")
+	require.NotContains(t, out, "Orderbook Analyst")
+}
+
+// An older market build serves no card at all. That is an absence of evidence,
+// not a failure, and must not be reported as one.
+func TestSearchAgentsWithoutCardIsUnverified(t *testing.T) {
+	market := marketStub(t, marketBody(t, map[string]any{
+		"agent_id":     "did:svp:svp1nocard",
+		"endpoint":     "https://nocard.example",
+		"capabilities": []string{"trading"},
+	}))
+	defer market.Close()
+
+	svc := &Service{Market: agentmarket.New(market.URL)}
+	out, err := svc.Call(context.Background(), "search_agents", map[string]any{"query": "order books"})
+	require.NoError(t, err)
+
+	var decoded cardResult
+	require.NoError(t, json.Unmarshal([]byte(out), &decoded))
+	require.Len(t, decoded.Agents, 1)
+	require.Equal(t, "unverified", decoded.Agents[0].CardTrust)
+	require.Nil(t, decoded.Agents[0].Card)
+}

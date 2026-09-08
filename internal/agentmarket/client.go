@@ -17,7 +17,10 @@
 package agentmarket
 
 import (
+	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -25,6 +28,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 )
 
 // Client reads the market service's search API.
@@ -83,6 +87,188 @@ type Hit struct {
 	Status       string   `json:"status,omitempty"`
 	Metadata     string   `json:"metadata,omitempty"`
 	Similarity   float64  `json:"similarity"`
+
+	// CapabilityHash is the SHA-256 (base64) the owner committed on chain, over
+	// the Agent Card bytes exactly as its endpoint serves them. All zeroes means
+	// the agent registered without committing to a card at all.
+	CapabilityHash string `json:"capability_hash,omitempty"`
+	// HealthStatus and HealthError are the market's own verdict on the card it
+	// last fetched ("healthy", "hash_mismatch", "unreachable", ...). Carried for
+	// diagnostics; CardTrust re-derives the verdict here rather than trusting it.
+	HealthStatus string `json:"health_status,omitempty"`
+	HealthError  string `json:"health_error,omitempty"`
+	// Card is the A2A Agent Card as fetched from the agent's own endpoint — a
+	// JSON *string*, never a decoded object, because CapabilityHash is taken
+	// over these exact bytes and re-encoding them (key order, whitespace) would
+	// break verification. Nil when the market has never fetched one, or when the
+	// service is too old to serve the field.
+	//
+	// Distinct from the chain's registration record: this is what the agent
+	// says about itself, not what its owner registered.
+	Card *string `json:"card,omitempty"`
+}
+
+// CardTrust is the verdict on a served Agent Card, checked against the hash its
+// owner committed on chain.
+type CardTrust string
+
+const (
+	// CardVerified means the served card's bytes hash to CapabilityHash, so it
+	// is the card the owner registered and bonded against.
+	CardVerified CardTrust = "verified"
+	// CardUnverified means there is nothing to check: no card was served, or the
+	// owner committed no hash. Not a failure — an absence of evidence.
+	CardUnverified CardTrust = "unverified"
+	// CardMismatch means a card was served but it is not the committed one. The
+	// market keeps the last card that DID verify and only flips its health
+	// status, so such a card is typically a real but superseded self-description
+	// — which makes it more misleading than no card at all.
+	CardMismatch CardTrust = "mismatch"
+)
+
+// CardTrust checks the served card against the chain's committed hash.
+//
+// Deliberately recomputed here instead of read out of HealthStatus: the market
+// is the party making the claim, so its own verdict is not evidence for it. The
+// hash being checked against still comes from the market — nothing in this repo
+// reads the chain — so this catches a stale or inconsistent index, not a market
+// that lies about card and hash together.
+func (h Hit) CardTrust() CardTrust {
+	if h.Card == nil || strings.TrimSpace(*h.Card) == "" {
+		return CardUnverified
+	}
+	want, err := base64.StdEncoding.DecodeString(strings.TrimSpace(h.CapabilityHash))
+	if err != nil || len(want) != sha256.Size || isZeroHash(want) {
+		return CardUnverified
+	}
+	sum := sha256.Sum256([]byte(*h.Card))
+	if !bytes.Equal(sum[:], want) {
+		return CardMismatch
+	}
+	// The bytes verify, but the market says its most recent fetch did not: this
+	// is the last good card, not what the endpoint serves now.
+	if status := strings.TrimSpace(h.HealthStatus); status != "" && status != "healthy" {
+		return CardMismatch
+	}
+	return CardVerified
+}
+
+func isZeroHash(sum []byte) bool {
+	for _, b := range sum {
+		if b != 0 {
+			return false
+		}
+	}
+	return true
+}
+
+// Bounds on the projection below. This is third-party text that reaches the
+// assistant's context a whole search page at a time, so no single agent may
+// spend the page's budget on itself.
+//
+// cardSkillDescMax is generous on purpose. An svpchain agent builds each skill
+// description from its live tool registry and appends "Tools: a, b, c." — on a
+// real EVM agent that tail starts 158 characters in, so a tight per-skill bound
+// truncates away the one part that helps choose between agents. The skill list
+// as a whole is capped by cardSkillsBudget instead, which bounds an agent with
+// many skills without mutilating an agent with a few informative ones.
+const (
+	cardNameMax      = 80
+	cardDescMax      = 240
+	cardSkillsMax    = 6
+	cardSkillDescMax = 400
+	cardSkillsBudget = 560
+)
+
+// CardSkill is one skill as an agent's own card advertises it. A skill is not a
+// tool: what an attached agent can actually be called with comes from its
+// list_tools reply, never from here.
+type CardSkill struct {
+	Name        string `json:"name,omitempty"`
+	Description string `json:"description,omitempty"`
+}
+
+// Card is the human-language part of an A2A Agent Card — what an agent says it
+// is and what it says it can do. Capability tags alone rarely make a search
+// result decidable; this is the part that does.
+//
+// It is a bounded projection rather than the card itself: transport detail
+// (interfaces, mime types, provider, version) helps no one choose an agent, and
+// the text that remains is truncated.
+type Card struct {
+	Name        string      `json:"name,omitempty"`
+	Description string      `json:"description,omitempty"`
+	Skills      []CardSkill `json:"skills,omitempty"`
+}
+
+// rawCard is the subset of the A2A card shape this projection reads. It mirrors
+// what the market embeds for ranking, so what an agent is searchable by and what
+// it is shown as stay the same text.
+type rawCard struct {
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Skills      []struct {
+		Name        string `json:"name"`
+		Description string `json:"description"`
+	} `json:"skills"`
+}
+
+// ParseCard projects the human-language fields out of a raw Agent Card.
+//
+// Reports false when the card is not JSON, or parses but carries no usable
+// text. Both are ordinary outcomes rather than errors: a card is third-party
+// content, and the market stores whatever verified against the chain hash,
+// including shapes this does not recognize.
+func ParseCard(raw string) (Card, bool) {
+	var parsed rawCard
+	if err := json.Unmarshal([]byte(raw), &parsed); err != nil {
+		return Card{}, false
+	}
+	card := Card{
+		Name:        clampText(parsed.Name, cardNameMax),
+		Description: clampText(parsed.Description, cardDescMax),
+	}
+	spent := 0
+	for _, skill := range parsed.Skills {
+		name := clampText(skill.Name, cardNameMax)
+		description := clampText(skill.Description, cardSkillDescMax)
+		if name == "" && description == "" {
+			continue
+		}
+		if len(card.Skills) == cardSkillsMax {
+			break
+		}
+		// Always keep the first skill, so an agent is never reduced to a name
+		// alone; past that, stop once the list has spent its budget.
+		if spent+len(name)+len(description) > cardSkillsBudget && len(card.Skills) > 0 {
+			break
+		}
+		spent += len(name) + len(description)
+		card.Skills = append(card.Skills, CardSkill{Name: name, Description: description})
+	}
+	if card.Name == "" && card.Description == "" && len(card.Skills) == 0 {
+		return Card{}, false
+	}
+	return card, true
+}
+
+// clampText trims a card string to a bounded, single-line form. Newlines are
+// collapsed so one agent's card cannot reformat the result the model reads.
+//
+// The bound is in bytes, so the cut is walked back to a rune boundary: an agent
+// card is third-party text and routinely not ASCII, and slicing a multi-byte
+// character in half would put invalid UTF-8 into the tool result — which json
+// silently rewrites to U+FFFD rather than rejecting.
+func clampText(text string, max int) string {
+	text = strings.TrimSpace(strings.Join(strings.Fields(text), " "))
+	if len(text) <= max {
+		return text
+	}
+	cut := max
+	for cut > 0 && !utf8.RuneStart(text[cut]) {
+		cut--
+	}
+	return strings.TrimSpace(text[:cut]) + "…"
 }
 
 // Query narrows a search.

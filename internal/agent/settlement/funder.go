@@ -27,7 +27,91 @@ import (
 const (
 	erc20ABIJSON      = `[{"type":"function","name":"approve","stateMutability":"nonpayable","inputs":[{"name":"spender","type":"address"},{"name":"amount","type":"uint256"}],"outputs":[{"name":"","type":"bool"}]}]`
 	settlementABIJSON = `[{"type":"function","name":"deposit","stateMutability":"nonpayable","inputs":[{"name":"intentId","type":"bytes32"},{"name":"amount","type":"uint256"}],"outputs":[]}]`
+	erc20MetadataABI  = `[{"type":"function","name":"symbol","stateMutability":"view","inputs":[],"outputs":[{"name":"","type":"string"}]},{"type":"function","name":"decimals","stateMutability":"view","inputs":[],"outputs":[{"name":"","type":"uint8"}]}]`
 )
+
+// PaymentToken describes the ERC-20 selected by the validator's settlement
+// deployment. Agent Market amounts are always expressed in this token's base
+// units, never in the chain's native asvp denomination.
+type PaymentToken struct {
+	Address  string
+	Symbol   string
+	Decimals uint8
+}
+
+// ReadPaymentToken reads the human-facing ERC-20 metadata required to display
+// a market quote. It is read-only and deliberately independent of funding.
+func ReadPaymentToken(ctx context.Context, rpcURL, address string) (PaymentToken, error) {
+	token, err := requiredAddress("payment token", address)
+	if err != nil {
+		return PaymentToken{}, err
+	}
+	client, err := ethclient.DialContext(ctx, strings.TrimSpace(rpcURL))
+	if err != nil {
+		return PaymentToken{}, fmt.Errorf("connect payment-token EVM RPC: %w", err)
+	}
+	defer client.Close()
+	parsed, err := abi.JSON(strings.NewReader(erc20MetadataABI))
+	if err != nil {
+		return PaymentToken{}, err
+	}
+	symbolData, err := parsed.Pack("symbol")
+	if err != nil {
+		return PaymentToken{}, err
+	}
+	symbolResult, err := client.CallContract(ctx, ethereum.CallMsg{To: &token, Data: symbolData}, nil)
+	if err != nil {
+		return PaymentToken{}, fmt.Errorf("read payment-token symbol: %w", err)
+	}
+	symbolValues, err := parsed.Unpack("symbol", symbolResult)
+	if err != nil || len(symbolValues) != 1 {
+		return PaymentToken{}, fmt.Errorf("decode payment-token symbol")
+	}
+	symbol, ok := symbolValues[0].(string)
+	if !ok || strings.TrimSpace(symbol) == "" {
+		return PaymentToken{}, fmt.Errorf("payment-token symbol is empty")
+	}
+	decimalsData, err := parsed.Pack("decimals")
+	if err != nil {
+		return PaymentToken{}, err
+	}
+	decimalsResult, err := client.CallContract(ctx, ethereum.CallMsg{To: &token, Data: decimalsData}, nil)
+	if err != nil {
+		return PaymentToken{}, fmt.Errorf("read payment-token decimals: %w", err)
+	}
+	decimalsValues, err := parsed.Unpack("decimals", decimalsResult)
+	if err != nil || len(decimalsValues) != 1 {
+		return PaymentToken{}, fmt.Errorf("decode payment-token decimals")
+	}
+	decimals, ok := decimalsValues[0].(uint8)
+	if !ok {
+		return PaymentToken{}, fmt.Errorf("payment-token decimals have unexpected type %T", decimalsValues[0])
+	}
+	return PaymentToken{Address: token.Hex(), Symbol: strings.TrimSpace(symbol), Decimals: decimals}, nil
+}
+
+// FormatTokenAmount converts a base-unit integer to an exact, compact decimal
+// string. It never rounds or exposes the token's precision to end users.
+func FormatTokenAmount(amount string, decimals uint8) (string, error) {
+	value, ok := new(big.Int).SetString(strings.TrimSpace(amount), 10)
+	if !ok || value.Sign() < 0 {
+		return "", fmt.Errorf("token amount must be a non-negative base-10 integer")
+	}
+	if decimals == 0 {
+		return value.String(), nil
+	}
+	digits := value.String()
+	precision := int(decimals)
+	if len(digits) <= precision {
+		digits = strings.Repeat("0", precision-len(digits)+1) + digits
+	}
+	whole, fraction := digits[:len(digits)-precision], digits[len(digits)-precision:]
+	fraction = strings.TrimRight(fraction, "0")
+	if fraction == "" {
+		return whole, nil
+	}
+	return whole + "." + fraction, nil
+}
 
 // FundingConfig identifies the immutable network data needed to escrow one
 // agent payment. Amount is in the payment token's smallest unit.

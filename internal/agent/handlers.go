@@ -148,7 +148,7 @@ func (h connectHandler) Call(ctx context.Context, _ string, args map[string]any)
 	if endpoint == "" {
 		return "", fmt.Errorf("agent_url is required")
 	}
-	return h.env.paid.StartEndpoint(ctx, endpoint, func(ctx context.Context, endpoint string) (string, error) {
+	return h.env.paid.ConnectEndpoint(ctx, endpoint, func(ctx context.Context, endpoint string) (string, error) {
 		return h.env.connect(ctx, map[string]any{"agent_url": endpoint})
 	})
 }

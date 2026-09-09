@@ -265,6 +265,7 @@ func Run(ctx context.Context, cfg Config, userMessage string) (answer string, er
 		if err != nil {
 			return "", err
 		}
+		disc.PaymentToken = paid.PaymentToken
 		baseTools = append(baseTools, paid.ToolDef())
 	}
 	// Tools an attached A2A agent adds mid-run (see attach.go). The base list

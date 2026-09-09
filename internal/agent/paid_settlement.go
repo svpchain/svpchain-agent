@@ -31,6 +31,7 @@ type paidAgentFlow struct {
 	reporter     *agentsettlement.Reporter
 	mu           sync.Mutex
 	started      bool
+	endpoint     string
 }
 
 func newPaidAgentFlow(validatorURL, rpcURL, chainID string, priv *ethsecp256k1.PrivKey, confirm hitl.Func, market *agentmarket.Client, reporter *agentsettlement.Reporter) (*paidAgentFlow, error) {
@@ -55,6 +56,19 @@ func (f *paidAgentFlow) ToolDef() llm.Tool {
 			"agent_id": map[string]any{"type": "string", "description": "The exact agent_id from search_agents"},
 		}, "required": []string{"agent_id"}},
 	}}
+}
+
+// PaymentToken reads the token configured by the validator and is used only to
+// make the Agent Market's base-unit quotes understandable before settlement.
+func (f *paidAgentFlow) PaymentToken(ctx context.Context) (agentsettlement.PaymentToken, error) {
+	if f == nil || f.validator == nil {
+		return agentsettlement.PaymentToken{}, fmt.Errorf("agent settlement is not configured")
+	}
+	network, err := f.validator.NetworkConfig(ctx)
+	if err != nil {
+		return agentsettlement.PaymentToken{}, err
+	}
+	return agentsettlement.ReadPaymentToken(ctx, f.rpcURL, network.PaymentToken)
 }
 
 func (f *paidAgentFlow) Start(ctx context.Context, args map[string]any, attach func(context.Context, string) (string, error)) (string, error) {
@@ -112,6 +126,7 @@ func (f *paidAgentFlow) Start(ctx context.Context, args map[string]any, attach f
 	}); err != nil {
 		return "", err
 	}
+	f.endpoint = normalizeAgentEndpoint(hit.Endpoint)
 	// The remote A2A endpoint is not contacted until the escrow deposit has
 	// mined and its validator task exists. Connecting authenticates and fetches
 	// the agent card, so it belongs after payment just like build_* calls do.
@@ -146,6 +161,25 @@ func (f *paidAgentFlow) StartEndpoint(ctx context.Context, endpoint string, atta
 	return f.Start(ctx, map[string]any{"agent_id": hit.AgentID}, attach)
 }
 
+// ConnectEndpoint is the public paid connection entry point. begin_agent_settlement
+// already attaches the selected agent; a later a2a_connect_agent for that same
+// endpoint must therefore be idempotent and never fund a second task.
+func (f *paidAgentFlow) ConnectEndpoint(ctx context.Context, endpoint string, attach func(context.Context, string) (string, error)) (string, error) {
+	if f == nil {
+		return "", fmt.Errorf("agent settlement is not configured")
+	}
+	f.mu.Lock()
+	started, activeEndpoint := f.started, f.endpoint
+	f.mu.Unlock()
+	if !started {
+		return f.StartEndpoint(ctx, endpoint, attach)
+	}
+	if activeEndpoint == "" || normalizeAgentEndpoint(endpoint) != activeEndpoint {
+		return "", fmt.Errorf("a paid agent task is already active for %s; cannot connect a different endpoint in this run", activeEndpoint)
+	}
+	return attach(ctx, activeEndpoint)
+}
+
 // EnsureEndpoint is a final execution gate for attached A2A tools. It makes
 // an already attached agent safe even if a future connection path forgets to
 // call StartEndpoint: no request reaches that agent until the deposit has
@@ -155,11 +189,18 @@ func (f *paidAgentFlow) EnsureEndpoint(ctx context.Context, endpoint string, att
 		return fmt.Errorf("agent settlement is not configured")
 	}
 	f.mu.Lock()
-	started := f.started
+	started, activeEndpoint := f.started, f.endpoint
 	f.mu.Unlock()
 	if started {
+		if activeEndpoint == "" || normalizeAgentEndpoint(endpoint) != activeEndpoint {
+			return fmt.Errorf("a paid agent task is active for %s, not %s", activeEndpoint, normalizeAgentEndpoint(endpoint))
+		}
 		return nil
 	}
 	_, err := f.StartEndpoint(ctx, endpoint, attach)
 	return err
+}
+
+func normalizeAgentEndpoint(endpoint string) string {
+	return strings.TrimRight(strings.TrimSpace(endpoint), "/")
 }

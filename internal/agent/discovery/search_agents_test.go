@@ -35,6 +35,9 @@ func TestSearchAgentsReportsMarketRecords(t *testing.T) {
 	defer market.Close()
 
 	svc := &Service{Market: agentmarket.New(market.URL)}
+	svc.PaymentToken = func(context.Context) (PaymentToken, error) {
+		return PaymentToken{Symbol: "USDC", Decimals: 6}, nil
+	}
 	out, err := svc.Call(context.Background(), "search_agents", map[string]any{"query": "funding rates"})
 	if err != nil {
 		t.Fatalf("search_agents: %v", err)
@@ -49,6 +52,7 @@ func TestSearchAgentsReportsMarketRecords(t *testing.T) {
 			Similarity   float64  `json:"similarity"`
 			Pricing      struct {
 				Amount string `json:"amount"`
+				Token  string `json:"token"`
 				Unit   string `json:"unit"`
 			} `json:"pricing"`
 			Bond struct {
@@ -74,7 +78,7 @@ func TestSearchAgentsReportsMarketRecords(t *testing.T) {
 	if got.Similarity != 0.71 {
 		t.Fatalf("similarity = %v, want 0.71", got.Similarity)
 	}
-	if got.Pricing.Amount != "1000000" || got.Pricing.Unit != "call" || got.Bond.Amount != "5000" {
+	if got.Pricing.Amount != "1" || got.Pricing.Token != "USDC" || got.Pricing.Unit != "call" || got.Bond.Amount != "5000" {
 		t.Fatalf("pricing/bond dropped: %+v", got)
 	}
 	// The endpoint the assistant would message must be traceable to its source.

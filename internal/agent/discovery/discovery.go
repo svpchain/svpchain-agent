@@ -14,6 +14,7 @@ import (
 	"sync"
 
 	"github.com/svpchain/svpchain-agent/internal/agent/llm"
+	agentsettlement "github.com/svpchain/svpchain-agent/internal/agent/settlement"
 	"github.com/svpchain/svpchain-agent/internal/agentmarket"
 )
 
@@ -24,7 +25,18 @@ type Service struct {
 	Market *agentmarket.Client
 	mu     sync.Mutex
 	byURL  map[string]string
+	// PaymentToken resolves the ERC-20 selected by AgentSettlement. Pricing is
+	// stored by Agent Market in that token's base units, so it must be converted
+	// before the model describes it to a user.
+	PaymentToken PaymentTokenResolver
 }
+
+// PaymentToken is the display metadata for the network settlement ERC-20.
+type PaymentToken = agentsettlement.PaymentToken
+
+// PaymentTokenResolver obtains the current settlement token from the trusted
+// validator configuration and its ERC-20 contract.
+type PaymentTokenResolver func(context.Context) (PaymentToken, error)
 
 // Enabled reports whether the discovery tool surface is available this run.
 func (s *Service) Enabled() bool {
@@ -69,7 +81,7 @@ func (s *Service) searchAgents(ctx context.Context, args map[string]any) (string
 			return "", err
 		}
 		s.remember(page.Agents)
-		return marketResult(page.Agents, "list", query, page.Cursor, page.NextCursor, s.Market.BaseURL())
+		return s.marketResult(ctx, page.Agents, "list", query, page.Cursor, page.NextCursor)
 	}
 	if mode != "" && mode != "search" {
 		return "", fmt.Errorf("mode must be list or search")
@@ -83,7 +95,7 @@ func (s *Service) searchAgents(ctx context.Context, args map[string]any) (string
 		return "", err
 	}
 	s.remember(hits)
-	return marketResult(hits, "search", query, 0, 0, s.Market.BaseURL())
+	return s.marketResult(ctx, hits, "search", query, 0, 0)
 }
 
 // AgentIDForEndpoint returns an agent ID emitted in this run's most recent
@@ -124,15 +136,15 @@ func endpointKey(endpoint string) string {
 // hashed, not read. A bounded projection goes to the model instead, and only
 // for a card that verified.
 type agentView struct {
-	AgentID      string              `json:"agent_id"`
-	Owner        string              `json:"owner,omitempty"`
-	Endpoint     string              `json:"endpoint,omitempty"`
-	Capabilities []string            `json:"capabilities,omitempty"`
-	Pricing      agentmarket.Pricing `json:"pricing,omitzero"`
-	Bond         agentmarket.Coin    `json:"bond,omitzero"`
-	Status       string              `json:"status,omitempty"`
-	Metadata     string              `json:"metadata,omitempty"`
-	Similarity   float64             `json:"similarity"`
+	AgentID      string           `json:"agent_id"`
+	Owner        string           `json:"owner,omitempty"`
+	Endpoint     string           `json:"endpoint,omitempty"`
+	Capabilities []string         `json:"capabilities,omitempty"`
+	Pricing      pricingView      `json:"pricing,omitzero"`
+	Bond         agentmarket.Coin `json:"bond,omitzero"`
+	Status       string           `json:"status,omitempty"`
+	Metadata     string           `json:"metadata,omitempty"`
+	Similarity   float64          `json:"similarity"`
 	// CardTrust is this client's own verdict, not the market's health field.
 	CardTrust string `json:"card_trust"`
 	// Card is present only when CardTrust is "verified". A superseded card
@@ -145,7 +157,16 @@ type agentView struct {
 	HealthError  string `json:"health_error,omitempty"`
 }
 
-func viewOf(hits []agentmarket.Hit) []agentView {
+// pricingView intentionally has no raw base-unit amount. Quotes are for the
+// settlement ERC-20, not asvp, and callers should never have to infer a token
+// precision from a market result.
+type pricingView struct {
+	Amount string `json:"amount,omitempty"`
+	Token  string `json:"token,omitempty"`
+	Unit   string `json:"unit,omitempty"`
+}
+
+func viewOf(hits []agentmarket.Hit, token *PaymentToken) []agentView {
 	views := make([]agentView, 0, len(hits))
 	for _, hit := range hits {
 		trust := hit.CardTrust()
@@ -154,7 +175,7 @@ func viewOf(hits []agentmarket.Hit) []agentView {
 			Owner:        hit.Owner,
 			Endpoint:     hit.Endpoint,
 			Capabilities: hit.Capabilities,
-			Pricing:      hit.Pricing,
+			Pricing:      renderPricing(hit.Pricing, token),
 			Bond:         hit.Bond,
 			Status:       hit.Status,
 			Metadata:     hit.Metadata,
@@ -173,9 +194,37 @@ func viewOf(hits []agentmarket.Hit) []agentView {
 	return views
 }
 
-func marketResult(hits []agentmarket.Hit, mode, query string, cursor, nextCursor int, marketURL string) (string, error) {
+func renderPricing(pricing agentmarket.Pricing, token *PaymentToken) pricingView {
+	view := pricingView{Unit: pricing.Unit}
+	if strings.TrimSpace(pricing.Amount) == "" {
+		return view
+	}
+	if token == nil || strings.TrimSpace(token.Symbol) == "" {
+		// Discovery remains available when the validator is temporarily
+		// unreachable, but do not label an unknown payment token as asvp.
+		view.Amount = pricing.Amount
+		view.Token = "payment-token base units"
+		return view
+	}
+	amount, err := agentsettlement.FormatTokenAmount(pricing.Amount, token.Decimals)
+	if err != nil {
+		view.Amount = pricing.Amount
+		view.Token = "payment-token base units"
+		return view
+	}
+	view.Amount, view.Token = amount, token.Symbol
+	return view
+}
+
+func (s *Service) marketResult(ctx context.Context, hits []agentmarket.Hit, mode, query string, cursor, nextCursor int) (string, error) {
+	var token *PaymentToken
+	if s.PaymentToken != nil {
+		if resolved, err := s.PaymentToken(ctx); err == nil {
+			token = &resolved
+		}
+	}
 	out, err := json.Marshal(map[string]any{
-		"agents":      viewOf(hits),
+		"agents":      viewOf(hits, token),
 		"count":       len(hits),
 		"mode":        mode,
 		"query":       query,
@@ -183,7 +232,7 @@ func marketResult(hits []agentmarket.Hit, mode, query string, cursor, nextCursor
 		"next_cursor": nextCursor,
 		// Stated so the assistant can answer "where did this come from?" from a
 		// tool result instead of guessing at configuration.
-		"agent_market_url": marketURL,
+		"agent_market_url": s.Market.BaseURL(),
 		"source":           "agent market; endpoints and capabilities are as the market service reports them",
 	})
 	if err != nil {

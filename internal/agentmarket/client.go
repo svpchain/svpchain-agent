@@ -29,6 +29,8 @@ import (
 	"strings"
 	"time"
 	"unicode/utf8"
+
+	"github.com/svpchain/svpchain-agent/internal/agent/netretry"
 )
 
 // Client reads the market service's search API.
@@ -334,11 +336,7 @@ func (c *Client) Get(ctx context.Context, agentID string) (Hit, error) {
 	if agentID == "" {
 		return Hit{}, fmt.Errorf("agent id is required")
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.base+"/v1/agents/"+url.PathEscape(agentID), nil)
-	if err != nil {
-		return Hit{}, err
-	}
-	response, err := c.http.Do(req)
+	response, err := c.get(ctx, c.base+"/v1/agents/"+url.PathEscape(agentID))
 	if err != nil {
 		return Hit{}, fmt.Errorf("agent market unreachable: %w", err)
 	}
@@ -379,11 +377,7 @@ func (c *Client) List(ctx context.Context, q ListQuery) (Page, error) {
 		values.Set("capability", cap)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.base+"/v1/agents?"+values.Encode(), nil)
-	if err != nil {
-		return Page{}, err
-	}
-	response, err := c.http.Do(req)
+	response, err := c.get(ctx, c.base+"/v1/agents?"+values.Encode())
 	if err != nil {
 		return Page{}, fmt.Errorf("agent market unreachable: %w", err)
 	}
@@ -463,11 +457,7 @@ func (c *Client) Search(ctx context.Context, q Query) ([]Hit, error) {
 		values.Set("capability", cap)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.base+"/v1/agents/search?"+values.Encode(), nil)
-	if err != nil {
-		return nil, err
-	}
-	response, err := c.http.Do(req)
+	response, err := c.get(ctx, c.base+"/v1/agents/search?"+values.Encode())
 	if err != nil {
 		return nil, fmt.Errorf("agent market unreachable: %w", err)
 	}
@@ -510,6 +500,19 @@ func compactStrings(values []string) []string {
 		}
 	}
 	return out
+}
+
+func (c *Client) get(ctx context.Context, endpoint string) (*http.Response, error) {
+	var response *http.Response
+	err := netretry.Do(ctx, func() error {
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+		if err != nil {
+			return err
+		}
+		response, err = c.http.Do(req)
+		return err
+	})
+	return response, err
 }
 
 // normalizeEndpoint makes an endpoint emitted by the market and the same

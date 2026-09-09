@@ -5,10 +5,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/svpchain/svpchain-agent/internal/agent/netretry"
 )
 
 // Client calls the validator's private task-assignment API. The callback token
@@ -62,11 +65,7 @@ func (c *Client) NetworkConfig(ctx context.Context) (NetworkConfig, error) {
 	if c == nil {
 		return NetworkConfig{}, fmt.Errorf("settlement validator client is nil")
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.validatorURL+"/v1/settlement/config", nil)
-	if err != nil {
-		return NetworkConfig{}, err
-	}
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.do(ctx, http.MethodGet, "/v1/settlement/config", nil)
 	if err != nil {
 		return NetworkConfig{}, fmt.Errorf("query settlement network config: %w", err)
 	}
@@ -104,15 +103,9 @@ func (c *Client) CreateTask(ctx context.Context, task Task) (Assignment, error) 
 	if err != nil {
 		return Assignment{}, err
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.validatorURL+"/internal/v1/tasks", bytes.NewReader(body))
-	if err != nil {
-		return Assignment{}, err
-	}
-	req.Header.Set("Content-Type", "application/json")
-	if c.callbackToken != "" {
-		req.Header.Set("Authorization", "Bearer "+c.callbackToken)
-	}
-	resp, err := c.httpClient.Do(req)
+	// The validator creates a task idempotently for this immutable intent/task
+	// pair, so retrying a lost HTTP response cannot fund or assign a second task.
+	resp, err := c.do(ctx, http.MethodPost, "/internal/v1/tasks", body)
 	if err != nil {
 		return Assignment{}, fmt.Errorf("create settlement task: %w", err)
 	}
@@ -125,4 +118,27 @@ func (c *Client) CreateTask(ctx context.Context, task Task) (Assignment, error) 
 		return Assignment{}, fmt.Errorf("decode settlement task response: %w", err)
 	}
 	return assignment, nil
+}
+
+func (c *Client) do(ctx context.Context, method, path string, body []byte) (*http.Response, error) {
+	var response *http.Response
+	err := netretry.Do(ctx, func() error {
+		var reader io.Reader
+		if body != nil {
+			reader = bytes.NewReader(body)
+		}
+		req, err := http.NewRequestWithContext(ctx, method, c.validatorURL+path, reader)
+		if err != nil {
+			return err
+		}
+		if body != nil {
+			req.Header.Set("Content-Type", "application/json")
+		}
+		if c.callbackToken != "" {
+			req.Header.Set("Authorization", "Bearer "+c.callbackToken)
+		}
+		response, err = c.httpClient.Do(req)
+		return err
+	})
+	return response, err
 }

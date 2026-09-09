@@ -317,6 +317,9 @@ func (a *App) agentSend(chainID, message string, settlement *settlementRun) erro
 			return
 		}
 		answer = i18n.LocalizeAgentAnswer(answer)
+		// The step channel is reliably consumed while a streaming answer is
+		// displayed. It provides a terminal fallback if Wails misses agent:done.
+		emitAgentStep(a.ctx, agent.Step{Kind: agent.StepAnswer, Title: "Completed", Detail: answer})
 		wruntime.EventsEmit(a.ctx, "agent:done", map[string]string{"answer": answer})
 	}()
 	return nil

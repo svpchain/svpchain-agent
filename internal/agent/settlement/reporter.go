@@ -14,6 +14,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/svpchain/svpchain-agent/internal/agent/netretry"
 	"github.com/svpchain/svpchain-agent/internal/agent/runlog"
 )
 
@@ -227,15 +228,19 @@ func (r *Reporter) Report(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, cfg.ValidatorURL+"/internal/v1/executions", bytes.NewReader(body))
-	if err != nil {
-		return err
-	}
-	req.Header.Set("Content-Type", "application/json")
-	if token := strings.TrimSpace(cfg.CallbackToken); token != "" {
-		req.Header.Set("Authorization", "Bearer "+token)
-	}
-	resp, err := r.client.Do(req)
+	var resp *http.Response
+	err = netretry.Do(ctx, func() error {
+		req, requestErr := http.NewRequestWithContext(ctx, http.MethodPost, cfg.ValidatorURL+"/internal/v1/executions", bytes.NewReader(body))
+		if requestErr != nil {
+			return requestErr
+		}
+		req.Header.Set("Content-Type", "application/json")
+		if token := strings.TrimSpace(cfg.CallbackToken); token != "" {
+			req.Header.Set("Authorization", "Bearer "+token)
+		}
+		resp, requestErr = r.client.Do(req)
+		return requestErr
+	})
 	if err != nil {
 		return fmt.Errorf("report settlement execution: %w", err)
 	}

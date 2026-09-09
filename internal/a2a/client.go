@@ -9,6 +9,7 @@ import (
 	"github.com/a2aproject/a2a-go/v2/a2a"
 	"github.com/a2aproject/a2a-go/v2/a2aclient"
 	"github.com/a2aproject/a2a-go/v2/a2aclient/agentcard"
+	"github.com/svpchain/svpchain-agent/internal/agent/netretry"
 )
 
 // SendResult is the JSON-friendly outcome of SendToAgent.
@@ -67,7 +68,12 @@ func SendTextIn(ctx context.Context, agentURL, contextID, message string) (SendR
 // send resolves the remote Agent Card and delivers one message. Kept separate
 // from message construction so dialing an agent stays one code path.
 func send(ctx context.Context, agentURL string, msg *a2a.Message) (a2a.SendMessageResult, error) {
-	card, err := agentcard.DefaultResolver.Resolve(ctx, agentURL)
+	var card *a2a.AgentCard
+	err := netretry.Do(ctx, func() error {
+		var resolveErr error
+		card, resolveErr = agentcard.DefaultResolver.Resolve(ctx, agentURL)
+		return resolveErr
+	})
 	if err != nil {
 		return nil, fmt.Errorf("resolve agent card: %w", err)
 	}

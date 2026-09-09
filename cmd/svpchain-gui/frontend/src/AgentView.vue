@@ -100,7 +100,6 @@ watch(
 )
 
 let unsubs: Array<() => void> = []
-let watchdog: ReturnType<typeof setTimeout> | null = null
 // Index of the assistant bubble currently being streamed into, or -1 if none open.
 // Any step event closes it, so each round's text lands in its own bubble.
 let streamingIdx = -1
@@ -129,25 +128,6 @@ function pushStep(raw: Record<string, unknown>) {
   }
   const text = detail ? `${title}\n${detail}` : title
   lines.value.push({role: 'step', text, kind})
-}
-
-function clearWatchdog() {
-  if (watchdog) {
-    clearTimeout(watchdog)
-    watchdog = null
-  }
-}
-
-function armWatchdog() {
-  clearWatchdog()
-  watchdog = setTimeout(() => {
-    if (!running.value) return
-    running.value = false
-    const msg = t('assistant.status.timeout')
-    lines.value.push({role: 'step', text: msg, kind: 'error'})
-    report(msg)
-    App.AgentCancel()
-  }, 180_000)
 }
 
 function availableChainIDs(): Set<string> {
@@ -294,13 +274,11 @@ async function send() {
   input.value = ''
   running.value = true
   streamingIdx = -1
-  armWatchdog()
   report(t('assistant.status.running'))
 
   try {
     await App.AgentSend(chainId.value, msg)
   } catch (err) {
-    clearWatchdog()
     running.value = false
     const text = String(err)
     lines.value.push({role: 'step', text, kind: 'error'})
@@ -309,12 +287,18 @@ async function send() {
 }
 
 function onStep(raw: Record<string, unknown>) {
+  if (!running.value) return
+  const {kind, title, detail} = normalizeStep(raw)
+  if (kind === 'answer') {
+    finishRun(detail)
+    return
+  }
   pushStep(raw)
-  const {title} = normalizeStep(raw)
   if (title) runStatus.value = title
 }
 
 function onDelta(e: { text?: string }) {
+  if (!running.value) return
   const text = e?.text || ''
   if (!text) return
   if (streamingIdx < 0) {
@@ -325,22 +309,29 @@ function onDelta(e: { text?: string }) {
   scrollToBottom()
 }
 
-function onDone(e: { answer?: string }) {
-  clearWatchdog()
+function finishRun(answer?: string) {
+  if (!running.value) return
   running.value = false
   if (streamingIdx >= 0) {
     // Finalize the streamed bubble with the authoritative answer.
-    if (e.answer) lines.value[streamingIdx].text = e.answer
+    if (answer) lines.value[streamingIdx].text = answer
     streamingIdx = -1
-  } else if (e.answer) {
-    lines.value.push({role: 'assistant', text: e.answer})
+  } else if (answer) {
+    lines.value.push({role: 'assistant', text: answer})
   }
   report(t('assistant.status.done'))
   refreshSessions()
 }
 
+function onDone(e: { answer?: string }) {
+  finishRun(e.answer)
+}
+
 function onError(e: { error?: string }) {
-  clearWatchdog()
+  // Wails events do not carry a run ID. Ignore a late error after this view has
+  // already received its terminal completion event, rather than corrupting a
+  // successful result with a stale failure.
+  if (!running.value) return
   running.value = false
   streamingIdx = -1
   const err = e.error || t('assistant.status.failed')
@@ -350,7 +341,6 @@ function onError(e: { error?: string }) {
 }
 
 function cancel() {
-  clearWatchdog()
   App.AgentCancel()
   running.value = false
   streamingIdx = -1
@@ -381,7 +371,6 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
-  clearWatchdog()
   unsubs.forEach((u) => u())
   unsubs = []
 })

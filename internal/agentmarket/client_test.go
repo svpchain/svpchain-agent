@@ -25,6 +25,30 @@ func TestGet(t *testing.T) {
 	require.Equal(t, "1000000", hit.Pricing.Amount)
 }
 
+func TestGetDecodesStructuredCapabilities(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"agent_id":"did:svp:evm","capabilities":{"categories":["LENDING","EVM"],"tags":["lendora","supply"]}}`))
+	}))
+	t.Cleanup(server.Close)
+
+	hit, err := New(server.URL).Get(context.Background(), "did:svp:evm")
+	require.NoError(t, err)
+	require.Equal(t, []string{"LENDING", "EVM"}, hit.Capabilities.Categories)
+	require.Equal(t, []string{"lendora", "supply"}, hit.Capabilities.Tags)
+}
+
+func TestGetDecodesLegacyCapabilitiesAsTags(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"agent_id":"did:svp:evm","capabilities":["evm.swap"]}`))
+	}))
+	t.Cleanup(server.Close)
+
+	hit, err := New(server.URL).Get(context.Background(), "did:svp:evm")
+	require.NoError(t, err)
+	require.Empty(t, hit.Capabilities.Categories)
+	require.Equal(t, []string{"evm.swap"}, hit.Capabilities.Tags)
+}
+
 func TestFindActiveByEndpointScansPagesAndNormalizesTrailingSlash(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		require.Equal(t, "/v1/agents", r.URL.Path)

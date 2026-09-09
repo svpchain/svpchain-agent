@@ -45,11 +45,11 @@ func TestSearchAgentsReportsMarketRecords(t *testing.T) {
 
 	var decoded struct {
 		Agents []struct {
-			AgentID      string   `json:"agent_id"`
-			Owner        string   `json:"owner"`
-			Endpoint     string   `json:"endpoint"`
-			Capabilities []string `json:"capabilities"`
-			Similarity   float64  `json:"similarity"`
+			AgentID      string                   `json:"agent_id"`
+			Owner        string                   `json:"owner"`
+			Endpoint     string                   `json:"endpoint"`
+			Capabilities agentmarket.Capabilities `json:"capabilities"`
+			Similarity   float64                  `json:"similarity"`
 			Pricing      struct {
 				Amount string `json:"amount"`
 				Token  string `json:"token"`
@@ -72,7 +72,7 @@ func TestSearchAgentsReportsMarketRecords(t *testing.T) {
 	if got.AgentID != "did:svp:svp1real" || got.Owner != "svp1owner" || got.Endpoint != "https://real.example" {
 		t.Fatalf("unexpected agent: %+v", got)
 	}
-	if len(got.Capabilities) != 1 || got.Capabilities[0] != "trading" {
+	if len(got.Capabilities.Categories) != 0 || len(got.Capabilities.Tags) != 1 || got.Capabilities.Tags[0] != "trading" {
 		t.Fatalf("capabilities = %v", got.Capabilities)
 	}
 	if got.Similarity != 0.71 {
@@ -87,6 +87,26 @@ func TestSearchAgentsReportsMarketRecords(t *testing.T) {
 	}
 	require.Equal(t, "did:svp:svp1real", svc.AgentIDForEndpoint("https://real.example"))
 	require.Equal(t, "did:svp:svp1real", svc.AgentIDForEndpoint("https://real.example/"))
+}
+
+func TestSearchAgentsReportsStructuredCapabilities(t *testing.T) {
+	market := marketStub(t, `{"agents":[{"agent_id":"did:svp:svp1lending","endpoint":"https://lending.example",`+
+		`"capabilities":{"categories":["LENDING"],"tags":["lendora","evm.lending"]}}]}`)
+	defer market.Close()
+
+	svc := &Service{Market: agentmarket.New(market.URL)}
+	out, err := svc.Call(context.Background(), "search_agents", map[string]any{"query": "lend SVP"})
+	require.NoError(t, err)
+
+	var decoded struct {
+		Agents []struct {
+			Capabilities agentmarket.Capabilities `json:"capabilities"`
+		} `json:"agents"`
+	}
+	require.NoError(t, json.Unmarshal([]byte(out), &decoded))
+	require.Len(t, decoded.Agents, 1)
+	require.Equal(t, []string{"LENDING"}, decoded.Agents[0].Capabilities.Categories)
+	require.Equal(t, []string{"lendora", "evm.lending"}, decoded.Agents[0].Capabilities.Tags)
 }
 
 // A hit with no agent id is unusable; it must be dropped rather than shown as
@@ -206,11 +226,11 @@ func marketBody(t *testing.T, hit map[string]any) string {
 
 type cardResult struct {
 	Agents []struct {
-		AgentID      string   `json:"agent_id"`
-		Capabilities []string `json:"capabilities"`
-		CardTrust    string   `json:"card_trust"`
-		HealthStatus string   `json:"health_status"`
-		HealthError  string   `json:"health_error"`
+		AgentID      string                   `json:"agent_id"`
+		Capabilities agentmarket.Capabilities `json:"capabilities"`
+		CardTrust    string                   `json:"card_trust"`
+		HealthStatus string                   `json:"health_status"`
+		HealthError  string                   `json:"health_error"`
 		Card         *struct {
 			Name        string `json:"name"`
 			Description string `json:"description"`
@@ -281,7 +301,7 @@ func TestSearchAgentsWithholdsSupersededCard(t *testing.T) {
 	got := decoded.Agents[0]
 	require.Equal(t, "mismatch", got.CardTrust)
 	require.Nil(t, got.Card, "a superseded card must not be shown as a description")
-	require.Equal(t, []string{"trading"}, got.Capabilities)
+	require.Equal(t, []string{"trading"}, got.Capabilities.Tags)
 	// The reason must survive, so the assistant can say why rather than
 	// silently presenting a thinner result.
 	require.Equal(t, "hash_mismatch", got.HealthStatus)

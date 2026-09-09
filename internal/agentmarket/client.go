@@ -74,19 +74,46 @@ type Pricing struct {
 	Unit   string `json:"unit,omitempty"`
 }
 
+// Capabilities is an agent's current structured capability declaration.
+// Agent Market formerly returned a string array; those legacy values are
+// preserved as tags so clients can read records from either protocol version.
+type Capabilities struct {
+	Categories []string `json:"categories,omitempty"`
+	Tags       []string `json:"tags,omitempty"`
+}
+
+func (c *Capabilities) UnmarshalJSON(data []byte) error {
+	var legacy []string
+	if err := json.Unmarshal(data, &legacy); err == nil {
+		c.Categories = nil
+		c.Tags = compactStrings(legacy)
+		return nil
+	}
+	var current struct {
+		Categories []string `json:"categories"`
+		Tags       []string `json:"tags"`
+	}
+	if err := json.Unmarshal(data, &current); err != nil {
+		return err
+	}
+	c.Categories = compactStrings(current.Categories)
+	c.Tags = compactStrings(current.Tags)
+	return nil
+}
+
 // Hit is one search result: an agent as the market service describes it, plus
 // how well it matched. Every field except Similarity is the service's claim
 // about an on-chain record — see the package comment.
 type Hit struct {
-	AgentID      string   `json:"agent_id"`
-	Owner        string   `json:"owner,omitempty"`
-	Endpoint     string   `json:"endpoint,omitempty"`
-	Capabilities []string `json:"capabilities,omitempty"`
-	Pricing      Pricing  `json:"pricing,omitzero"`
-	Bond         Coin     `json:"bond,omitzero"`
-	Status       string   `json:"status,omitempty"`
-	Metadata     string   `json:"metadata,omitempty"`
-	Similarity   float64  `json:"similarity"`
+	AgentID      string       `json:"agent_id"`
+	Owner        string       `json:"owner,omitempty"`
+	Endpoint     string       `json:"endpoint,omitempty"`
+	Capabilities Capabilities `json:"capabilities,omitzero"`
+	Pricing      Pricing      `json:"pricing,omitzero"`
+	Bond         Coin         `json:"bond,omitzero"`
+	Status       string       `json:"status,omitempty"`
+	Metadata     string       `json:"metadata,omitempty"`
+	Similarity   float64      `json:"similarity"`
 
 	// CapabilityHash is the SHA-256 (base64) the owner committed on chain, over
 	// the Agent Card bytes exactly as its endpoint serves them. All zeroes means
@@ -470,6 +497,19 @@ func usableHits(agents []Hit) []Hit {
 		hits = append(hits, a)
 	}
 	return hits
+}
+
+func compactStrings(values []string) []string {
+	if len(values) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(values))
+	for _, value := range values {
+		if value = strings.TrimSpace(value); value != "" {
+			out = append(out, value)
+		}
+	}
+	return out
 }
 
 // normalizeEndpoint makes an endpoint emitted by the market and the same

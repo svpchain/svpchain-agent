@@ -66,8 +66,8 @@ Practical consequences:
 
 ## Knowing what an agent can do
 
-`capabilities` are bare tags from the chain record — `evm.lending`, `perps.trading` — and they rarely settle whether an
-agent fits a task. `card` is where the ability actually is: the agent's own name, description and skills, published at
+`capabilities` contains broad `categories` and specific `tags` from the chain record — for example `LENDING` and
+`evm.lending`. They rarely settle whether an agent fits a task. `card` is where the ability actually is: the agent's own name, description and skills, published at
 its endpoint and carried back by the market. **Read the card first when choosing between candidates**, and use it when
 you explain the choice:
 

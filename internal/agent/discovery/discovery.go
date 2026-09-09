@@ -136,15 +136,15 @@ func endpointKey(endpoint string) string {
 // hashed, not read. A bounded projection goes to the model instead, and only
 // for a card that verified.
 type agentView struct {
-	AgentID      string           `json:"agent_id"`
-	Owner        string           `json:"owner,omitempty"`
-	Endpoint     string           `json:"endpoint,omitempty"`
-	Capabilities []string         `json:"capabilities,omitempty"`
-	Pricing      pricingView      `json:"pricing,omitzero"`
-	Bond         agentmarket.Coin `json:"bond,omitzero"`
-	Status       string           `json:"status,omitempty"`
-	Metadata     string           `json:"metadata,omitempty"`
-	Similarity   float64          `json:"similarity"`
+	AgentID      string                   `json:"agent_id"`
+	Owner        string                   `json:"owner,omitempty"`
+	Endpoint     string                   `json:"endpoint,omitempty"`
+	Capabilities agentmarket.Capabilities `json:"capabilities,omitzero"`
+	Pricing      pricingView              `json:"pricing,omitzero"`
+	Bond         agentmarket.Coin         `json:"bond,omitzero"`
+	Status       string                   `json:"status,omitempty"`
+	Metadata     string                   `json:"metadata,omitempty"`
+	Similarity   float64                  `json:"similarity"`
 	// CardTrust is this client's own verdict, not the market's health field.
 	CardTrust string `json:"card_trust"`
 	// Card is present only when CardTrust is "verified". A superseded card
@@ -258,7 +258,7 @@ func (s *Service) ToolDefs() []llm.Tool {
 					"against each agent's published A2A card. " +
 					"Runs LOCALLY against the Agent Market service configured in Settings " +
 					"(reported as agent_market_url in the result) — it does not go through the " +
-					"remote MCP server. Returns each agent's DID, A2A endpoint, capability tags, " +
+					"remote MCP server. Returns each agent's DID, A2A endpoint, capability categories and tags, " +
 					"pricing and bond as the market service reports them. Similarity is 0..1; " +
 					"treat below ~0.4 as a weak match and say so rather than acting on it " +
 					"blindly. The endpoint returned is where a2a_send_message would go, so name " +

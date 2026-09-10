@@ -293,9 +293,17 @@ func (a *App) agentSend(chainID, message string, settlement *settlementRun) erro
 			SessionTitle:           sess.Title,
 			AttachedAgentURL:       settlementAgentURL(sess.AttachedAgentURL, settlement),
 			AttachedAgentTools:     sess.AttachedAgentTools,
+			ActiveSettlement:       sess.ActiveSettlement,
 			OnAttach: func(url string, tools []string) {
 				if sess.ID != "" {
 					_ = hist.SetAttachedAgent(sess.ID, url, tools)
+				}
+			},
+			// Carrying the funded task into the next turn is what keeps one
+			// behavior to one payment; nil arrives here once it is spent.
+			OnSettlement: func(task *agentsettlement.ActiveTask) {
+				if sess.ID != "" {
+					_ = hist.SetActiveSettlement(sess.ID, task)
 				}
 			},
 			OnTranscript: func(runID string, msgs []llm.Message) {

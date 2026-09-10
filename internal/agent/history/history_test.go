@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/svpchain/svpchain-agent/internal/agent/llm"
+	"github.com/svpchain/svpchain-agent/internal/agent/settlement"
 )
 
 func newTestStore(t *testing.T) *Store {
@@ -200,4 +201,37 @@ func TestStore_AttachedAgentPersists(t *testing.T) {
 	require.Empty(t, cur.AttachedAgentTools)
 
 	require.NoError(t, s.SetAttachedAgent("nope", "https://x", nil), "unknown ids are ignored")
+}
+
+// The conversation's funded task has to survive the turn that paid for it, or
+// the next message escrows the same agent's price a second time.
+func TestStore_ActiveSettlementPersistsUntilCleared(t *testing.T) {
+	s := newTestStore(t)
+	sess, err := s.Create("svp_2517-1")
+	require.NoError(t, err)
+
+	task := &settlement.ActiveTask{
+		Endpoint: "https://agent.example",
+		AgentID:  "did:svp:abc:1",
+		TaskID:   "0x" + strings.Repeat("ab", 32),
+		Owner:    "0x516c9637B4b26F1f62f553145A9A86F01E890f60",
+		Amount:   "1000000",
+	}
+	require.NoError(t, s.SetActiveSettlement(sess.ID, task))
+	cur, ok := s.Current()
+	require.True(t, ok)
+	require.NotNil(t, cur.ActiveSettlement)
+	require.Equal(t, task.TaskID, cur.ActiveSettlement.TaskID)
+
+	require.NoError(t, s.SetActiveSettlement(sess.ID, nil), "reporting the execution spends the task")
+	cur, _ = s.Current()
+	require.Nil(t, cur.ActiveSettlement)
+
+	// A record missing what the reporter needs is no record: reusing it would
+	// leave an execution unreportable.
+	require.NoError(t, s.SetActiveSettlement(sess.ID, &settlement.ActiveTask{Endpoint: "https://agent.example"}))
+	cur, _ = s.Current()
+	require.Nil(t, cur.ActiveSettlement)
+
+	require.NoError(t, s.SetActiveSettlement("nope", task), "unknown ids are ignored")
 }

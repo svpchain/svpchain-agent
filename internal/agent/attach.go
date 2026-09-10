@@ -279,9 +279,10 @@ func notePaidConnect(tools []llm.Tool) {
 			continue
 		}
 		tools[i].Function.Description += " Paid settlement is enabled in this conversation: " +
-			"if the agent has no settlement task active in this run, connecting first pays its " +
+			"if the agent has no settlement task active in this conversation, connecting first pays its " +
 			"advertised price (local approval and deposit confirmations), exactly as " +
-			BeginSettlementTool + " would. Connecting the agent already funded in this run costs nothing."
+			BeginSettlementTool + " would. Connecting an agent this conversation already funded for a behavior " +
+			"that has not been reported complete costs nothing."
 	}
 }
 

@@ -114,6 +114,16 @@ type Config struct {
 	// trusted callers that already assigned a task.
 	SettlementValidatorURL string
 	SettlementRPCURL       string
+	// ActiveSettlement is a task this conversation funded on an earlier turn
+	// whose execution has not been reported. A run that reaches the same agent
+	// adopts it instead of depositing again, so a behavior that spans several
+	// user messages — a clarifying question, a second transaction — is paid for
+	// once. Nil means the next agent this run uses must be funded.
+	ActiveSettlement *agentsettlement.ActiveTask
+	// OnSettlement, if set, receives the conversation's active task whenever a
+	// run funds or adopts one, and nil once its execution has been reported and
+	// the task is spent. The caller persists it for the next turn.
+	OnSettlement func(*agentsettlement.ActiveTask)
 }
 
 const maxAgentIterations = 25
@@ -127,6 +137,9 @@ var (
 // Run executes one user message through the agent loop.
 func Run(ctx context.Context, cfg Config, userMessage string) (answer string, err error) {
 	settlementReporter := agentsettlement.NewDeferred()
+	// The task this run is paid by, carried in from an earlier turn and updated
+	// when the run funds or adopts one. Read by the deferred report below.
+	activeTask := cfg.ActiveSettlement
 	var emit func(Step)
 	if cfg.Settlement != nil {
 		if err = settlementReporter.Configure(*cfg.Settlement); err != nil {
@@ -141,16 +154,25 @@ func Run(ctx context.Context, cfg Config, userMessage string) (answer string, er
 			err = fmt.Errorf("settlement callback: %w", reportErr)
 			return
 		}
-		if reportErr == nil && emit != nil {
+		if reportErr == nil {
 			if taskID, txHash, ok := settlementReporter.Callback(); ok {
-				answer = strings.TrimSpace(answer) + "\n\n✅ Agent Validator callback succeeded" +
-					"\n- task_id: " + taskID +
-					"\n- execution tx_hash: " + txHash
-				emit(Step{
-					Kind:   StepTool,
-					Title:  "Agent Validator callback succeeded",
-					Detail: "task_id=" + taskID + " tx_hash=" + txHash,
-				})
+				// Reported means spent: this task paid for the behavior that
+				// just executed, so the next one must fund its own. Only the
+				// task this run made active is cleared — a caller-assigned
+				// Settlement is not the conversation's escrow.
+				if cfg.OnSettlement != nil && activeTask != nil && strings.EqualFold(strings.TrimSpace(activeTask.TaskID), taskID) {
+					cfg.OnSettlement(nil)
+				}
+				if emit != nil {
+					answer = strings.TrimSpace(answer) + "\n\n✅ Agent Validator callback succeeded" +
+						"\n- task_id: " + taskID +
+						"\n- execution tx_hash: " + txHash
+					emit(Step{
+						Kind:   StepTool,
+						Title:  "Agent Validator callback succeeded",
+						Detail: "task_id=" + taskID + " tx_hash=" + txHash,
+					})
+				}
 			}
 		}
 	}()
@@ -265,6 +287,21 @@ func Run(ctx context.Context, cfg Config, userMessage string) (answer string, er
 		if err != nil {
 			return "", err
 		}
+		paid.resume = cfg.ActiveSettlement
+		// Every settlement this run makes active is surfaced and handed back to
+		// be persisted — including one funded from a follow-up tool call, whose
+		// identifiers used to reach neither the transcript nor the user.
+		paid.onFunded = func(task agentsettlement.ActiveTask) {
+			activeTask = &task
+			emit(Step{
+				Kind:   StepTool,
+				Title:  "Settlement task active",
+				Detail: "task_id=" + task.TaskID + " agent=" + task.Endpoint + " amount=" + task.Amount,
+			})
+			if cfg.OnSettlement != nil {
+				cfg.OnSettlement(&task)
+			}
+		}
 		disc.PaymentToken = paid.PaymentToken
 		baseTools = append(baseTools, paid.ToolDef())
 		notePaidConnect(baseTools)
@@ -320,12 +357,23 @@ func Run(ctx context.Context, cfg Config, userMessage string) (answer string, er
 		return prompt, names, nil
 	}
 
-	// A paid market agent is funded for one user-requested behavior, so it must
-	// be selected and funded again on a later user message. Do not revive an old
-	// attachment and let a new behavior reuse it without a fresh settlement task.
+	// A paid market agent is funded for one user-requested behavior, not for one
+	// message. An old attachment is never revived on its own: reaching that agent
+	// again goes through the settlement flow, which adopts the task this
+	// conversation already paid for when it is still unreported, and funds a new
+	// one when it is not.
 	if u := strings.TrimSpace(cfg.AttachedAgentURL); u != "" {
 		if paid != nil {
-			emit(Step{Kind: StepThink, Title: "A fresh settlement is required before reusing agent " + u})
+			if task := cfg.ActiveSettlement; task.Usable() && normalizeAgentEndpoint(task.Endpoint) == normalizeAgentEndpoint(u) {
+				emit(Step{
+					Kind:  StepThink,
+					Title: "Reusing the settlement this conversation already paid for agent " + u,
+					Detail: "task_id=" + task.TaskID +
+						" — its execution has not been reported, so no second deposit is taken",
+				})
+			} else {
+				emit(Step{Kind: StepThink, Title: "A fresh settlement is required before reusing agent " + u})
+			}
 		} else {
 			emit(Step{Kind: StepThink, Title: "Re-attaching agent " + u})
 			if _, aerr := env.connect(ctx, map[string]any{"agent_url": u}); aerr != nil {

@@ -14,6 +14,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/svpchain/svpchain-agent/internal/agent/llm"
+	"github.com/svpchain/svpchain-agent/internal/agent/settlement"
 	"github.com/svpchain/svpchain-agent/internal/prefs"
 )
 
@@ -78,6 +79,11 @@ type SessionInfo struct {
 	// later turn without treating an invented name as payable work.
 	AttachedAgentURL   string   `json:"attached_agent_url,omitempty"`
 	AttachedAgentTools []string `json:"attached_agent_tools,omitempty"`
+	// ActiveSettlement is the settlement task this conversation funded and has
+	// not yet reported an execution for. It is what stops a behavior that spans
+	// several user messages from escrowing the agent's price more than once; it
+	// is cleared as soon as that execution is reported.
+	ActiveSettlement *settlement.ActiveTask `json:"active_settlement,omitempty"`
 }
 
 type indexFile struct {
@@ -213,6 +219,30 @@ func (s *Store) SetAttachedAgent(id, url string, tools []string) error {
 		if idx.Sessions[i].ID == id {
 			idx.Sessions[i].AttachedAgentURL = strings.TrimSpace(url)
 			idx.Sessions[i].AttachedAgentTools = normalizedToolNames(tools)
+			return s.saveIndexLocked(idx)
+		}
+	}
+	return nil
+}
+
+// SetActiveSettlement records the settlement task a conversation is currently
+// paid by, or clears it when task is nil. Unknown ids are ignored, as with the
+// attachment: a session that vanished cannot spend an escrow either.
+func (s *Store) SetActiveSettlement(id string, task *settlement.ActiveTask) error {
+	if !s.Enabled() || id == "" {
+		return nil
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	idx := s.loadIndexLocked()
+	for i := range idx.Sessions {
+		if idx.Sessions[i].ID == id {
+			if !task.Usable() {
+				idx.Sessions[i].ActiveSettlement = nil
+			} else {
+				stored := *task
+				idx.Sessions[i].ActiveSettlement = &stored
+			}
 			return s.saveIndexLocked(idx)
 		}
 	}

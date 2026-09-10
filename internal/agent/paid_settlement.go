@@ -29,9 +29,19 @@ type paidAgentFlow struct {
 	market       *agentmarket.Client
 	validator    *agentsettlement.Client
 	reporter     *agentsettlement.Reporter
-	mu           sync.Mutex
-	started      bool
-	endpoint     string
+	// resume is a task funded in an earlier turn of this conversation and not
+	// yet reported complete. A run that reaches the same agent adopts it rather
+	// than depositing again; see agentsettlement.ActiveTask.
+	resume *agentsettlement.ActiveTask
+	// onFunded reports a task this run made active, whether newly funded or
+	// adopted, so the caller can persist it for the next turn and show the user
+	// what their money bought. Every settlement path reaches it, which is what
+	// keeps an escrow funded outside begin_agent_settlement from going
+	// unrecorded.
+	onFunded func(agentsettlement.ActiveTask)
+	mu       sync.Mutex
+	started  bool
+	endpoint string
 }
 
 func newPaidAgentFlow(validatorURL, rpcURL, chainID string, priv *ethsecp256k1.PrivKey, confirm hitl.Func, market *agentmarket.Client, reporter *agentsettlement.Reporter) (*paidAgentFlow, error) {
@@ -51,7 +61,7 @@ func newPaidAgentFlow(validatorURL, rpcURL, chainID string, priv *ethsecp256k1.P
 func (f *paidAgentFlow) ToolDef() llm.Tool {
 	return llm.Tool{Type: "function", Function: llm.Function{
 		Name:        BeginSettlementTool,
-		Description: "Pay the selected active market agent's advertised price through AgentSettlement for one user-requested behavior before using its execution tools. Requires the agent_id returned by search_agents. This opens local confirmations for ERC-20 approval and deposit, assigns one validator task for the behavior, then attaches that exact agent. The behavior may require several sequential transactions; its final successful broadcast is reported to the validator.",
+		Description: "Pay the selected active market agent's advertised price through AgentSettlement for one user-requested behavior before using its execution tools. Requires the agent_id returned by search_agents. This opens local confirmations for ERC-20 approval and deposit, assigns one validator task for the behavior, then attaches that exact agent. The behavior may require several sequential transactions and several messages; its final successful broadcast is reported to the validator. If this conversation already funded this agent for a behavior whose execution was never reported, that task is reused and nothing is charged (reused_existing_task in the result).",
 		Parameters: map[string]any{"type": "object", "properties": map[string]any{
 			"agent_id": map[string]any{"type": "string", "description": "The exact agent_id from search_agents"},
 		}, "required": []string{"agent_id"}},
@@ -98,6 +108,13 @@ func (f *paidAgentFlow) Start(ctx context.Context, args map[string]any, attach f
 	if strings.TrimSpace(hit.Endpoint) == "" || strings.TrimSpace(hit.Owner) == "" || strings.TrimSpace(hit.Pricing.Amount) == "" {
 		return "", fmt.Errorf("agent %q has incomplete endpoint, owner, or pricing data", agentID)
 	}
+	// The behavior this conversation already paid for may still be unfinished:
+	// the price bought a behavior, not a message, and answering the assistant's
+	// own clarifying question must not buy a second escrow. The task is dropped
+	// once its execution is reported, so the next behavior does pay.
+	if adopted := f.adoptableLocked(hit.Endpoint); adopted != nil {
+		return f.reuseLocked(ctx, *adopted, hit, attach)
+	}
 	network, err := f.validator.NetworkConfig(ctx)
 	if err != nil {
 		return "", err
@@ -132,6 +149,10 @@ func (f *paidAgentFlow) Start(ctx context.Context, args map[string]any, attach f
 		return "", err
 	}
 	f.endpoint = normalizeAgentEndpoint(hit.Endpoint)
+	f.recordLocked(agentsettlement.ActiveTask{
+		Endpoint: hit.Endpoint, AgentID: agentID, TaskID: funded.TaskID,
+		IntentID: funded.IntentID, Owner: owner.Hex(), Amount: hit.Pricing.Amount,
+	})
 	// The remote A2A endpoint is not contacted until the escrow deposit has
 	// mined and its validator task exists. Connecting authenticates and fetches
 	// the agent card, so it belongs after payment just like build_* calls do.
@@ -152,6 +173,64 @@ func (f *paidAgentFlow) Start(ctx context.Context, args map[string]any, attach f
 		"agent_id": agentID, "endpoint": hit.Endpoint, "owner": owner.Hex(), "owner_as_listed": hit.Owner, "amount": hit.Pricing.Amount,
 		"intent_id": funded.IntentID, "task_id": funded.TaskID, "approve_tx_hash": funded.ApproveTxHash, "deposit_tx_hash": funded.DepositTxHash,
 	}, attached)
+}
+
+// adoptableLocked returns the task carried in from an earlier turn when it
+// belongs to this endpoint, or nil when this run must fund. The caller holds
+// f.mu.
+//
+// Whether the task is still open is decided locally, by whether an execution
+// was reported for it: the validator exposes no task-status read, so a record
+// that survived the last turn is one no run of this conversation closed.
+func (f *paidAgentFlow) adoptableLocked(endpoint string) *agentsettlement.ActiveTask {
+	task := f.resume
+	if !task.Usable() {
+		return nil
+	}
+	if normalizeAgentEndpoint(task.Endpoint) != normalizeAgentEndpoint(endpoint) {
+		return nil
+	}
+	return task
+}
+
+// reuseLocked activates an already funded task for this run: it configures the
+// reporter against it and attaches the agent, and deposits nothing. The caller
+// holds f.mu.
+func (f *paidAgentFlow) reuseLocked(
+	ctx context.Context,
+	task agentsettlement.ActiveTask,
+	hit agentmarket.Hit,
+	attach func(context.Context, string) (string, error),
+) (string, error) {
+	if err := f.reporter.Configure(agentsettlement.Config{
+		TaskID: task.TaskID, Owner: task.Owner, ValidatorURL: f.validatorURL, Source: agentsettlement.SourceEVM,
+	}); err != nil {
+		return "", err
+	}
+	// Marked started before the attach, exactly as the funding path does: this
+	// run now owns the task, and a failed attach must not let it fund a second.
+	f.started = true
+	f.endpoint = normalizeAgentEndpoint(hit.Endpoint)
+	f.recordLocked(task)
+	attached, err := attach(ctx, hit.Endpoint)
+	if err != nil {
+		return "", fmt.Errorf("attach agent for the task this conversation already paid for: %w", err)
+	}
+	return settlementResult(map[string]any{
+		"agent_id": task.AgentID, "endpoint": hit.Endpoint, "owner": task.Owner, "owner_as_listed": hit.Owner,
+		"amount": task.Amount, "intent_id": task.IntentID, "task_id": task.TaskID,
+		"reused_existing_task": true,
+		"note": "No new payment was taken: this conversation already escrowed this agent's price for a behavior " +
+			"that has not been reported complete.",
+	}, attached)
+}
+
+// recordLocked reports the task this run made active. The caller holds f.mu.
+func (f *paidAgentFlow) recordLocked(task agentsettlement.ActiveTask) {
+	f.resume = &task
+	if f.onFunded != nil {
+		f.onFunded(task)
+	}
 }
 
 // settlementResult merges the settlement identifiers with the attach report the

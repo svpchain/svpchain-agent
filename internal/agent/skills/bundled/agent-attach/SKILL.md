@@ -29,10 +29,12 @@ Nothing about signing changes. An attached `build_*` still goes through local `s
    the capability tags, which are too coarse to choose with.
 2. Name the agent and endpoint to the user before attaching. They are gaining a counterparty, not just a tool.
 3. `a2a_connect_agent` with that `agent_url`. When paid settlement is enabled, its tool description says so: if that
-   agent has no settlement task active in this turn, connecting **pays its advertised price first** — the approval and
-   deposit confirmations you see are that payment, not a lookup. Connect once, and never call it again "to check"
-   after paying. Read the result:
+   agent has no settlement task active in this conversation, connecting **pays its advertised price first** — the
+   approval and deposit confirmations you see are that payment, not a lookup. Connect once, and never call it again
+   "to check" after paying. Read the result:
     - `tools_available` — what you can now call.
+    - `reused_existing_task: true` — this conversation had already paid this agent for a behavior that never
+      completed, so nothing was charged. Say that plainly rather than reporting a fresh payment.
     - `authenticated: false` with a `note` — read-only tools work; anything needing a bearer will refuse. Say so
       rather than retrying blindly.
     - `tools_skipped` — names the agent offered that were **already served here**. Those keep their existing
@@ -40,7 +42,9 @@ Nothing about signing changes. An attached `build_*` still goes through local `s
 4. Call the tool you needed, then follow the normal build → sign → broadcast sequence.
 
 `begin_agent_settlement` returns the same `tools_available` / `tools_skipped` fields alongside its escrow identifiers
-(`task_id`, `approve_tx_hash`, `deposit_tx_hash`), because it attaches the agent it just paid. Read the tool list from
+(`task_id`, `approve_tx_hash`, `deposit_tx_hash`), because it attaches the agent it just paid. A behavior spanning
+several messages — you asked a clarifying question, or the work needs a second transaction — stays on the task already
+escrowed for it; a new escrow is funded only once that one's execution has been reported. Read the tool list from
 whichever of the two you called — there is no separate attach step to run afterwards.
 
 ## What to say, and what not to

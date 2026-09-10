@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 )
@@ -44,4 +45,30 @@ func TestClientReadsSettlementNetworkConfig(t *testing.T) {
 	config, err := client.NetworkConfig(context.Background())
 	require.NoError(t, err)
 	require.Equal(t, "0x0000000000000000000000000000000000000002", config.PaymentToken)
+}
+
+// Assignment waits on assignTask being mined; observed inclusion has exceeded
+// fifty seconds, so the deadline must clear that tail rather than sit inside it.
+func TestValidatorTimeoutClearsChainInclusion(t *testing.T) {
+	client, err := NewClient("https://validator.example", "")
+	require.NoError(t, err)
+	require.GreaterOrEqual(t, client.httpClient.Timeout, 60*time.Second)
+}
+
+// The status line alone cannot distinguish a reverted assignTask from a
+// rejected argument, which is what made a real assignment failure opaque.
+func TestClientReportsTaskRefusalReason(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusConflict)
+		_, _ = w.Write([]byte(`{"error":"assignTask: execution reverted"}`))
+	}))
+	t.Cleanup(server.Close)
+
+	client, err := NewClient(server.URL, "")
+	require.NoError(t, err)
+	_, err = client.CreateTask(context.Background(), Task{
+		IntentID: testTx, TaskID: testTask, Amount: "1000000", Owner: "0x0000000000000000000000000000000000000004",
+	})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "assignTask: execution reverted")
 }

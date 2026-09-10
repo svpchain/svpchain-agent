@@ -119,7 +119,12 @@ func (f *paidAgentFlow) Start(ctx context.Context, args map[string]any, attach f
 	if _, err := f.validator.CreateTask(ctx, agentsettlement.Task{
 		IntentID: funded.IntentID, TaskID: funded.TaskID, Amount: hit.Pricing.Amount, Owner: owner.Hex(),
 	}); err != nil {
-		return "", fmt.Errorf("assign settlement task: %w", err)
+		// The deposit above already moved user funds. Carry the on-chain
+		// identifiers into the failure so the escrow can be assigned later:
+		// without them the run log records no way to find the deposit again,
+		// and recovering it means scanning settlement contract events.
+		return "", fmt.Errorf("assign settlement task (deposit already escrowed: intent_id=%s task_id=%s deposit_tx=%s amount=%s): %w",
+			funded.IntentID, funded.TaskID, funded.DepositTxHash, hit.Pricing.Amount, err)
 	}
 	if err := f.reporter.Configure(agentsettlement.Config{
 		TaskID: funded.TaskID, Owner: owner.Hex(), ValidatorURL: f.validatorURL, Source: agentsettlement.SourceEVM,

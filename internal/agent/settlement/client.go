@@ -14,6 +14,14 @@ import (
 	"github.com/svpchain/svpchain-agent/internal/agent/netretry"
 )
 
+// validatorTimeout bounds a validator call. CreateTask broadcasts assignTask
+// and waits for its receipt before replying, so this has to cover block
+// inclusion rather than a round trip: observed inclusion here reaches ~51s.
+// The previous 15s cap sat inside that range, reporting failure for
+// assignments that then succeeded and aborting the run after the deposit had
+// already moved user funds.
+const validatorTimeout = 120 * time.Second
+
 // Client calls the validator's private task-assignment API. The callback token
 // remains local to the process; callers only provide public settlement fields.
 type Client struct {
@@ -55,7 +63,7 @@ func NewClient(validatorURL, callbackToken string) (*Client, error) {
 	return &Client{
 		validatorURL:  strings.TrimRight(parsed.String(), "/"),
 		callbackToken: strings.TrimSpace(callbackToken),
-		httpClient:    &http.Client{Timeout: 15 * time.Second},
+		httpClient:    &http.Client{Timeout: validatorTimeout},
 	}, nil
 }
 
@@ -111,7 +119,10 @@ func (c *Client) CreateTask(ctx context.Context, task Task) (Assignment, error) 
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusCreated {
-		return Assignment{}, fmt.Errorf("create settlement task returned %s", resp.Status)
+		// The validator explains refusals in the body; the status alone is not
+		// enough to tell a reverted assignTask from a rejected argument.
+		detail, _ := io.ReadAll(io.LimitReader(resp.Body, 2048))
+		return Assignment{}, fmt.Errorf("create settlement task returned %s: %s", resp.Status, bytes.TrimSpace(detail))
 	}
 	var assignment Assignment
 	if err := json.NewDecoder(resp.Body).Decode(&assignment); err != nil {

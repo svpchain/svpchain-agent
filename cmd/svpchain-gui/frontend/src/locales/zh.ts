@@ -10,7 +10,28 @@ export default {
         assistant: '助手',
         settings: '设置',
         runs: '运行记录',
+        settlement: '结算退款',
         about: '说明',
+    },
+    settlement: {
+        title: '结算退款',
+        hint: '仅显示本机钱包在结算合约中创建的意图。执行中的任务不能退款。',
+        empty: '没有发现可查询的结算意图。',
+        noAction: '不可操作',
+        col: {intent: 'Intent', task: '任务', status: '状态', taskAmount: '任务金额', available: '可退金额', action: '操作'},
+        state: {unassigned: '未派单', assigned: '执行中', bound: '待验证', success: '已完成', failed: '失败', cancelled: '已取消', none: '未知'},
+        btn: {cancelTask: '取消任务', refund: '退款'},
+        dialog: {
+            cancelTitle: '取消结算任务？',
+            cancelBody: '将取消未绑定的任务 {task}，释放的费用可在下一步退款。',
+            refundTitle: '退款到当前钱包？',
+            refundBody: '将把 {amount} 对应的结算任务 {task} 退回付款钱包。',
+        },
+        status: {
+            empty: '没有结算意图', count: '已加载 {n} 条结算任务', loadFailed: '读取结算状态失败: {err}',
+            cancelled: '任务已取消，交易 {tx}', cancelFailed: '取消任务失败: {err}',
+            refunded: '退款已广播，交易 {tx}', refundFailed: '退款失败: {err}',
+        },
     },
     chain: {
         testnet: '测试网 ({id})',

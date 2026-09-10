@@ -105,8 +105,15 @@ func (f *paidAgentFlow) Start(ctx context.Context, args map[string]any, attach f
 	if hit.Status != "AGENT_STATUS_ACTIVE" {
 		return "", fmt.Errorf("agent %q is not active", agentID)
 	}
+	if strings.TrimSpace(hit.AgentID) != agentID {
+		return "", fmt.Errorf("Agent Market returned agent_id %q for requested agent %q", hit.AgentID, agentID)
+	}
 	if strings.TrimSpace(hit.Endpoint) == "" || strings.TrimSpace(hit.Owner) == "" || strings.TrimSpace(hit.Pricing.Amount) == "" {
 		return "", fmt.Errorf("agent %q has incomplete endpoint, owner, or pricing data", agentID)
+	}
+	agentIndex, err := agentsettlement.AgentIndexFromID(hit.AgentID)
+	if err != nil {
+		return "", fmt.Errorf("resolve agent index for %q: %w", agentID, err)
 	}
 	// The behavior this conversation already paid for may still be unfinished:
 	// the price bought a behavior, not a message, and answering the assistant's
@@ -134,7 +141,7 @@ func (f *paidAgentFlow) Start(ctx context.Context, args map[string]any, attach f
 	// second deposit if assignment or reporting setup fails afterwards.
 	f.started = true
 	if _, err := f.validator.CreateTask(ctx, agentsettlement.Task{
-		IntentID: funded.IntentID, TaskID: funded.TaskID, Amount: hit.Pricing.Amount, Owner: owner.Hex(),
+		IntentID: funded.IntentID, TaskID: funded.TaskID, Amount: hit.Pricing.Amount, Owner: owner.Hex(), AgentIndex: agentIndex,
 	}); err != nil {
 		// The deposit above already moved user funds. Carry the on-chain
 		// identifiers into the failure so the escrow can be assigned later:
@@ -170,7 +177,7 @@ func (f *paidAgentFlow) Start(ctx context.Context, args map[string]any, attach f
 	// reads as a different party than the svp1… one search_agents showed, and
 	// that looks like an owner mismatch when it is one account in two encodings.
 	return settlementResult(map[string]any{
-		"agent_id": agentID, "endpoint": hit.Endpoint, "owner": owner.Hex(), "owner_as_listed": hit.Owner, "amount": hit.Pricing.Amount,
+		"agent_id": agentID, "agent_index": agentIndex, "endpoint": hit.Endpoint, "owner": owner.Hex(), "owner_as_listed": hit.Owner, "amount": hit.Pricing.Amount,
 		"intent_id": funded.IntentID, "task_id": funded.TaskID, "approve_tx_hash": funded.ApproveTxHash, "deposit_tx_hash": funded.DepositTxHash,
 	}, attached)
 }

@@ -15,6 +15,20 @@ export type SkillSetting = {
     source: string
 }
 
+export type SettlementRefund = {
+    chain_id: string
+    payer: string
+    intent_id: string
+    display_intent_id?: string
+    task_id?: string
+    task_status: string
+    amount?: string
+    available: string
+    token: string
+    refundable: boolean
+    cancellable: boolean
+}
+
 export type UpdateInfo = {
     Current: string
     Latest: string

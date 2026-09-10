@@ -196,6 +196,7 @@ func (a *App) AgentSendSettlement(chainID, message string, task SettlementTask) 
 
 type settlementRun struct {
 	task         SettlementTask
+	agentIndex   string
 	client       *agentsettlement.Client
 	validatorURL string
 	config       *agentsettlement.Config
@@ -267,10 +268,11 @@ func (a *App) agentSend(chainID, message string, settlement *settlementRun) erro
 				return
 			}
 			if _, err := settlement.client.CreateTask(ctx, agentsettlement.Task{
-				IntentID: settlement.task.IntentID,
-				TaskID:   settlement.task.TaskID,
-				Amount:   settlement.task.Amount,
-				Owner:    settlement.task.Owner,
+				IntentID:   settlement.task.IntentID,
+				TaskID:     settlement.task.TaskID,
+				Amount:     settlement.task.Amount,
+				Owner:      settlement.task.Owner,
+				AgentIndex: settlement.agentIndex,
 			}); err != nil {
 				emitAgentError(a.ctx, fmt.Errorf("assign settlement task: %w", err))
 				return
@@ -415,28 +417,31 @@ func (a *App) resolveSettlementAgent(ctx context.Context, settlement *settlement
 	if settlement == nil {
 		return fmt.Errorf("settlement run is not configured")
 	}
-	if strings.TrimSpace(settlement.task.AgentID) != "" {
-		market := agentmarket.New(a.AgentGetSettings().AgentMarketURL)
-		hit, err := market.Get(ctx, settlement.task.AgentID)
-		if err != nil {
-			return err
-		}
-		if hit.Status != "AGENT_STATUS_ACTIVE" {
-			return fmt.Errorf("selected agent %q is not active", settlement.task.AgentID)
-		}
-		if strings.TrimSpace(hit.Owner) == "" || strings.TrimSpace(hit.Pricing.Amount) == "" {
-			return fmt.Errorf("selected agent %q has incomplete owner or pricing data", settlement.task.AgentID)
-		}
-		settlement.task.Owner = hit.Owner
-		settlement.task.Amount = hit.Pricing.Amount
-		settlement.task.Endpoint = hit.Endpoint
+	if strings.TrimSpace(settlement.task.AgentID) == "" {
+		return fmt.Errorf("selected agent has no agent_id; settlement requires an Agent Market record")
 	}
-	if strings.TrimSpace(settlement.task.Owner) == "" {
-		return fmt.Errorf("selected agent has no owner address")
+	market := agentmarket.New(a.AgentGetSettings().AgentMarketURL)
+	hit, err := market.Get(ctx, settlement.task.AgentID)
+	if err != nil {
+		return err
 	}
-	if strings.TrimSpace(settlement.task.Amount) == "" {
-		return fmt.Errorf("selected agent has no quoted settlement amount")
+	if strings.TrimSpace(hit.AgentID) != strings.TrimSpace(settlement.task.AgentID) {
+		return fmt.Errorf("Agent Market returned agent_id %q for requested agent %q", hit.AgentID, settlement.task.AgentID)
 	}
+	if hit.Status != "AGENT_STATUS_ACTIVE" {
+		return fmt.Errorf("selected agent %q is not active", settlement.task.AgentID)
+	}
+	if strings.TrimSpace(hit.Owner) == "" || strings.TrimSpace(hit.Pricing.Amount) == "" {
+		return fmt.Errorf("selected agent %q has incomplete owner or pricing data", settlement.task.AgentID)
+	}
+	index, err := agentsettlement.AgentIndexFromID(hit.AgentID)
+	if err != nil {
+		return fmt.Errorf("resolve selected agent index: %w", err)
+	}
+	settlement.task.Owner = hit.Owner
+	settlement.task.Amount = hit.Pricing.Amount
+	settlement.task.Endpoint = hit.Endpoint
+	settlement.agentIndex = index
 	return nil
 }
 

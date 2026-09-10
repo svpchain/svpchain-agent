@@ -11,6 +11,7 @@ import KeysTab from './tabs/KeysTab.vue'
 import SecurityTab from './tabs/SecurityTab.vue'
 import SettingsTab from './tabs/SettingsTab.vue'
 import RunsTab from './tabs/RunsTab.vue'
+import SettlementTab from './tabs/SettlementTab.vue'
 import AboutTab from './tabs/AboutTab.vue'
 import UpdateModals from './UpdateModals.vue'
 import ConfirmModal from './ConfirmModal.vue'
@@ -22,7 +23,7 @@ const {isDark, sidebarCollapsed, navExpanded, toggleTheme, toggleSidebar, toggle
 
 const isMac = /Mac|iPhone|iPad|iPod/i.test(navigator.userAgent)
 
-type TabId = 'assistant' | 'config' | 'keys' | 'security' | 'settings' | 'runs' | 'about'
+type TabId = 'assistant' | 'config' | 'keys' | 'security' | 'settings' | 'runs' | 'settlement' | 'about'
 
 const navItems: { id: TabId; labelKey: string; icon: string }[] = [
   {id: 'assistant', labelKey: 'tab.assistant', icon: 'chat'},
@@ -31,6 +32,7 @@ const navItems: { id: TabId; labelKey: string; icon: string }[] = [
   {id: 'security', labelKey: 'tab.security', icon: 'shield'},
   {id: 'settings', labelKey: 'tab.settings', icon: 'settings'},
   {id: 'runs', labelKey: 'tab.runs', icon: 'runs'},
+  {id: 'settlement', labelKey: 'tab.settlement', icon: 'settlement'},
   {id: 'about', labelKey: 'tab.about', icon: 'info'},
 ]
 
@@ -43,6 +45,7 @@ const updateModalsRef = ref<InstanceType<typeof UpdateModals> | null>(null)
 const onboardingRef = ref<InstanceType<typeof OnboardingTour> | null>(null)
 const assistantTabRef = ref<InstanceType<typeof AssistantTab> | null>(null)
 const runsTabRef = ref<InstanceType<typeof RunsTab> | null>(null)
+const settlementTabRef = ref<InstanceType<typeof SettlementTab> | null>(null)
 const tourSettingsExpand = ref<string[]>([])
 
 function setStatus(msg: string) {
@@ -76,6 +79,7 @@ function selectTab(id: TabId) {
   activeTab.value = id
   if (id === 'assistant') assistantTabRef.value?.startDraft()
   if (id === 'runs') runsTabRef.value?.refresh()
+  if (id === 'settlement') settlementTabRef.value?.refresh()
 }
 
 function openRuns() {
@@ -207,6 +211,11 @@ onMounted(async () => {
                    stroke-width="1.75">
                 <path d="M4 6h16M4 12h10M4 18h13" stroke-linecap="round"/>
               </svg>
+              <svg v-else-if="item.icon === 'settlement'" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                   stroke-width="1.75">
+                <rect x="3" y="5" width="18" height="14" rx="2"/>
+                <path d="M3 10h18M8 15h3" stroke-linecap="round"/>
+              </svg>
               <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
                 <circle cx="12" cy="12" r="9"/>
                 <path d="M12 10v6M12 7h.01" stroke-linecap="round"/>
@@ -253,6 +262,9 @@ onMounted(async () => {
               @status="setStatus"
               @open-session="openAssistantSession"
           />
+        </div>
+        <div v-show="activeTab === 'settlement'" class="tab-panel tab-panel--scroll">
+          <SettlementTab ref="settlementTabRef" :active="activeTab === 'settlement'" @status="setStatus"/>
         </div>
         <div v-show="activeTab === 'about'" class="tab-panel tab-panel--scroll">
           <AboutTab/>

@@ -112,6 +112,34 @@ body,
     overflow-x: hidden;
 }
 
+.section-heading {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.section-heading h2 {
+    margin: 0 0 4px;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.settlement-id {
+    white-space: nowrap;
+}
+
+@media (max-width: 900px) {
+    .section-heading {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .section-heading .n-button {
+        align-self: flex-start;
+    }
+}
+
 .section-divider {
     margin: 8px 0 !important;
 }

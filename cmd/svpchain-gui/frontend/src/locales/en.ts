@@ -10,7 +10,28 @@ export default {
         assistant: 'Assistant',
         settings: 'Settings',
         runs: 'Runs',
+        settlement: 'Settlement',
         about: 'About',
+    },
+    settlement: {
+        title: 'Settlement refunds',
+        hint: 'Only settlement intents created by local wallets are shown. In-flight tasks cannot be refunded.',
+        empty: 'No settlement intents were found for the local wallets.',
+        noAction: 'No action',
+        col: {intent: 'Intent', task: 'Task', status: 'Status', taskAmount: 'Task amount', available: 'Refundable', action: 'Action'},
+        state: {unassigned: 'Unassigned', assigned: 'Running', bound: 'Awaiting validation', success: 'Complete', failed: 'Failed', cancelled: 'Cancelled', none: 'Unknown'},
+        btn: {cancelTask: 'Cancel task', refund: 'Refund'},
+        dialog: {
+            cancelTitle: 'Cancel settlement task?',
+            cancelBody: 'This cancels the unbound task {task}; its released payment can then be refunded.',
+            refundTitle: 'Refund to this wallet?',
+            refundBody: 'This returns {amount} associated with settlement entry {task} to the payer wallet.',
+        },
+        status: {
+            empty: 'No settlement intents', count: 'Loaded {n} settlement task(s)', loadFailed: 'Could not load settlement status: {err}',
+            cancelled: 'Task cancelled, transaction {tx}', cancelFailed: 'Could not cancel task: {err}',
+            refunded: 'Refund broadcast, transaction {tx}', refundFailed: 'Could not refund: {err}',
+        },
     },
     chain: {
         testnet: 'Testnet ({id})',

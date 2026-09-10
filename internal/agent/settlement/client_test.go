@@ -25,11 +25,12 @@ func TestClientCreatesTask(t *testing.T) {
 	client, err := NewClient(server.URL, "token")
 	require.NoError(t, err)
 	assignment, err := client.CreateTask(context.Background(), Task{
-		IntentID: testTx, TaskID: testTask, Amount: "1000000", Owner: "0x0000000000000000000000000000000000000004",
+		IntentID: testTx, TaskID: testTask, Amount: "1000000", Owner: "0x0000000000000000000000000000000000000004", AgentIndex: "7",
 	})
 	require.NoError(t, err)
 	require.Equal(t, testTask, got.TaskID)
 	require.Equal(t, "1000000", got.Amount)
+	require.Equal(t, "7", got.AgentIndex)
 	require.Equal(t, "assigned", assignment.State)
 }
 
@@ -67,8 +68,34 @@ func TestClientReportsTaskRefusalReason(t *testing.T) {
 	client, err := NewClient(server.URL, "")
 	require.NoError(t, err)
 	_, err = client.CreateTask(context.Background(), Task{
-		IntentID: testTx, TaskID: testTask, Amount: "1000000", Owner: "0x0000000000000000000000000000000000000004",
+		IntentID: testTx, TaskID: testTask, Amount: "1000000", Owner: "0x0000000000000000000000000000000000000004", AgentIndex: "1",
 	})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "assignTask: execution reverted")
+}
+
+func TestAgentIndexFromID(t *testing.T) {
+	for name, test := range map[string]struct {
+		agentID string
+		want    string
+		wantErr string
+	}{
+		"indexed DID":    {agentID: "did:svp:svp14dme9z6nayv00g77lvxh88d42mfmxqzxwqve5s:42", want: "42"},
+		"legacy DID":     {agentID: "did:svp:svp14dme9z6nayv00g77lvxh88d42mfmxqzxwqve5s", want: "0"},
+		"missing prefix": {agentID: "svp1owner:1", wantErr: "must start"},
+		"zero index":     {agentID: "did:svp:svp1owner:0", wantErr: "positive"},
+		"leading zero":   {agentID: "did:svp:svp1owner:01", wantErr: "canonical"},
+		"non decimal":    {agentID: "did:svp:svp1owner:one", wantErr: "non-decimal"},
+		"extra suffix":   {agentID: "did:svp:svp1owner:1:2", wantErr: "invalid DID suffix"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			got, err := AgentIndexFromID(test.agentID)
+			if test.wantErr != "" {
+				require.ErrorContains(t, err, test.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, test.want, got)
+		})
+	}
 }

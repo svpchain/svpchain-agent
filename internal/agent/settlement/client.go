@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -34,10 +35,37 @@ type Client struct {
 // All values are passed to AgentSettlement unchanged after validation by the
 // validator service.
 type Task struct {
-	IntentID string `json:"intent_id"`
-	TaskID   string `json:"task_id"`
-	Amount   string `json:"amount"`
-	Owner    string `json:"owner"`
+	IntentID   string `json:"intent_id"`
+	TaskID     string `json:"task_id"`
+	Amount     string `json:"amount"`
+	Owner      string `json:"owner"`
+	AgentIndex string `json:"agent_index"`
+}
+
+// AgentIndexFromID returns the index encoded in a canonical SVP agent DID.
+// Historical did:svp:<owner> records remain addressable as index zero; new
+// records use did:svp:<owner>:<positive decimal index>.
+func AgentIndexFromID(agentID string) (string, error) {
+	agentID = strings.TrimSpace(agentID)
+	const prefix = "did:svp:"
+	if !strings.HasPrefix(agentID, prefix) {
+		return "", fmt.Errorf("agent_id %q must start with %q", agentID, prefix)
+	}
+	parts := strings.Split(strings.TrimPrefix(agentID, prefix), ":")
+	if len(parts) == 1 && strings.TrimSpace(parts[0]) != "" {
+		return "0", nil
+	}
+	if len(parts) != 2 || strings.TrimSpace(parts[0]) == "" || parts[1] == "" {
+		return "", fmt.Errorf("agent_id %q has an invalid DID suffix", agentID)
+	}
+	if strings.Trim(parts[1], "0123456789") != "" {
+		return "", fmt.Errorf("agent_id %q has a non-decimal index", agentID)
+	}
+	index, err := strconv.ParseUint(parts[1], 10, 64)
+	if err != nil || index == 0 || strconv.FormatUint(index, 10) != parts[1] {
+		return "", fmt.Errorf("agent_id %q must have a canonical positive index", agentID)
+	}
+	return parts[1], nil
 }
 
 // Assignment is the validator response after assignTask is mined.
@@ -98,15 +126,17 @@ func (c *Client) CreateTask(ctx context.Context, task Task) (Assignment, error) 
 		return Assignment{}, fmt.Errorf("settlement validator client is nil")
 	}
 	body, err := json.Marshal(struct {
-		IntentID string `json:"intent_id"`
-		TaskID   string `json:"task_id"`
-		Amount   string `json:"amount"`
-		Owner    string `json:"owner"`
+		IntentID   string `json:"intent_id"`
+		TaskID     string `json:"task_id"`
+		Amount     string `json:"amount"`
+		Owner      string `json:"owner"`
+		AgentIndex string `json:"agent_index"`
 	}{
-		IntentID: strings.TrimSpace(task.IntentID),
-		TaskID:   strings.TrimSpace(task.TaskID),
-		Amount:   strings.TrimSpace(task.Amount),
-		Owner:    strings.TrimSpace(task.Owner),
+		IntentID:   strings.TrimSpace(task.IntentID),
+		TaskID:     strings.TrimSpace(task.TaskID),
+		Amount:     strings.TrimSpace(task.Amount),
+		Owner:      strings.TrimSpace(task.Owner),
+		AgentIndex: strings.TrimSpace(task.AgentIndex),
 	})
 	if err != nil {
 		return Assignment{}, err

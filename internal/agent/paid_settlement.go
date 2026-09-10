@@ -135,17 +135,48 @@ func (f *paidAgentFlow) Start(ctx context.Context, args map[string]any, attach f
 	// The remote A2A endpoint is not contacted until the escrow deposit has
 	// mined and its validator task exists. Connecting authenticates and fetches
 	// the agent card, so it belongs after payment just like build_* calls do.
-	if _, err := attach(ctx, hit.Endpoint); err != nil {
+	attached, err := attach(ctx, hit.Endpoint)
+	if err != nil {
 		return "", fmt.Errorf("attach selected agent after settlement: %w", err)
 	}
-	result, err := json.Marshal(map[string]string{
-		"agent_id": agentID, "endpoint": hit.Endpoint, "owner": owner.Hex(), "amount": hit.Pricing.Amount,
+	// The attach report carries tools_available, and that list is the only thing
+	// the assistant may call from. Returning the escrow identifiers alone reads
+	// as "nothing was attached", so the behavior the user just paid for stops
+	// with the deposit already spent.
+	//
+	// owner_as_listed is the same account as owner, which is re-encoded as EVM
+	// hex for the settlement contract. Without the listed form the hex address
+	// reads as a different party than the svp1… one search_agents showed, and
+	// that looks like an owner mismatch when it is one account in two encodings.
+	return settlementResult(map[string]any{
+		"agent_id": agentID, "endpoint": hit.Endpoint, "owner": owner.Hex(), "owner_as_listed": hit.Owner, "amount": hit.Pricing.Amount,
 		"intent_id": funded.IntentID, "task_id": funded.TaskID, "approve_tx_hash": funded.ApproveTxHash, "deposit_tx_hash": funded.DepositTxHash,
-	})
+	}, attached)
+}
+
+// settlementResult merges the settlement identifiers with the attach report the
+// connect path returned, so one tool result says both what was paid and what
+// can now be called. Settlement fields win: an attached agent must not be able
+// to restate the escrow it was paid from.
+func settlementResult(fields map[string]any, attachResult string) (string, error) {
+	attachResult = strings.TrimSpace(attachResult)
+	if attachResult != "" {
+		var report map[string]any
+		if err := json.Unmarshal([]byte(attachResult), &report); err != nil {
+			// Not a tool report. Carry it verbatim rather than dropping it.
+			fields["attach_result"] = attachResult
+		}
+		for k, v := range report {
+			if _, taken := fields[k]; !taken {
+				fields[k] = v
+			}
+		}
+	}
+	bz, err := json.Marshal(fields)
 	if err != nil {
 		return "", err
 	}
-	return string(result), nil
+	return string(bz), nil
 }
 
 // StartEndpoint resolves an endpoint against the current active Agent Market

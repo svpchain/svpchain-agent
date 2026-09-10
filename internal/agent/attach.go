@@ -269,6 +269,22 @@ func (env dispatchEnv) connect(ctx context.Context, args map[string]any) (string
 	return string(bz), nil
 }
 
+// notePaidConnect rewrites the connect tool's description once settlement is
+// configured. In that mode connecting an agent that has no task active in this
+// run funds one, so the model must not read attaching as a free lookup and must
+// not call it again "just to check" after paying.
+func notePaidConnect(tools []llm.Tool) {
+	for i := range tools {
+		if strings.TrimSpace(tools[i].Function.Name) != ConnectTool {
+			continue
+		}
+		tools[i].Function.Description += " Paid settlement is enabled in this conversation: " +
+			"if the agent has no settlement task active in this run, connecting first pays its " +
+			"advertised price (local approval and deposit confirmations), exactly as " +
+			BeginSettlementTool + " would. Connecting the agent already funded in this run costs nothing."
+	}
+}
+
 // ConnectToolDef is offered whenever agent search is available: finding an
 // agent is only useful if its tools can then be attached.
 func ConnectToolDef() llm.Tool {

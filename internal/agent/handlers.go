@@ -172,8 +172,19 @@ func (h attachedHandler) Call(ctx context.Context, name string, args map[string]
 			return "", err
 		}
 	}
-	return h.env.callWithReauth(ctx, name, h.env.att.retrier(), func(ctx context.Context) (string, error) {
-		return h.env.att.call(ctx, name, args)
+	return h.env.callAttached(ctx, name, args)
+}
+
+// callAttached dispatches one of the attached agent's tools. Every route to an
+// attached agent goes through here, because a freshly attached client holds no
+// bearer: the agent answers the first tenant-scoped call of the attachment with
+// its handshake instructions, and callWithReauth is what turns that into
+// auth_challenge → local sign_challenge → auth_verify → retry. Calling
+// attached.call directly instead makes that first call fail, and a tool error
+// ends the run.
+func (env dispatchEnv) callAttached(ctx context.Context, name string, args map[string]any) (string, error) {
+	return env.callWithReauth(ctx, name, env.att.retrier(), func(ctx context.Context) (string, error) {
+		return env.att.call(ctx, name, args)
 	})
 }
 
@@ -231,5 +242,5 @@ func (env dispatchEnv) resumePaidTool(ctx context.Context, name string, args map
 	}); err != nil {
 		return "", fmt.Errorf("renew settlement for saved market agent: %w", err)
 	}
-	return env.att.call(ctx, name, args)
+	return env.callAttached(ctx, name, args)
 }

@@ -170,3 +170,46 @@ func TestCallWithReauthLeavesNormalResultsAlone(t *testing.T) {
 	require.Zero(t, transport.handshakes)
 	require.Zero(t, transport.invalidated)
 }
+
+// fakeAttachedAgent is an attached A2A agent as it behaves at the start of an
+// attachment: it holds no bearer, so it refuses a tenant-scoped call with the
+// service's handshake instructions. a2amcp turns a non-OK reply into an error,
+// which is why this refuses as an error rather than as a soft result.
+type fakeAttachedAgent struct {
+	fakeSource
+	authed     bool
+	handshakes int
+}
+
+func (f *fakeAttachedAgent) InvalidateBearer() { f.authed = false }
+
+func (f *fakeAttachedAgent) EnsureAuth(_ context.Context, _ string, _ func(string) (string, error)) error {
+	f.handshakes++
+	f.authed = true
+	return nil
+}
+
+func (f *fakeAttachedAgent) CallTool(_ context.Context, name string, _ map[string]any) (string, error) {
+	f.called = append(f.called, name)
+	if !f.authed {
+		return "", fmt.Errorf("%s", authRequiredReply)
+	}
+	return `{"ok":true}`, nil
+}
+
+// Every route to an attached agent must authenticate on first use. The paid
+// resume path used to call the agent directly, so the first tool call of a
+// conversation that renewed its settlement died on "authenticate first" — and a
+// tool error ends the run, leaving the model no round in which to recover.
+func TestCallAttachedRunsHandshakeOnFirstUse(t *testing.T) {
+	remote := &fakeAttachedAgent{fakeSource: fakeSource{tools: []string{"build_place_market_order"}}}
+	att := newAttached(nil)
+	require.Equal(t, []string{"build_place_market_order"}, att.set(remote))
+	env := dispatchEnv{local: testSigner(t), att: att}
+
+	out, err := env.callAttached(context.Background(), "build_place_market_order", map[string]any{})
+	require.NoError(t, err)
+	require.Equal(t, `{"ok":true}`, out)
+	require.Equal(t, 1, remote.handshakes)
+	require.Equal(t, []string{"build_place_market_order", "build_place_market_order"}, remote.called)
+}

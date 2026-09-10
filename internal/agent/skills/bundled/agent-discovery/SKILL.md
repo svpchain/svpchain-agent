@@ -31,8 +31,10 @@ Two different URLs are involved, and confusing them causes real trouble:
 When the user asks to execute a task through a market agent, first find the active candidate and state its advertised
 price. Use `begin_agent_settlement` with that exact `agent_id` before invoking any execution tool from the selected
 agent. It reads the latest owner and price from Agent Market, then opens local confirmations for payment-token
-approval and escrow deposit. Once both are confirmed, it assigns the validator task and attaches that exact endpoint.
-Do not call it for questions that merely ask about an agent or the market.
+approval and escrow deposit. Once both are confirmed, it assigns the validator task and attaches that exact endpoint,
+returning `tools_available` for that agent next to the escrow identifiers. Do not call it for questions that merely ask
+about an agent or the market, and do not follow it with `a2a_connect_agent` for the same agent — the attach has already
+happened, and a connect in a later turn opens a second paid settlement.
 
 When the user asks a generic market question, such as "what agents are available?" or "what is in the market?", call
 `search_agents` with `{"mode":"list"}`. Do not turn that question into a semantic `query`: this calls the paginated

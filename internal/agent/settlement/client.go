@@ -75,6 +75,19 @@ type Assignment struct {
 	AssignmentTxHash string `json:"assignment_tx_hash"`
 }
 
+// Execution is the validator's persisted status for a callback. A successful
+// callback submission is only received; succeeded means the validator has
+// completed the resulting settlement workflow.
+type Execution struct {
+	TaskID           string `json:"task_id"`
+	TxHash           string `json:"tx_hash"`
+	Chain            string `json:"chain"`
+	State            string `json:"state"`
+	SettlementTxHash string `json:"settlement_tx_hash"`
+	Attempts         int    `json:"attempts"`
+	LastError        string `json:"last_error"`
+}
+
 // NetworkConfig is the network-level settlement deployment returned by the
 // validator. Agent price and owner remain Agent Market data.
 type NetworkConfig struct {
@@ -117,6 +130,31 @@ func (c *Client) NetworkConfig(ctx context.Context) (NetworkConfig, error) {
 		return NetworkConfig{}, fmt.Errorf("settlement network config is incomplete")
 	}
 	return config, nil
+}
+
+// Execution reads the validator's database-backed processing result for a
+// settlement task. found is false when the validator has not received a
+// callback for this task.
+func (c *Client) Execution(ctx context.Context, taskID string) (execution Execution, found bool, err error) {
+	if c == nil {
+		return Execution{}, false, fmt.Errorf("settlement validator client is nil")
+	}
+	resp, err := c.do(ctx, http.MethodGet, "/v1/executions/"+url.PathEscape(strings.TrimSpace(taskID)), nil)
+	if err != nil {
+		return Execution{}, false, fmt.Errorf("query settlement execution: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusNotFound {
+		return Execution{}, false, nil
+	}
+	if resp.StatusCode != http.StatusOK {
+		detail, _ := io.ReadAll(io.LimitReader(resp.Body, 2048))
+		return Execution{}, false, fmt.Errorf("query settlement execution returned %s: %s", resp.Status, bytes.TrimSpace(detail))
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&execution); err != nil {
+		return Execution{}, false, fmt.Errorf("decode settlement execution: %w", err)
+	}
+	return execution, true, nil
 }
 
 // CreateTask asks the validator to assign a funded task. It is idempotent for

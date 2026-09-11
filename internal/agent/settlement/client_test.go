@@ -48,6 +48,34 @@ func TestClientReadsSettlementNetworkConfig(t *testing.T) {
 	require.Equal(t, "0x0000000000000000000000000000000000000002", config.PaymentToken)
 }
 
+func TestClientReadsExecutionStatus(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "/v1/executions/"+testTask, r.URL.Path)
+		_, _ = w.Write([]byte(`{"task_id":"` + testTask + `","tx_hash":"` + testTx + `","chain":"evm","state":"received","attempts":3,"last_error":"bindExecution: execution reverted"}`))
+	}))
+	t.Cleanup(server.Close)
+
+	client, err := NewClient(server.URL, "")
+	require.NoError(t, err)
+	execution, found, err := client.Execution(context.Background(), testTask)
+	require.NoError(t, err)
+	require.True(t, found)
+	require.Equal(t, "received", execution.State)
+	require.Equal(t, 3, execution.Attempts)
+	require.Contains(t, execution.LastError, "reverted")
+}
+
+func TestClientExecutionNotFoundIsNotAnError(t *testing.T) {
+	server := httptest.NewServer(http.NotFoundHandler())
+	t.Cleanup(server.Close)
+
+	client, err := NewClient(server.URL, "")
+	require.NoError(t, err)
+	_, found, err := client.Execution(context.Background(), testTask)
+	require.NoError(t, err)
+	require.False(t, found)
+}
+
 // Assignment waits on assignTask being mined; observed inclusion has exceeded
 // fifty seconds, so the deadline must clear that tail rather than sit inside it.
 func TestValidatorTimeoutClearsChainInclusion(t *testing.T) {

@@ -19,7 +19,7 @@ export default {
         empty: '没有发现可查询的结算意图。',
         noAction: '不可操作',
         col: {intent: 'Intent', task: '任务', status: '状态', taskAmount: '任务金额', available: '可退金额', action: '操作'},
-        state: {unassigned: '未派单', assigned: '执行中', bound: '待验证', success: '已完成', failed: '失败', cancelled: '已取消', none: '未知'},
+        state: {unassigned: '未派单', assigned: '待执行', submitted: '已提交验证', retrying: '验证重试中', bound: '待验证', validating: '验证中', success: '已完成', failed: '失败', cancelled: '已取消', none: '未知'},
         btn: {cancelTask: '取消任务', refund: '退款'},
         dialog: {
             cancelTitle: '取消结算任务？',

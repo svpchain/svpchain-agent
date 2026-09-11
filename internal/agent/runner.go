@@ -164,12 +164,12 @@ func Run(ctx context.Context, cfg Config, userMessage string) (answer string, er
 					cfg.OnSettlement(nil)
 				}
 				if emit != nil {
-					answer = strings.TrimSpace(answer) + "\n\n✅ Agent Validator callback succeeded" +
+					answer = strings.TrimSpace(answer) + "\n\n✅ Agent Validator callback accepted; validation is pending" +
 						"\n- task_id: " + taskID +
 						"\n- execution tx_hash: " + txHash
 					emit(Step{
 						Kind:   StepTool,
-						Title:  "Agent Validator callback succeeded",
+						Title:  "Agent Validator callback accepted",
 						Detail: "task_id=" + taskID + " tx_hash=" + txHash,
 					})
 				}

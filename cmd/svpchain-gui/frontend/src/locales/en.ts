@@ -19,7 +19,7 @@ export default {
         empty: 'No settlement intents were found for the local wallets.',
         noAction: 'No action',
         col: {intent: 'Intent', task: 'Task', status: 'Status', taskAmount: 'Task amount', available: 'Refundable', action: 'Action'},
-        state: {unassigned: 'Unassigned', assigned: 'Running', bound: 'Awaiting validation', success: 'Complete', failed: 'Failed', cancelled: 'Cancelled', none: 'Unknown'},
+        state: {unassigned: 'Unassigned', assigned: 'Awaiting execution', submitted: 'Submitted for validation', retrying: 'Validation retrying', bound: 'Awaiting validation', validating: 'Validating', success: 'Complete', failed: 'Failed', cancelled: 'Cancelled', none: 'Unknown'},
         btn: {cancelTask: 'Cancel task', refund: 'Refund'},
         dialog: {
             cancelTitle: 'Cancel settlement task?',

@@ -28,3 +28,11 @@ func TestSettlementRefundRowsWithholdsRefundWhileTaskActive(t *testing.T) {
 	unassigned := settlementRefundRows("svp-2517-1", intent, nil, token)
 	require.Equal(t, intent.ID, unassigned[0].TaskID)
 }
+
+func TestSettlementDisplayStatusUsesValidatorLifecycle(t *testing.T) {
+	require.Equal(t, "submitted", settlementDisplayStatus("received", "", "assigned"))
+	require.Equal(t, "retrying", settlementDisplayStatus("received", "bindExecution reverted", "assigned"))
+	require.Equal(t, "validating", settlementDisplayStatus("pending", "", "bound"))
+	require.Equal(t, "success", settlementDisplayStatus("succeeded", "", "assigned"))
+	require.Equal(t, "failed", settlementDisplayStatus("failed", "", "assigned"))
+}

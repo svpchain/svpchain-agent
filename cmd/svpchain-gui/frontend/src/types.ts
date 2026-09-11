@@ -27,6 +27,8 @@ export type SettlementRefund = {
     token: string
     refundable: boolean
     cancellable: boolean
+    validator_state?: string
+    validator_error?: string
 }
 
 export type UpdateInfo = {

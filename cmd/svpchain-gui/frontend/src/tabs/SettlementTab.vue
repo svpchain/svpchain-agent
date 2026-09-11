@@ -50,6 +50,8 @@ function normalize(row: SettlementRefund & Record<string, unknown>): SettlementR
     token: String(row.token ?? row.Token ?? ''),
     refundable: Boolean(row.refundable ?? row.Refundable),
     cancellable: Boolean(row.cancellable ?? row.Cancellable),
+    validator_state: String(row.validator_state ?? row.ValidatorState ?? ''),
+    validator_error: String(row.validator_error ?? row.ValidatorError ?? ''),
   }
 }
 
@@ -61,7 +63,7 @@ function short(value: string) {
 function stateType(state: string): 'success' | 'error' | 'warning' | 'info' | 'default' {
   if (state === 'success') return 'success'
   if (state === 'failed' || state === 'cancelled') return 'error'
-  if (state === 'assigned' || state === 'bound') return 'warning'
+  if (state === 'assigned' || state === 'bound' || state === 'submitted' || state === 'validating' || state === 'retrying') return 'warning'
   return 'default'
 }
 
@@ -136,7 +138,7 @@ function refund(row: SettlementRefund) {
 const columns: DataTableColumns<SettlementRefund> = [
   {title: () => t('col.chainId'), key: 'chain_id', width: 148},
   {title: () => t('settlement.col.task'), key: 'task_id', width: 220, render: (row) => row.task_id ? h(NText, {code: true, class: 'settlement-id'}, {default: () => short(row.task_id)}) : '—'},
-  {title: () => t('settlement.col.status'), key: 'task_status', width: 112, render: (row) => h(NTag, {type: stateType(row.task_status), size: 'small'}, {default: () => stateLabel(row.task_status)})},
+  {title: () => t('settlement.col.status'), key: 'task_status', width: 150, render: (row) => h(NTag, {type: stateType(row.task_status), size: 'small', title: row.validator_error || undefined}, {default: () => stateLabel(row.task_status)})},
   {title: () => t('settlement.col.taskAmount'), key: 'amount', width: 138, render: (row) => row.amount || '—'},
   {title: () => t('settlement.col.available'), key: 'available', width: 144},
   {
@@ -180,7 +182,7 @@ defineExpose({refresh})
           :row-key="(row: SettlementRefund) => `${row.chain_id}:${row.intent_id}:${row.task_id || 'intent'}`"
           :bordered="false"
           :single-line="false"
-          :scroll-x="946"
+          :scroll-x="984"
       />
     </n-spin>
   </div>

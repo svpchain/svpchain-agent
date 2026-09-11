@@ -31,6 +31,8 @@ type SettlementRefund struct {
 	Token           string `json:"token"`
 	Refundable      bool   `json:"refundable"`
 	Cancellable     bool   `json:"cancellable"`
+	ValidatorState  string `json:"validator_state,omitempty"`
+	ValidatorError  string `json:"validator_error,omitempty"`
 }
 
 // SettlementRefunds lists intents created by the locally stored keys and their
@@ -45,6 +47,10 @@ func (a *App) SettlementRefunds() ([]SettlementRefund, error) {
 		return nil, localized(err)
 	}
 	token, err := agentsettlement.ReadPaymentToken(ctx, settlementRPCURL(), network.PaymentToken)
+	if err != nil {
+		return nil, localized(err)
+	}
+	validator, err := agentsettlement.NewClient(resolveSettlementValidatorURL(a.AgentGetSettings()), "")
 	if err != nil {
 		return nil, localized(err)
 	}
@@ -85,10 +91,43 @@ func (a *App) SettlementRefunds() ([]SettlementRefund, error) {
 				}
 				tasks = append(tasks, task)
 			}
-			rows = append(rows, settlementRefundRows(entry.ChainID, intent, tasks, token)...)
+			intentRows := settlementRefundRows(entry.ChainID, intent, tasks, token)
+			for i := range intentRows {
+				if intentRows[i].TaskID == "" || intentRows[i].TaskStatus == "unassigned" {
+					continue
+				}
+				execution, found, executionErr := validator.Execution(ctx, intentRows[i].TaskID)
+				if executionErr != nil || !found {
+					continue
+				}
+				intentRows[i].ValidatorState = execution.State
+				intentRows[i].ValidatorError = execution.LastError
+				intentRows[i].TaskStatus = settlementDisplayStatus(execution.State, execution.LastError, intentRows[i].TaskStatus)
+			}
+			rows = append(rows, intentRows...)
 		}
 	}
 	return rows, nil
+}
+
+// settlementDisplayStatus uses the validator's persisted lifecycle when a
+// callback exists. Refund eligibility remains based on the contract state.
+func settlementDisplayStatus(state, lastError, fallback string) string {
+	switch strings.TrimSpace(state) {
+	case "received":
+		if strings.TrimSpace(lastError) != "" {
+			return "retrying"
+		}
+		return "submitted"
+	case "bound", "pending":
+		return "validating"
+	case "succeeded":
+		return "success"
+	case "failed":
+		return "failed"
+	default:
+		return fallback
+	}
 }
 
 // SettlementCancel cancels an unbound task through the payer's local signer.

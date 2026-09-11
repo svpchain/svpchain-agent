@@ -119,8 +119,27 @@ func Decode(data []byte) (*Destination, error) {
 	if !ok {
 		return nil, nil
 	}
+	return decode(data[4:], spec)
+}
 
-	head := data[4:]
+// DecodeTransfer extracts a token-transfer recipient while deliberately
+// ignoring approvals and operators. Transfer whitelisting protects value moving
+// away from the wallet; approvals remain governed by the explicit signing
+// confirmation rather than the recipient whitelist.
+func DecodeTransfer(data []byte) (*Destination, error) {
+	if len(data) < 4 {
+		return nil, nil
+	}
+	var sel [4]byte
+	copy(sel[:], data[:4])
+	spec, ok := guardedMethods[sel]
+	if !ok || spec.role != RoleRecipient {
+		return nil, nil
+	}
+	return decode(data[4:], spec)
+}
+
+func decode(head []byte, spec methodSpec) (*Destination, error) {
 	if len(head) < wordSize*spec.args {
 		return nil, fmt.Errorf(
 			"call data for %s is truncated: %d argument bytes, want at least %d",

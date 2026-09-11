@@ -39,6 +39,8 @@ func TestWhitelistAliasPrompt(t *testing.T) {
 		require.Contains(t, out, cosmos)
 		require.NotContains(t, out, "Elsewhere")
 		require.Contains(t, out, gateChainID)
+		require.Contains(t, out, "local transfer gate reads the complete whitelist")
+		require.NotContains(t, out, "tell them it is not on the whitelist")
 	})
 
 	t.Run("blank chain id yields nothing", func(t *testing.T) {

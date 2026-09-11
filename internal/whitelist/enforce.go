@@ -38,18 +38,17 @@ func (s *Store) Allows(chainID, addressType, address string) bool {
 	return false
 }
 
-// CheckEVMTx checks every account an EVM transaction hands value or spending
-// rights to against s:
+// CheckEVMTransfer checks every account an EVM transaction hands value to
+// against s:
 //
 //  1. the recipient of a native send — to, when value is positive; and
-//  2. the recipient / spender / operator named INSIDE standard ERC-20, ERC-721
-//     and ERC-1155 call data (see internal/evmcall).
+//  2. the recipient named INSIDE standard ERC-20, ERC-721 and ERC-1155 transfer
+//     call data (see internal/evmcall).
 //
-// The second check is what makes the whitelist meaningful for token
-// transactions. A token transfer or approval carries value 0 and addresses the
-// token contract, so it is invisible to check 1 alone: without decoding the
-// call data, "transfer my USDC to the attacker" and "approve the attacker for
-// an unlimited amount" both pass a to/value-only check unexamined.
+// Approvals are intentionally excluded: their spender is approved by the
+// local signing confirmation, not this recipient whitelist. A token transfer
+// carries value 0 and addresses the token contract, so decoding remains
+// necessary to enforce its final recipient.
 //
 // Call data whose selector is a known token method but whose arguments will not
 // decode is refused, not skipped — otherwise malformed arguments would be a
@@ -60,14 +59,14 @@ func (s *Store) Allows(chainID, addressType, address string) bool {
 // the assistant's gate as refuse-all), so each caller applies that policy itself
 // and then calls this for the shared "given this whitelist, is the tx allowed?"
 // decision.
-func (s *Store) CheckEVMTx(chainID, to string, valuePositive bool, data []byte) error {
+func (s *Store) CheckEVMTransfer(chainID, to string, valuePositive bool, data []byte) error {
 	if valuePositive && strings.TrimSpace(to) != "" {
 		if !s.Allows(chainID, AddressTypeEVM, to) {
 			return fmt.Errorf("recipient %q is not on the whitelist for chain %q (EVM)", to, chainID)
 		}
 	}
 
-	dest, err := evmcall.Decode(data)
+	dest, err := evmcall.DecodeTransfer(data)
 	if err != nil {
 		return err
 	}
@@ -76,8 +75,8 @@ func (s *Store) CheckEVMTx(chainID, to string, valuePositive bool, data []byte) 
 	}
 	addr := dest.Address.Hex()
 	if !s.Allows(chainID, AddressTypeEVM, addr) {
-		return fmt.Errorf("%s %q is not on the whitelist for chain %q (EVM %s)",
-			dest.Role, addr, chainID, dest.Method)
+		return fmt.Errorf("recipient %q is not on the whitelist for chain %q (EVM %s)",
+			addr, chainID, dest.Method)
 	}
 	return nil
 }

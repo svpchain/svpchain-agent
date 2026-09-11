@@ -44,19 +44,22 @@ func TestCheckWhitelistGate(t *testing.T) {
 	allowedCosmos := cosmosAddr(0x11)
 	blockedCosmos := cosmosAddr(0x22)
 
-	t.Run("configured whitelist does not reject EVM or Cosmos recipients", func(t *testing.T) {
-		writePrefs(t, `{"whitelist":[{"chain_id":"`+gateChainID+`","address_type":"evm","address":"`+allowedEVM+`"}]}`)
+	t.Run("transfer recipients must be whitelisted", func(t *testing.T) {
+		writePrefs(t, `{"whitelist":[`+
+			`{"chain_id":"`+gateChainID+`","address_type":"evm","address":"`+allowedEVM+`"},`+
+			`{"chain_id":"`+gateChainID+`","address_type":"cosmos","address":"`+allowedCosmos+`"}`+
+			`]}`)
 		require.NoError(t, Check(gateChainID, "build_erc20_transfer",
 			map[string]any{"to": allowedEVM}))
-		require.NoError(t, Check(gateChainID, "build_erc20_transfer",
-			map[string]any{"to": blockedEVM}))
-		require.NoError(t, Check(gateChainID, "build_bank_send",
-			map[string]any{"recipient": blockedCosmos}))
 		require.NoError(t, Check(gateChainID, "build_bank_send",
 			map[string]any{"recipient": allowedCosmos}))
+		require.Error(t, Check(gateChainID, "build_erc20_transfer",
+			map[string]any{"to": blockedEVM}))
+		require.Error(t, Check(gateChainID, "build_bank_send",
+			map[string]any{"recipient": blockedCosmos}))
 	})
 
-	t.Run("approval is not gated", func(t *testing.T) {
+	t.Run("approval is not recipient-whitelisted", func(t *testing.T) {
 		writePrefs(t, `{"whitelist":[{"chain_id":"`+gateChainID+`","address_type":"evm","address":"`+allowedEVM+`"}]}`)
 		require.NoError(t, Check(gateChainID, "build_erc20_approve",
 			map[string]any{"spender": blockedEVM}))
@@ -118,22 +121,24 @@ func TestCheckGate_SignEVMTransaction(t *testing.T) {
 			`","address_type":"evm","address":"`+allowedEVM.Hex()+`"}]}`)
 	}
 
-	t.Run("all direct EVM signing payloads bypass the preflight whitelist", func(t *testing.T) {
+	t.Run("direct transfer signing enforces recipients but permits approvals", func(t *testing.T) {
 		activeWhitelist(t)
 		maxUint := make([]byte, 32)
 		for i := range maxUint {
 			maxUint[i] = 0xff
 		}
 		for _, args := range []map[string]any{
-			signEVMArgs(tokenContract, "0", tokenCall("transfer(address,uint256)", attacker.Bytes(), []byte{0x05})),
 			signEVMArgs(tokenContract, "0", tokenCall("approve(address,uint256)", attacker.Bytes(), maxUint)),
 			signEVMArgs(tokenContract, "0", tokenCall("setApprovalForAll(address,bool)", attacker.Bytes(), []byte{0x01})),
-			signEVMArgs(attacker.Hex(), "1000", ""),
 		} {
 			require.NoError(t, Check(gateChainID, SignEVMTool, args))
 		}
+		require.NoError(t, Check(gateChainID, SignEVMTool,
+			signEVMArgs(tokenContract, "0", tokenCall("transfer(address,uint256)", allowedEVM.Bytes(), []byte{0x05}))))
+		require.Error(t, Check(gateChainID, SignEVMTool,
+			signEVMArgs(tokenContract, "0", tokenCall("transfer(address,uint256)", attacker.Bytes(), []byte{0x05}))))
+		require.Error(t, Check(gateChainID, SignEVMTool, signEVMArgs(attacker.Hex(), "1000", "")))
 
-		// The whitelist bypass does not disable EVM payload validation.
 		err := Check(gateChainID, SignEVMTool, map[string]any{})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "payload is required")

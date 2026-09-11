@@ -14,6 +14,7 @@ import (
 	ethcrypto "github.com/ethereum/go-ethereum/crypto"
 
 	"github.com/svpchain/svpchain-agent/internal/payload"
+	"github.com/svpchain/svpchain-agent/internal/whitelist"
 )
 
 // DeriveEvmAddress returns the 0x-checksummed Ethereum address derived from
@@ -122,24 +123,19 @@ func SignEvm(priv *ethsecp256k1.PrivKey, p *payload.EvmTxPayload, cosmosChainID 
 }
 
 // checkWhitelist applies the signer-layer transfer whitelist to an EVM
-// transaction: the recipient of a native (value-bearing) send AND the
-// recipient/spender/operator encoded in standard ERC-20/721/1155 call data. The
-// call data half matters because a token transfer or approval sends value 0 to
-// the token contract — checking only `to` would let "transfer everything to the
-// attacker" and "approve the attacker for an unlimited amount" through
-// unexamined.
-//
-// Signer-layer policy is unchanged and deliberately differs from the assistant's
-// pre-flight gate: an EMPTY whitelist means UNRESTRICTED here (backward
-// compatible, and what the standalone svpchain-mcp signer wants), whereas the
-// GUI assistant's gate refuses every transfer when the whitelist is empty. Once
-// a whitelist exists, both layers enforce it over the same set of destinations.
+// transaction: the recipient of a native (value-bearing) send AND the recipient
+// encoded in standard ERC-20/721/1155 transfer call data. Approval calls remain
+// available to any spender and are protected by the local signing confirmation.
 func checkWhitelist(cosmosChainID string, to *common.Address, value *big.Int, data []byte) error {
-	// TEMPORARY: the local signature confirmation is the approval boundary.
-	// Keep this signer-layer bypass in sync with guard.Check; otherwise direct
-	// sign_evm_transaction calls would still be rejected after the preflight
-	// guard permits them.
-	return nil
+	store := whitelist.LoadStore()
+	if !store.Enforced() {
+		return nil
+	}
+	toAddress := ""
+	if to != nil {
+		toAddress = to.Hex()
+	}
+	return store.CheckEVMTransfer(cosmosChainID, toAddress, value.Sign() > 0, data)
 }
 
 // buildTxData assembles the format-specific go-ethereum TxData. The tx type is

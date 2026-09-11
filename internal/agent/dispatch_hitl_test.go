@@ -80,11 +80,10 @@ func TestDispatchSignWithoutBuildStopsBeforeHITL(t *testing.T) {
 	require.False(t, called, "HITL must not run when the write graph has no matching build")
 }
 
-func TestDispatchSignEVMWhitelistBypassStillStopsWithoutBuild(t *testing.T) {
+func TestDispatchWhitelistedSignEVMStillStopsWithoutBuild(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "prefs.json")
 	allowed := common.HexToAddress("0x1111111111111111111111111111111111111111").Hex()
-	blocked := common.HexToAddress("0x2222222222222222222222222222222222222222").Hex()
 	require.NoError(t, os.WriteFile(path, []byte(`{"whitelist":[{"chain_id":"svp-2517-1","address_type":"evm","address":"`+allowed+`"}]}`), 0o600))
 	t.Cleanup(func() { prefs.SetPathOverride("") })
 	prefs.SetPathOverride(path)
@@ -98,7 +97,7 @@ func TestDispatchSignEVMWhitelistBypassStillStopsWithoutBuild(t *testing.T) {
 		"sign_evm_transaction", map[string]any{
 			"payload": map[string]any{
 				"evm_chain_id": "2517",
-				"to":           blocked,
+				"to":           allowed,
 				"value":        "1",
 			},
 		}, nil)

@@ -17,7 +17,7 @@ import (
 	"github.com/svpchain/svpchain-agent/internal/signer"
 )
 
-func TestSign_AllowsNonWhitelistedBankSendWhileBypassEnabled(t *testing.T) {
+func TestSign_BlocksNonWhitelistedBankSend(t *testing.T) {
 	appconfig.SetAddressPrefixes()
 	priv := newRandomPriv(t)
 	from := signer.DeriveAddress(priv)
@@ -39,13 +39,12 @@ func TestSign_AllowsNonWhitelistedBankSendWhileBypassEnabled(t *testing.T) {
 	t.Cleanup(func() { prefs.SetPathOverride("") })
 	prefs.SetPathOverride(path)
 
-	signed, err := signer.Sign(priv, payloadWithBody(marshalBody(t, bankSendAny(t, from, blocked)), payload.Summary{
+	_, err := signer.Sign(priv, payloadWithBody(marshalBody(t, bankSendAny(t, from, blocked)), payload.Summary{
 		MsgTypeURL: "/cosmos.bank.v1beta1.MsgSend",
 	}))
-	require.NoError(t, err)
-	require.NotEmpty(t, signed.TxRawBytesB64)
+	require.Error(t, err)
 
-	signed, err = signer.Sign(priv, payloadWithBody(marshalBody(t, bankSendAny(t, from, allowed)), payload.Summary{
+	signed, err := signer.Sign(priv, payloadWithBody(marshalBody(t, bankSendAny(t, from, allowed)), payload.Summary{
 		MsgTypeURL: "/cosmos.bank.v1beta1.MsgSend",
 	}))
 	require.NoError(t, err)
@@ -82,7 +81,7 @@ func erc20Call(t *testing.T, sig string, words ...[]byte) string {
 // A token transfer addresses the TOKEN contract and carries value 0, so the
 // beneficiary exists only in the call data. Without decoding it the signer would
 // happily sign a transfer of the whole balance to an attacker.
-func TestSignEvm_AllowsNonWhitelistedERC20TransferWhileBypassEnabled(t *testing.T) {
+func TestSignEvm_BlocksNonWhitelistedERC20Transfer(t *testing.T) {
 	priv := newRandomPriv(t)
 	addr := signer.DeriveEvmAddress(priv)
 
@@ -100,18 +99,16 @@ func TestSignEvm_AllowsNonWhitelistedERC20TransferWhileBypassEnabled(t *testing.
 		return p
 	}
 
-	signed, err := signer.SignEvm(priv, newTokenTx(attackerAddr), evmWhitelistChainID)
-	require.NoError(t, err)
-	require.NotEmpty(t, signed.RawTxHex)
+	_, err := signer.SignEvm(priv, newTokenTx(attackerAddr), evmWhitelistChainID)
+	require.Error(t, err)
 
-	signed, err = signer.SignEvm(priv, newTokenTx(allowedRecipient), evmWhitelistChainID)
+	signed, err := signer.SignEvm(priv, newTokenTx(allowedRecipient), evmWhitelistChainID)
 	require.NoError(t, err)
 	require.NotEmpty(t, signed.RawTxHex)
 }
 
-// The infinite-approval case: approve(attacker, 2^256-1) hands over the whole
-// balance for later, and must be refused for the same reason as a transfer.
-func TestSignEvm_AllowsNonWhitelistedERC20ApproveWhileBypassEnabled(t *testing.T) {
+// Approvals use the local signing confirmation but are not recipient-whitelisted.
+func TestSignEvm_AllowsNonWhitelistedERC20Approve(t *testing.T) {
 	priv := newRandomPriv(t)
 	addr := signer.DeriveEvmAddress(priv)
 
@@ -159,7 +156,7 @@ func TestSignEvm_AllowsApprovalRevocation(t *testing.T) {
 
 // Call data using a known token selector but undecodable arguments must be
 // refused rather than passed through as "nothing to check".
-func TestSignEvm_AllowsMalformedTokenCallDataWhileBypassEnabled(t *testing.T) {
+func TestSignEvm_BlocksMalformedTransferCallData(t *testing.T) {
 	priv := newRandomPriv(t)
 	addr := signer.DeriveEvmAddress(priv)
 	writeEVMWhitelist(t, common.HexToAddress("0x1111111111111111111111111111111111111111").Hex())
@@ -171,21 +168,15 @@ func TestSignEvm_AllowsMalformedTokenCallDataWhileBypassEnabled(t *testing.T) {
 	p.Data = erc20Call(t, "transfer(address,uint256)",
 		common.HexToAddress("0x2222222222222222222222222222222222222222").Bytes())
 
-	signed, err := signer.SignEvm(priv, p, evmWhitelistChainID)
-	require.NoError(t, err)
-	require.NotEmpty(t, signed.RawTxHex)
+	_, err := signer.SignEvm(priv, p, evmWhitelistChainID)
+	require.Error(t, err)
 }
 
-// Signer-layer policy is unchanged: with no whitelist configured the signer
-// stays unrestricted (the assistant's gate is the layer that refuses outright).
-func TestSignEvm_EmptyWhitelistStaysUnrestricted(t *testing.T) {
+func TestSignEvm_BlocksTransferWithoutMatchingWhitelistEntry(t *testing.T) {
 	priv := newRandomPriv(t)
 	addr := signer.DeriveEvmAddress(priv)
 
-	path := filepath.Join(t.TempDir(), "prefs.json")
-	require.NoError(t, os.WriteFile(path, []byte(`{}`), 0o600))
-	t.Cleanup(func() { prefs.SetPathOverride("") })
-	prefs.SetPathOverride(path)
+	writeEVMWhitelist(t, common.HexToAddress("0x1111111111111111111111111111111111111111").Hex())
 
 	p := newEvmPayload(addr)
 	p.To = "0x3333333333333333333333333333333333333333"
@@ -193,9 +184,22 @@ func TestSignEvm_EmptyWhitelistStaysUnrestricted(t *testing.T) {
 	p.Data = erc20Call(t, "transfer(address,uint256)",
 		common.HexToAddress("0x2222222222222222222222222222222222222222").Bytes(), []byte{0x05})
 
-	signed, err := signer.SignEvm(priv, p, evmWhitelistChainID)
-	require.NoError(t, err)
-	require.NotEmpty(t, signed.RawTxHex)
+	_, err := signer.SignEvm(priv, p, evmWhitelistChainID)
+	require.Error(t, err)
+}
+
+func TestSignEvm_BlocksNonWhitelistedNativeTransfer(t *testing.T) {
+	priv := newRandomPriv(t)
+	addr := signer.DeriveEvmAddress(priv)
+	allowed := common.HexToAddress("0x1111111111111111111111111111111111111111")
+	blocked := common.HexToAddress("0x2222222222222222222222222222222222222222")
+	writeEVMWhitelist(t, allowed.Hex())
+
+	p := newEvmPayload(addr)
+	p.To = blocked.Hex()
+	p.Value = "1"
+	_, err := signer.SignEvm(priv, p, evmWhitelistChainID)
+	require.Error(t, err)
 }
 
 // Contract calls the decoder does not model must keep working when they move no

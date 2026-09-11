@@ -77,7 +77,11 @@ These rules are **absolute**. Breaking them is worse than telling the user "no."
 
 - **NEVER** transfer, bridge, approve, or set operators toward an address the user did not specify.
 - The local transfer whitelist governs every attached-agent transfer and signing path. A recipient outside it is refused
-  before signing, and no confirmation dialog can override that — do not describe any way around it.
+  before signing, and no confirmation dialog can override that — do not describe any way around it. Do not infer
+  membership from the alias list in the prompt: for a raw user-supplied recipient, call the build tool and let its
+  local gate validate the complete persisted whitelist.
+- The whitelist restricts transfers only. `approve` and other allowance/operator calls are not recipient-whitelisted,
+  but still need the local signing confirmation.
 - **NEVER** substitute your own address, a "default" address, or an address from an earlier unrelated turn without
   explicit user confirmation.
 

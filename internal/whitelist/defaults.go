@@ -11,15 +11,11 @@ package whitelist
 // Keep addresses in canonical form: EVM checksummed, Cosmos with the svp bech32
 // prefix. A fresh slice is returned on every call so callers may append to it.
 //
-// The set covers the protocol contracts an assistant-driven agent spends to when
-// it uses the svpchain-mcp build_* tools: the pre-flight gate checks the spender
-// of build_erc20_approve and the recipient of transfers/bridge deposits, so any
-// contract the agent must approve or send to has to be here or the run is
-// refused before signing. Concretely: the SVPBridge (bridge deposits approve and
-// send to it), the UniswapV2 router (swaps approve it as spender), the Lendora
-// cToken markets (supply/repay approve the cToken as spender), and Permit2 (x402
-// / gasless approvals). Read-only tools (quotes, balances, order book) and
-// output-to-self swaps are not gated and need no entry.
+// The set covers protocol recipients that an assistant-driven agent may need to
+// transfer to. Approvals are not recipient-whitelisted, so router, market, and
+// Permit2 entries are retained only for compatibility with existing installs;
+// their approval calls do not depend on these rows. Read-only tools (quotes,
+// balances, order book) and output-to-self swaps are not gated.
 func DefaultEntries() []Entry {
 	return []Entry{
 		// SVPBridge (svpchain) — build_bridge_deposit sends/approves here.

@@ -12,50 +12,39 @@ import (
 	"github.com/svpchain/svpchain-agent/internal/whitelist"
 )
 
-// guardedTool describes how to extract the recipient address from a transfer-
-// or approval-style build_* tool's arguments, and which whitelist address type
-// it should be checked against.
+// guardedTool describes how to extract a transfer recipient from a build_* tool
+// and which whitelist address type it should be checked against.
 type guardedTool struct {
-	field       string // args key holding the destination/spender address
+	field       string // args key holding the transfer recipient address
 	addressType string // whitelist.AddressTypeCosmos or AddressTypeEVM
 }
 
 // transferGuardedTools maps remote build_* tool names to the argument carrying
-// the third-party recipient/spender. Any tool here has its destination checked
+// the third-party recipient. Any tool here has its destination checked
 // against the whitelist BEFORE the call is forwarded to the remote MCP, so a
 // non-whitelisted address is rejected before any build/sign/broadcast happens.
-// Tools absent from this map (queries, swaps that output to self, etc.) are not
-// gated.
+// Approvals are intentionally absent: they remain subject to local signing
+// confirmation but are not recipient-whitelisted.
 var transferGuardedTools = map[string]guardedTool{
-	"build_bank_send":                   {field: "recipient", addressType: whitelist.AddressTypeCosmos},
-	"build_erc20_transfer":              {field: "to", addressType: whitelist.AddressTypeEVM},
-	"build_erc20_transfer_from":         {field: "to", addressType: whitelist.AddressTypeEVM},
-	"build_erc721_transfer_from":        {field: "to", addressType: whitelist.AddressTypeEVM},
-	"build_erc721_safe_transfer_from":   {field: "to", addressType: whitelist.AddressTypeEVM},
-	"build_bridge_deposit":              {field: "recipient", addressType: whitelist.AddressTypeEVM},
-	"build_erc20_approve":               {field: "spender", addressType: whitelist.AddressTypeEVM},
-	"build_erc721_approve":              {field: "spender", addressType: whitelist.AddressTypeEVM},
-	"build_erc721_set_approval_for_all": {field: "operator", addressType: whitelist.AddressTypeEVM},
+	"build_bank_send":                 {field: "recipient", addressType: whitelist.AddressTypeCosmos},
+	"build_erc20_transfer":            {field: "to", addressType: whitelist.AddressTypeEVM},
+	"build_erc20_transfer_from":       {field: "to", addressType: whitelist.AddressTypeEVM},
+	"build_erc721_transfer_from":      {field: "to", addressType: whitelist.AddressTypeEVM},
+	"build_erc721_safe_transfer_from": {field: "to", addressType: whitelist.AddressTypeEVM},
+	"build_bridge_deposit":            {field: "recipient", addressType: whitelist.AddressTypeEVM},
 }
 
 // SignEVMTool is the local signing tool that takes a whole EVM transaction.
 //
 // It needs its own check because it is directly callable: nothing requires it to
 // be preceded by a build_* call, so gating only build_* leaves the signer
-// reachable with a hand-crafted payload. And because a token transfer or
-// approval carries value 0 and addresses the token contract, the beneficiary
-// appears ONLY in the call data — the argument-name checks used for build_*
-// tools have nothing to read. A manipulated assistant (say, one that ingested
-// attacker-controlled content) could otherwise call this directly to transfer
-// ERC-20 balances out or grant an unlimited approval. HITL later asks the user
-// to confirm the signature, but a dialog must not override this policy — the
-// whitelist still runs first.
+// reachable with a hand-crafted payload. A token transfer carries value 0 and
+// addresses the token contract, so its beneficiary appears only in call data.
+// A manipulated assistant could otherwise bypass the build-tool gate and send
+// ERC-20 balances to an arbitrary account.
 const SignEVMTool = "sign_evm_transaction"
 
-// recipientWhitelistEnabled deliberately stays false while local HITL signature
-// confirmation is the transfer approval boundary. Keep the whitelist data and
-// checks below so the policy can be restored by changing this constant.
-const recipientWhitelistEnabled = false
+const recipientWhitelistEnabled = true
 
 // Rejection marks a tool call refused by the pre-flight whitelist gate.
 // The agent loop detects it (via errors.As) and stops immediately instead of
@@ -69,10 +58,10 @@ func (e *Rejection) Unwrap() error { return e.Err }
 
 // Check rejects a guarded tool call before it reaches the remote
 // MCP. For the GUI assistant the whitelist is mandatory: if NO whitelist is
-// configured, every transfer/approval tool is refused with a prompt to add one
+// configured, every transfer tool is refused with a prompt to add one
 // first (this is stricter than the signer-layer "empty = unrestricted" default
 // in internal/whitelist/enforce.go, and applies only to the assistant). When a
-// whitelist exists, the recipient/spender must be on it. A rejection is wrapped
+// whitelist exists, the recipient must be on it. A rejection is wrapped
 // in *Rejection so the caller terminates instead of retrying.
 func Check(chainID, name string, args map[string]any) error {
 	// sign_evm_transaction is checked on the transaction itself, not on named
@@ -122,7 +111,7 @@ func Check(chainID, name string, args map[string]any) error {
 
 // checkSignEVM gates a direct sign_evm_transaction call on the transaction it
 // carries: the recipient of a native (value-bearing) send, plus the
-// recipient/spender/operator decoded out of standard ERC-20/721/1155 call data.
+// recipient decoded out of standard ERC-20/721/1155 transfer call data.
 //
 // Same mandatory-whitelist policy as the build_* gate above (empty whitelist =
 // refuse), and the same *Rejection wrapper so a refusal ends the run instead of
@@ -136,8 +125,7 @@ func Check(chainID, name string, args map[string]any) error {
 // Contract calls with an unrecognized selector are NOT refused: gating those
 // would break every swap, order and lending flow, since the tx is a contract
 // call whose method this package does not model. They remain covered by the
-// value>0 check above and by the approvals they must first obtain — both of
-// which are gated.
+// value>0 check above; approvals stay subject to local confirmation.
 func checkSignEVM(chainID string, args map[string]any) error {
 	p, err := evmPayloadFromArgs(args)
 	if err != nil {
@@ -173,7 +161,7 @@ func checkSignEVM(chainID string, args map[string]any) error {
 			chainID)}
 	}
 
-	if err := store.CheckEVMTx(chainID, strings.TrimSpace(p.To), valuePositive, data); err != nil {
+	if err := store.CheckEVMTransfer(chainID, strings.TrimSpace(p.To), valuePositive, data); err != nil {
 		return &Rejection{Err: err}
 	}
 	return nil

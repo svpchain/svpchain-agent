@@ -1,27 +1,27 @@
 [
   {
     "id": "guard_no_whitelist_bank_send",
-    "description": "Cosmos bank send is permitted while recipient whitelist enforcement is temporarily disabled",
+    "description": "Cosmos bank send to an address outside the effective whitelist is refused",
     "chain_id": "svp-2517-1",
     "tool": "build_bank_send",
     "args": {
       "recipient": "svp1abc123456789012345678901234567890"
     },
-    "expect_outcome": "success"
+    "expect_outcome": "rejected"
   },
   {
     "id": "guard_no_whitelist_erc20",
-    "description": "ERC20 transfer is permitted while recipient whitelist enforcement is temporarily disabled",
+    "description": "ERC20 transfer to an address outside the effective whitelist is refused",
     "chain_id": "svp-2517-1",
     "tool": "build_erc20_transfer",
     "args": {
       "to": "0x1234567890123456789012345678901234567890"
     },
-    "expect_outcome": "success"
+    "expect_outcome": "rejected"
   },
   {
     "id": "guard_sign_evm_erc20_transfer",
-    "description": "A direct ERC20 transfer payload is permitted while recipient whitelist enforcement is temporarily disabled",
+    "description": "A direct ERC20 transfer payload to an address outside the effective whitelist is refused",
     "chain_id": "svp-2517-1",
     "tool": "sign_evm_transaction",
     "args": {
@@ -35,11 +35,11 @@
         "data": "0xa9059cbb00000000000000000000000012345678901234567890123456789012345678900000000000000000000000000000000000000000000000000000000000000005"
       }
     },
-    "expect_outcome": "success"
+    "expect_outcome": "rejected"
   },
   {
     "id": "guard_sign_evm_infinite_approval",
-    "description": "A direct ERC20 approval payload is permitted while recipient whitelist enforcement is temporarily disabled",
+    "description": "A direct ERC20 approval payload remains allowed because approvals are not recipient-whitelisted",
     "chain_id": "svp-2517-1",
     "tool": "sign_evm_transaction",
     "args": {

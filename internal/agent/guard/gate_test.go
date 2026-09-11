@@ -138,6 +138,10 @@ func TestCheckGate_SignEVMTransaction(t *testing.T) {
 		require.Error(t, Check(gateChainID, SignEVMTool,
 			signEVMArgs(tokenContract, "0", tokenCall("transfer(address,uint256)", attacker.Bytes(), []byte{0x05}))))
 		require.Error(t, Check(gateChainID, SignEVMTool, signEVMArgs(attacker.Hex(), "1000", "")))
+		// A payable contract call uses value for the protocol operation, not a
+		// plain transfer to the contract. This is the shape produced by swaps.
+		require.NoError(t, Check(gateChainID, SignEVMTool,
+			signEVMArgs(attacker.Hex(), "1000", "0x7ff36ab5")))
 
 		err := Check(gateChainID, SignEVMTool, map[string]any{})
 		require.Error(t, err)

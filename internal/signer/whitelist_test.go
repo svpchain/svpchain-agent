@@ -202,6 +202,23 @@ func TestSignEvm_BlocksNonWhitelistedNativeTransfer(t *testing.T) {
 	require.Error(t, err)
 }
 
+func TestSignEvm_AllowsValueBearingContractCall(t *testing.T) {
+	priv := newRandomPriv(t)
+	addr := signer.DeriveEvmAddress(priv)
+	contract := common.HexToAddress("0x2222222222222222222222222222222222222222")
+	writeEVMWhitelist(t, common.HexToAddress("0x1111111111111111111111111111111111111111").Hex())
+
+	p := newEvmPayload(addr)
+	p.To = contract.Hex()
+	p.Value = "1"
+	// swapExactETHForTokens(uint256,address[],address,uint256) selector. The
+	// exact ABI is not relevant here: it is a non-transfer contract call.
+	p.Data = "0x7ff36ab5"
+
+	_, err := signer.SignEvm(priv, p, evmWhitelistChainID)
+	require.NoError(t, err)
+}
+
 // Contract calls the decoder does not model must keep working when they move no
 // native value — gating them would break every swap, order and lending flow.
 func TestSignEvm_UnknownSelectorNotGated(t *testing.T) {

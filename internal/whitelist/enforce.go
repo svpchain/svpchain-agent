@@ -41,7 +41,8 @@ func (s *Store) Allows(chainID, addressType, address string) bool {
 // CheckEVMTransfer checks every account an EVM transaction hands value to
 // against s:
 //
-//  1. the recipient of a native send — to, when value is positive; and
+//  1. the recipient of a plain native send — to, when value is positive and
+//     calldata is empty; and
 //  2. the recipient named INSIDE standard ERC-20, ERC-721 and ERC-1155 transfer
 //     call data (see internal/evmcall).
 //
@@ -60,7 +61,12 @@ func (s *Store) Allows(chainID, addressType, address string) bool {
 // and then calls this for the shared "given this whitelist, is the tx allowed?"
 // decision.
 func (s *Store) CheckEVMTransfer(chainID, to string, valuePositive bool, data []byte) error {
-	if valuePositive && strings.TrimSpace(to) != "" {
+	// A payable contract call such as swapExactETHForTokens also has a positive
+	// value, but its `to` is the protocol contract rather than a transfer
+	// recipient. Its explicit build_* tool and the signing confirmation govern
+	// that operation. A plain value transfer has no calldata and is safe to
+	// identify by `to` alone.
+	if valuePositive && len(data) == 0 && strings.TrimSpace(to) != "" {
 		if !s.Allows(chainID, AddressTypeEVM, to) {
 			return fmt.Errorf("recipient %q is not on the whitelist for chain %q (EVM)", to, chainID)
 		}

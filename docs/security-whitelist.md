@@ -29,7 +29,8 @@ least one entry. An empty saved list remains unrestricted for standalone signer 
 pre-flight gate still uses its effective whitelist.
 
 - **Cosmos** — `cosmos.bank.v1beta1.MsgSend` recipient (`to_address`)
-- **EVM** — native transfers and standard ERC-20/721/1155 transfer recipients
+- **EVM** — plain native transfers (positive value with no calldata) and standard ERC-20/721/1155 transfer recipients
 
-Approvals and unknown zero-value contract calls are not transfer-whitelisted. The prompt's alias list is advisory and
-omits saved entries without aliases; the build/sign gates, not the model, decide the final whitelist result.
+Approvals and contract calls with calldata, including swaps that carry native value to a router, are not
+recipient-whitelisted. The prompt's alias list is advisory and omits saved entries without aliases; the build/sign
+gates, not the model, decide the final whitelist result.

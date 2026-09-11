@@ -124,8 +124,9 @@ func Check(chainID, name string, args map[string]any) error {
 //
 // Contract calls with an unrecognized selector are NOT refused: gating those
 // would break every swap, order and lending flow, since the tx is a contract
-// call whose method this package does not model. They remain covered by the
-// value>0 check above; approvals stay subject to local confirmation.
+// call whose method this package does not model. A plain native transfer (no
+// calldata) remains covered by the value>0 check; approvals stay subject to
+// local confirmation.
 func checkSignEVM(chainID string, args map[string]any) error {
 	p, err := evmPayloadFromArgs(args)
 	if err != nil {

@@ -14,6 +14,8 @@ import (
 	wruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 
 	"github.com/svpchain/svpchain-agent/internal/agent"
+	"github.com/svpchain/svpchain-agent/internal/agent/history"
+	agentsettlement "github.com/svpchain/svpchain-agent/internal/agent/settlement"
 	"github.com/svpchain/svpchain-agent/internal/agent/skills"
 	"github.com/svpchain/svpchain-agent/internal/brand"
 	"github.com/svpchain/svpchain-agent/internal/i18n"
@@ -40,6 +42,61 @@ func (a *App) Startup(ctx context.Context) {
 	a.ctx = ctx
 	setVoiceCtx(ctx)
 	installWebViewMicGrant()
+	go retryPendingSettlementCallbacks(ctx)
+	go reconcileActiveSettlementSessions(ctx, a.AgentGetSettings())
+}
+
+// retryPendingSettlementCallbacks restores callbacks that were durably queued
+// after a broadcast but could not reach agent-validator before the app exited.
+// Tasks without an execution tx hash are deliberately not cancelled here: that
+// action needs the payer's explicit local signing confirmation in the
+// settlement screen.
+func retryPendingSettlementCallbacks(ctx context.Context) {
+	retry := func() {
+		attemptCtx, cancel := context.WithTimeout(ctx, 45*time.Second)
+		defer cancel()
+		_ = agentsettlement.RetryPendingCallbacks(attemptCtx)
+	}
+	retry()
+	ticker := time.NewTicker(30 * time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			retry()
+		}
+	}
+}
+
+// reconcileActiveSettlementSessions removes local reuse markers for tasks that
+// have already reached a terminal chain state. This repairs sessions created
+// before the desktop learned to clear them directly after cancel/refund, and
+// also covers cancellations made from another device.
+func reconcileActiveSettlementSessions(ctx context.Context, settings AgentSettings) {
+	checkCtx, cancel := context.WithTimeout(ctx, 45*time.Second)
+	defer cancel()
+	validator, err := agentsettlement.NewClient(resolveSettlementValidatorURL(settings), "")
+	if err != nil {
+		return
+	}
+	network, err := validator.NetworkConfig(checkCtx)
+	if err != nil {
+		return
+	}
+	store := history.Shared()
+	for _, session := range store.List() {
+		task := session.ActiveSettlement
+		if !task.Usable() {
+			continue
+		}
+		onChain, err := agentsettlement.ReadTask(checkCtx, settlementRPCURL(), network.SettlementContract, task.TaskID)
+		if err != nil || onChain.Status.Active() {
+			continue
+		}
+		_ = store.ClearActiveSettlementTask(task.TaskID)
+	}
 }
 
 // Shutdown releases pooled remote MCP sessions when the app exits.

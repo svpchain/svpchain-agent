@@ -249,6 +249,45 @@ func (s *Store) SetActiveSettlement(id string, task *settlement.ActiveTask) erro
 	return nil
 }
 
+// ClearActiveSettlementTask removes every local conversation reference to an
+// on-chain task after it has been cancelled. The contract is the authority for
+// cancellation; this only prevents a later chat turn from reusing stale local
+// payment state.
+func (s *Store) ClearActiveSettlementTask(taskID string) error {
+	return s.clearActiveSettlements(func(task *settlement.ActiveTask) bool {
+		return task != nil && strings.EqualFold(strings.TrimSpace(task.TaskID), strings.TrimSpace(taskID))
+	})
+}
+
+// ClearActiveSettlementIntent removes local references belonging to a refunded
+// intent. One intent can contain more than one task, so clearing by intent is
+// needed after the payer has released its remaining balance.
+func (s *Store) ClearActiveSettlementIntent(intentID string) error {
+	return s.clearActiveSettlements(func(task *settlement.ActiveTask) bool {
+		return task != nil && strings.EqualFold(strings.TrimSpace(task.IntentID), strings.TrimSpace(intentID))
+	})
+}
+
+func (s *Store) clearActiveSettlements(match func(*settlement.ActiveTask) bool) error {
+	if !s.Enabled() {
+		return nil
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	idx := s.loadIndexLocked()
+	changed := false
+	for i := range idx.Sessions {
+		if match(idx.Sessions[i].ActiveSettlement) {
+			idx.Sessions[i].ActiveSettlement = nil
+			changed = true
+		}
+	}
+	if !changed {
+		return nil
+	}
+	return s.saveIndexLocked(idx)
+}
+
 func normalizedToolNames(tools []string) []string {
 	seen := make(map[string]struct{}, len(tools))
 	out := make([]string, 0, len(tools))

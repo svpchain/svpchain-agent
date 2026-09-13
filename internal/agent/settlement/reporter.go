@@ -218,6 +218,28 @@ func (r *Reporter) Report(ctx context.Context) error {
 	if finalHash == "" {
 		return nil
 	}
+	if err := QueueCallback(cfg, finalHash); err != nil {
+		return fmt.Errorf("queue settlement execution callback: %w", err)
+	}
+	if err := postCallbackWithClient(ctx, cfg, finalHash, r.client); err != nil {
+		_ = updateCallbackFailure(PendingCallback{TaskID: normalizeHash(cfg.TaskID), TxHash: normalizeHash(finalHash), ValidatorURL: cfg.ValidatorURL}, err)
+		return err
+	}
+	// The validator's callback endpoint is idempotent for the same task/hash.
+	// If local removal fails, a future retry is harmless and preferable to
+	// losing the durable record before it is removed.
+	_ = removeCallback(PendingCallback{TaskID: normalizeHash(cfg.TaskID), TxHash: normalizeHash(finalHash), ValidatorURL: cfg.ValidatorURL})
+	return nil
+}
+
+func postCallback(ctx context.Context, cfg Config, finalHash string) error {
+	return postCallbackWithClient(ctx, cfg, finalHash, &http.Client{Timeout: 10 * time.Second})
+}
+
+func postCallbackWithClient(ctx context.Context, cfg Config, finalHash string, client *http.Client) error {
+	if client == nil {
+		client = &http.Client{Timeout: 10 * time.Second}
+	}
 	// agent-validator deliberately accepts only this immutable execution
 	// identity. Owner belongs to task assignment and source is client-side
 	// telemetry; sending either fails its strict JSON decoder.
@@ -238,7 +260,7 @@ func (r *Reporter) Report(ctx context.Context) error {
 		if token := strings.TrimSpace(cfg.CallbackToken); token != "" {
 			req.Header.Set("Authorization", "Bearer "+token)
 		}
-		resp, requestErr = r.client.Do(req)
+		resp, requestErr = client.Do(req)
 		return requestErr
 	})
 	if err != nil {
@@ -253,8 +275,19 @@ func (r *Reporter) Report(ctx context.Context) error {
 
 func (r *Reporter) setFinal(hash string) {
 	r.mu.Lock()
-	defer r.mu.Unlock()
 	r.finalHash = hash
+	var cfg *Config
+	if r.cfg != nil {
+		copy := *r.cfg
+		cfg = &copy
+	}
+	r.mu.Unlock()
+	if cfg != nil {
+		// Persist at broadcast observation, not only in Report's deferred exit
+		// path. A forced process exit does not run defers, but the tool result
+		// already proved the transaction was handed to the chain.
+		_ = QueueCallback(*cfg, hash)
+	}
 }
 
 func normalizeHash(value string) string {

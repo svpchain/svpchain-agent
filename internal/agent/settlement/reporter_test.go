@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -14,6 +16,18 @@ const (
 	testTask = "0x2000000000000000000000000000000000000000000000000000000000000002"
 	testTx   = "0x3000000000000000000000000000000000000000000000000000000000000003"
 )
+
+func TestMain(m *testing.M) {
+	dir, err := os.MkdirTemp("", "svpchain-settlement-test-*")
+	if err != nil {
+		panic(err)
+	}
+	SetCallbackOutboxPathOverride(filepath.Join(dir, "callbacks.json"))
+	code := m.Run()
+	SetCallbackOutboxPathOverride("")
+	_ = os.RemoveAll(dir)
+	os.Exit(code)
+}
 
 func TestReporterPostsExplicitTaskAndDelegatedSource(t *testing.T) {
 	var got struct {
@@ -60,6 +74,19 @@ func TestReporterCallbackIsAbsentWithoutExecution(t *testing.T) {
 	require.NoError(t, err)
 	_, _, ok := reporter.Callback()
 	require.False(t, ok)
+}
+
+func TestReporterQueuesCallbackWhenBroadcastIsObserved(t *testing.T) {
+	defer os.Remove(callbackOutboxPath())
+	reporter, err := New(Config{TaskID: testTask, ValidatorURL: "https://validator.example"})
+	require.NoError(t, err)
+	reporter.RecordTool("broadcast_evm_tx", "")(true, `{"tx_hash":"`+testTx+`"}`, "")
+
+	pending, err := PendingCallbacks()
+	require.NoError(t, err)
+	require.Len(t, pending, 1)
+	require.Equal(t, testTask, pending[0].TaskID)
+	require.Equal(t, testTx, pending[0].TxHash)
 }
 
 func TestReporterPostsFinalExecutionOfWorkflow(t *testing.T) {
@@ -111,6 +138,7 @@ func TestReporterIgnoresApprovalBroadcastBeforeSwap(t *testing.T) {
 }
 
 func TestReporterIgnoresSettlementFundingHashesReturnedByConnect(t *testing.T) {
+	t.Cleanup(func() { _ = os.Remove(callbackOutboxPath()) })
 	reporter, err := New(Config{TaskID: testTask, ValidatorURL: "http://validator.example"})
 	require.NoError(t, err)
 	reporter.RecordTool("a2a_connect_agent", "")(true, `{
@@ -137,4 +165,34 @@ func TestDeferredReporterIgnoresPreFundingBroadcasts(t *testing.T) {
 	reporter.RecordTool("broadcast_evm_tx", "")(true, `{"tx_hash":"`+testTx+`"}`, "")
 	require.NoError(t, reporter.Configure(Config{TaskID: testTask, ValidatorURL: "http://validator.example"}))
 	require.NoError(t, reporter.Report(context.Background()))
+}
+
+func TestReporterPersistsFailedCallbackForStartupRetry(t *testing.T) {
+	accept := false
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		if !accept {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			return
+		}
+		w.WriteHeader(http.StatusAccepted)
+	}))
+	t.Cleanup(server.Close)
+
+	reporter, err := New(Config{TaskID: testTask, ValidatorURL: server.URL})
+	require.NoError(t, err)
+	reporter.RecordTool("broadcast_evm_tx", "")(true, `{"tx_hash":"`+testTx+`"}`, "")
+	require.Error(t, reporter.Report(context.Background()))
+
+	pending, err := PendingCallbacks()
+	require.NoError(t, err)
+	require.Len(t, pending, 1)
+	require.Equal(t, testTask, pending[0].TaskID)
+	require.Equal(t, testTx, pending[0].TxHash)
+	require.Equal(t, 1, pending[0].Attempts)
+
+	accept = true
+	require.NoError(t, RetryPendingCallbacks(context.Background()))
+	pending, err = PendingCallbacks()
+	require.NoError(t, err)
+	require.Empty(t, pending)
 }

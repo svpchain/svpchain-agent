@@ -10,6 +10,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
+	"github.com/svpchain/svpchain-agent/internal/agent/history"
 	agentsettlement "github.com/svpchain/svpchain-agent/internal/agent/settlement"
 	"github.com/svpchain/svpchain-agent/internal/keystore"
 	"github.com/svpchain/svpchain-agent/internal/manage"
@@ -151,7 +152,13 @@ func (a *App) SettlementCancel(chainID, taskID string) (string, error) {
 		return "", localized(err)
 	}
 	txHash, err := agentsettlement.CancelTask(ctx, cfg, taskID)
-	return txHash, localized(err)
+	if err != nil {
+		return txHash, localized(err)
+	}
+	if err := history.Shared().ClearActiveSettlementTask(taskID); err != nil {
+		return txHash, localized(fmt.Errorf("clear cancelled settlement from local sessions: %w", err))
+	}
+	return txHash, nil
 }
 
 // SettlementRefund returns an intent's released balance to its payer. The
@@ -188,7 +195,13 @@ func (a *App) SettlementRefund(chainID, intentID string) (string, error) {
 		return "", localized(fmt.Errorf("settlement intent %s has no refundable balance", intentID))
 	}
 	txHash, err := agentsettlement.Refund(ctx, cfg, intentID)
-	return txHash, localized(err)
+	if err != nil {
+		return txHash, localized(err)
+	}
+	if err := history.Shared().ClearActiveSettlementIntent(intentID); err != nil {
+		return txHash, localized(fmt.Errorf("clear refunded settlement from local sessions: %w", err))
+	}
+	return txHash, nil
 }
 
 func settlementRefundRows(chainID string, intent agentsettlement.Intent, tasks []agentsettlement.OnChainTask, token agentsettlement.PaymentToken) []SettlementRefund {

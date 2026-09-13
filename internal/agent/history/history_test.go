@@ -235,3 +235,34 @@ func TestStore_ActiveSettlementPersistsUntilCleared(t *testing.T) {
 
 	require.NoError(t, s.SetActiveSettlement("nope", task), "unknown ids are ignored")
 }
+
+func TestStore_ClearActiveSettlementAfterCancelOrRefund(t *testing.T) {
+	s := newTestStore(t)
+	first, err := s.Create("svp_2517-1")
+	require.NoError(t, err)
+	second, err := s.Create("svp_2517-1")
+	require.NoError(t, err)
+
+	taskID := "0x" + strings.Repeat("ab", 32)
+	intentID := "0x" + strings.Repeat("cd", 32)
+	firstTask := &settlement.ActiveTask{Endpoint: "https://agent.example", TaskID: taskID, IntentID: intentID, Owner: "0x516c9637B4b26F1f62f553145A9A86F01E890f60"}
+	secondTask := &settlement.ActiveTask{Endpoint: "https://agent.example", TaskID: "0x" + strings.Repeat("ef", 32), IntentID: intentID, Owner: "0x516c9637B4b26F1f62f553145A9A86F01E890f60"}
+	require.NoError(t, s.SetActiveSettlement(first.ID, firstTask))
+	require.NoError(t, s.SetActiveSettlement(second.ID, secondTask))
+
+	require.NoError(t, s.ClearActiveSettlementTask(strings.ToUpper(taskID)))
+	all := s.List()
+	for _, session := range all {
+		if session.ID == first.ID {
+			require.Nil(t, session.ActiveSettlement)
+		}
+		if session.ID == second.ID {
+			require.NotNil(t, session.ActiveSettlement)
+		}
+	}
+
+	require.NoError(t, s.ClearActiveSettlementIntent(intentID))
+	for _, session := range s.List() {
+		require.Nil(t, session.ActiveSettlement)
+	}
+}

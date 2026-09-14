@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import {h, onMounted, ref} from 'vue'
 import {useI18n} from 'vue-i18n'
-import {NButton, NDataTable, NEmpty, NSpin, NTag, NText, type DataTableColumns, useDialog, useMessage} from 'naive-ui'
+import {NButton, NDataTable, NEmpty, NPagination, NSpin, NTag, NText, type DataTableColumns, useDialog, useMessage} from 'naive-ui'
 import * as App from '../../wailsjs/go/desktop/App'
 import type {SettlementRefund} from '../types'
 
@@ -14,6 +14,9 @@ const message = useMessage()
 const loading = ref(false)
 const acting = ref('')
 const rows = ref<SettlementRefund[]>([])
+const page = ref(1)
+const pageSize = 10
+const total = ref(0)
 
 function setStatus(msg: string) {
   emit('status', msg)
@@ -80,14 +83,25 @@ function actionKey(row: SettlementRefund, action: string) {
 async function refresh() {
   loading.value = true
   try {
-    const list = (await App.SettlementRefunds()) as SettlementRefund[]
-    rows.value = (list || []).map((row) => normalize(row as SettlementRefund & Record<string, unknown>))
-    setStatus(rows.value.length ? t('settlement.status.count', {n: rows.value.length}) : t('settlement.status.empty'))
+    const result = await App.SettlementRefunds(page.value, pageSize) as unknown as {rows?: SettlementRefund[], Rows?: SettlementRefund[], total?: number, Total?: number}
+    const list = result.rows ?? result.Rows ?? []
+    total.value = Number(result.total ?? result.Total ?? 0)
+    if (page.value > 1 && list.length === 0 && total.value > 0) {
+      page.value = Math.ceil(total.value / pageSize)
+      return refresh()
+    }
+    rows.value = list.map((row) => normalize(row as SettlementRefund & Record<string, unknown>))
+    setStatus(total.value ? t('settlement.status.count', {n: total.value}) : t('settlement.status.empty'))
   } catch (err) {
     setStatus(t('settlement.status.loadFailed', {err: String(err)}))
   } finally {
     loading.value = false
   }
+}
+
+function changePage(next: number) {
+  page.value = next
+  void refresh()
 }
 
 function cancelTask(row: SettlementRefund) {
@@ -184,6 +198,23 @@ defineExpose({refresh})
           :single-line="false"
           :scroll-x="984"
       />
+      <div v-if="total > pageSize" class="settlement-pagination">
+        <n-pagination
+            :page="page"
+            :page-size="pageSize"
+            :item-count="total"
+            :page-slot="5"
+            @update:page="changePage"
+        />
+      </div>
     </n-spin>
   </div>
 </template>
+
+<style scoped>
+.settlement-pagination {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 14px;
+}
+</style>

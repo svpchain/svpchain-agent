@@ -36,3 +36,13 @@ func TestSettlementDisplayStatusUsesValidatorLifecycle(t *testing.T) {
 	require.Equal(t, "success", settlementDisplayStatus("succeeded", "", "assigned"))
 	require.Equal(t, "failed", settlementDisplayStatus("failed", "", "assigned"))
 }
+
+func TestNormalizeSettlementPageBoundsSize(t *testing.T) {
+	page, size := normalizeSettlementPage(0, 0)
+	require.Equal(t, 1, page)
+	require.Equal(t, defaultSettlementPageSize, size)
+
+	page, size = normalizeSettlementPage(3, maxSettlementPageSize+1)
+	require.Equal(t, 3, page)
+	require.Equal(t, maxSettlementPageSize, size)
+}

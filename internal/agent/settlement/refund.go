@@ -79,6 +79,161 @@ type OnChainTask struct {
 	Status     TaskStatus
 }
 
+// Reader reuses one EVM RPC connection and parsed ABI for a bounded group of
+// read-only AgentSettlement queries. It is safe to use concurrently.
+type Reader struct {
+	client   *ethclient.Client
+	contract common.Address
+	abi      abi.ABI
+}
+
+func NewReader(ctx context.Context, rpcURL, contract string) (*Reader, error) {
+	address, err := requiredAddress("settlement contract", contract)
+	if err != nil {
+		return nil, err
+	}
+	client, err := ethclient.DialContext(ctx, strings.TrimSpace(rpcURL))
+	if err != nil {
+		return nil, fmt.Errorf("connect settlement EVM RPC: %w", err)
+	}
+	parsed, err := abi.JSON(strings.NewReader(refundABIJSON))
+	if err != nil {
+		client.Close()
+		return nil, err
+	}
+	return &Reader{client: client, contract: address, abi: parsed}, nil
+}
+
+func (r *Reader) Close() {
+	if r != nil && r.client != nil {
+		r.client.Close()
+	}
+}
+
+func (r *Reader) ListIntents(ctx context.Context, payer string) ([]string, error) {
+	if !common.IsHexAddress(strings.TrimSpace(payer)) {
+		return nil, fmt.Errorf("payer %q is not a valid EVM address", payer)
+	}
+	values, err := r.call(ctx, "intentsOf", common.HexToAddress(payer))
+	if err != nil {
+		return nil, err
+	}
+	hashes, ok := values[0].([][32]byte)
+	if !ok {
+		return nil, fmt.Errorf("intentsOf returned %T", values[0])
+	}
+	out := make([]string, 0, len(hashes))
+	for _, hash := range hashes {
+		out = append(out, common.Hash(hash).Hex())
+	}
+	return out, nil
+}
+
+func (r *Reader) ReadIntent(ctx context.Context, intentID string) (Intent, error) {
+	intent, err := settlementHash("intent_id", intentID)
+	if err != nil {
+		return Intent{}, err
+	}
+	values, err := r.call(ctx, "getIntent", intent)
+	if err != nil {
+		return Intent{}, err
+	}
+	if len(values) != 6 {
+		return Intent{}, fmt.Errorf("getIntent returned %d values", len(values))
+	}
+	payer, ok := values[0].(common.Address)
+	if !ok {
+		return Intent{}, fmt.Errorf("getIntent payer has type %T", values[0])
+	}
+	amounts := make([]string, 5)
+	for i := range amounts {
+		amount, ok := values[i+1].(*big.Int)
+		if !ok {
+			return Intent{}, fmt.Errorf("getIntent amount %d has type %T", i, values[i+1])
+		}
+		amounts[i] = amount.String()
+	}
+	return Intent{ID: intent.Hex(), Payer: payer.Hex(), Deposited: amounts[0], Reserved: amounts[1], Settled: amounts[2], Refunded: amounts[3], Available: amounts[4]}, nil
+}
+
+func (r *Reader) TasksOfIntent(ctx context.Context, intentID string) ([]string, error) {
+	intent, err := settlementHash("intent_id", intentID)
+	if err != nil {
+		return nil, err
+	}
+	values, err := r.call(ctx, "tasksOfIntent", intent)
+	if err != nil {
+		return nil, err
+	}
+	hashes, ok := values[0].([][32]byte)
+	if !ok {
+		return nil, fmt.Errorf("tasksOfIntent returned %T", values[0])
+	}
+	out := make([]string, 0, len(hashes))
+	for _, hash := range hashes {
+		out = append(out, common.Hash(hash).Hex())
+	}
+	return out, nil
+}
+
+func (r *Reader) ReadTask(ctx context.Context, taskID string) (OnChainTask, error) {
+	task, err := settlementHash("task_id", taskID)
+	if err != nil {
+		return OnChainTask{}, err
+	}
+	values, err := r.call(ctx, "getTask", task)
+	if err != nil {
+		return OnChainTask{}, err
+	}
+	if len(values) != 8 {
+		return OnChainTask{}, fmt.Errorf("getTask returned %d values", len(values))
+	}
+	intent, ok := values[0].([32]byte)
+	if !ok {
+		return OnChainTask{}, fmt.Errorf("getTask intent ID has type %T", values[0])
+	}
+	owner, ok := values[1].(common.Address)
+	if !ok {
+		return OnChainTask{}, fmt.Errorf("getTask owner has type %T", values[1])
+	}
+	amount, ok := values[2].(*big.Int)
+	if !ok {
+		return OnChainTask{}, fmt.Errorf("getTask amount has type %T", values[2])
+	}
+	txHash, ok := values[3].([32]byte)
+	if !ok {
+		return OnChainTask{}, fmt.Errorf("getTask tx hash has type %T", values[3])
+	}
+	index, ok := values[4].(uint64)
+	if !ok {
+		return OnChainTask{}, fmt.Errorf("getTask agent index has type %T", values[4])
+	}
+	status, ok := values[5].(uint8)
+	if !ok {
+		return OnChainTask{}, fmt.Errorf("getTask status has type %T", values[5])
+	}
+	return OnChainTask{ID: task.Hex(), IntentID: common.Hash(intent).Hex(), Owner: owner.Hex(), Amount: amount.String(), TxHash: common.Hash(txHash).Hex(), AgentIndex: index, Status: TaskStatus(status)}, nil
+}
+
+func (r *Reader) call(ctx context.Context, method string, args ...any) ([]any, error) {
+	if r == nil || r.client == nil {
+		return nil, fmt.Errorf("settlement reader is nil")
+	}
+	data, err := r.abi.Pack(method, args...)
+	if err != nil {
+		return nil, fmt.Errorf("encode %s: %w", method, err)
+	}
+	result, err := r.client.CallContract(ctx, ethereum.CallMsg{To: &r.contract, Data: data}, nil)
+	if err != nil {
+		return nil, fmt.Errorf("call settlement %s: %w", method, err)
+	}
+	values, err := r.abi.Unpack(method, result)
+	if err != nil {
+		return nil, fmt.Errorf("decode settlement %s: %w", method, err)
+	}
+	return values, nil
+}
+
 // ListIntents returns all intents ever created by payer on this settlement
 // contract. The contract, rather than local chat history, is the source of
 // truth so failed tasks remain recoverable after their chat session ends.

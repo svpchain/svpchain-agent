@@ -31,6 +31,13 @@ export type SettlementRefund = {
     validator_error?: string
 }
 
+export type SettlementRefundPage = {
+    rows: SettlementRefund[]
+    page: number
+    page_size: number
+    total: number
+}
+
 export type UpdateInfo = {
     Current: string
     Latest: string

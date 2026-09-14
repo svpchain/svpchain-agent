@@ -28,7 +28,7 @@ export default {
             refundBody: '将把 {amount} 对应的结算任务 {task} 退回付款钱包。',
         },
         status: {
-            empty: '没有结算意图', count: '已加载 {n} 条结算任务', loadFailed: '读取结算状态失败: {err}',
+            empty: '没有结算意图', count: '共 {n} 条结算意图', loadFailed: '读取结算状态失败: {err}',
             cancelled: '任务已取消，交易 {tx}', cancelFailed: '取消任务失败: {err}',
             refunded: '退款已广播，交易 {tx}', refundFailed: '退款失败: {err}',
         },

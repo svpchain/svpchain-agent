@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/svpchain/svpchain-agent/internal/agent/history"
 	agentsettlement "github.com/svpchain/svpchain-agent/internal/agent/settlement"
@@ -36,32 +37,54 @@ type SettlementRefund struct {
 	ValidatorError  string `json:"validator_error,omitempty"`
 }
 
+// SettlementRefundPage is a newest-first page of settlement intents. A single
+// intent can expand to more than one task row.
+type SettlementRefundPage struct {
+	Rows     []SettlementRefund `json:"rows"`
+	Page     int                `json:"page"`
+	PageSize int                `json:"page_size"`
+	Total    int                `json:"total"`
+}
+
+const (
+	defaultSettlementPageSize = 10
+	maxSettlementPageSize     = 25
+	settlementReadConcurrency = 4
+)
+
 // SettlementRefunds lists intents created by the locally stored keys and their
 // current contract state. A refund is deliberately withheld while any task in
 // the intent is Assigned or Bound, even though the contract would only return
 // its unreserved balance.
-func (a *App) SettlementRefunds() ([]SettlementRefund, error) {
+func (a *App) SettlementRefunds(page, pageSize int) (SettlementRefundPage, error) {
 	ctx, cancel := a.settlementContext(30 * time.Second)
 	defer cancel()
+	page, pageSize = normalizeSettlementPage(page, pageSize)
 	network, err := a.settlementNetwork(ctx)
 	if err != nil {
-		return nil, localized(err)
+		return SettlementRefundPage{}, localized(err)
 	}
 	token, err := agentsettlement.ReadPaymentToken(ctx, settlementRPCURL(), network.PaymentToken)
 	if err != nil {
-		return nil, localized(err)
+		return SettlementRefundPage{}, localized(err)
 	}
 	validator, err := agentsettlement.NewClient(resolveSettlementValidatorURL(a.AgentGetSettings()), "")
 	if err != nil {
-		return nil, localized(err)
+		return SettlementRefundPage{}, localized(err)
 	}
 	entries, err := manage.List()
 	if err != nil {
-		return nil, localized(err)
+		return SettlementRefundPage{}, localized(err)
 	}
+	reader, err := agentsettlement.NewReader(ctx, settlementRPCURL(), network.SettlementContract)
+	if err != nil {
+		return SettlementRefundPage{}, localized(err)
+	}
+	defer reader.Close()
 
 	seen := make(map[string]struct{}, len(entries))
-	var rows []SettlementRefund
+	type intentRef struct{ chainID, intentID string }
+	var refs []intentRef
 	for _, entry := range entries {
 		if strings.TrimSpace(entry.ChainID) == "" || !common.IsHexAddress(entry.EVMAddr) {
 			continue
@@ -71,44 +94,93 @@ func (a *App) SettlementRefunds() ([]SettlementRefund, error) {
 			continue
 		}
 		seen[key] = struct{}{}
-		intentIDs, err := agentsettlement.ListIntents(ctx, settlementRPCURL(), network.SettlementContract, entry.EVMAddr)
+		intentIDs, err := reader.ListIntents(ctx, entry.EVMAddr)
 		if err != nil {
-			return nil, localized(fmt.Errorf("read settlement intents for %s: %w", entry.EVMAddr, err))
+			return SettlementRefundPage{}, localized(fmt.Errorf("read settlement intents for %s: %w", entry.EVMAddr, err))
 		}
-		for _, intentID := range intentIDs {
-			intent, err := agentsettlement.ReadIntent(ctx, settlementRPCURL(), network.SettlementContract, intentID)
-			if err != nil {
-				return nil, localized(err)
-			}
-			taskIDs, err := agentsettlement.TasksOfIntent(ctx, settlementRPCURL(), network.SettlementContract, intentID)
-			if err != nil {
-				return nil, localized(err)
-			}
-			tasks := make([]agentsettlement.OnChainTask, 0, len(taskIDs))
-			for _, taskID := range taskIDs {
-				task, err := agentsettlement.ReadTask(ctx, settlementRPCURL(), network.SettlementContract, taskID)
-				if err != nil {
-					return nil, localized(err)
-				}
-				tasks = append(tasks, task)
-			}
-			intentRows := settlementRefundRows(entry.ChainID, intent, tasks, token)
-			for i := range intentRows {
-				if intentRows[i].TaskID == "" || intentRows[i].TaskStatus == "unassigned" {
-					continue
-				}
-				execution, found, executionErr := validator.Execution(ctx, intentRows[i].TaskID)
-				if executionErr != nil || !found {
-					continue
-				}
-				intentRows[i].ValidatorState = execution.State
-				intentRows[i].ValidatorError = execution.LastError
-				intentRows[i].TaskStatus = settlementDisplayStatus(execution.State, execution.LastError, intentRows[i].TaskStatus)
-			}
-			rows = append(rows, intentRows...)
+		// AgentSettlement appends intent IDs in creation order. Iterate from
+		// the tail so the first page contains the newest payments.
+		for i := len(intentIDs) - 1; i >= 0; i-- {
+			refs = append(refs, intentRef{chainID: entry.ChainID, intentID: intentIDs[i]})
 		}
 	}
+	total := len(refs)
+	start := (page - 1) * pageSize
+	if start >= total {
+		return SettlementRefundPage{Rows: []SettlementRefund{}, Page: page, PageSize: pageSize, Total: total}, nil
+	}
+	end := min(start+pageSize, total)
+	pageRefs := refs[start:end]
+	rowSets := make([][]SettlementRefund, len(pageRefs))
+	group, groupCtx := errgroup.WithContext(ctx)
+	group.SetLimit(settlementReadConcurrency)
+	for i, ref := range pageRefs {
+		i, ref := i, ref
+		group.Go(func() error {
+			rows, err := readSettlementIntent(groupCtx, reader, validator, ref.chainID, ref.intentID, token)
+			if err != nil {
+				return err
+			}
+			rowSets[i] = rows
+			return nil
+		})
+	}
+	if err := group.Wait(); err != nil {
+		return SettlementRefundPage{}, localized(err)
+	}
+	rows := make([]SettlementRefund, 0, len(pageRefs))
+	for _, intentRows := range rowSets {
+		rows = append(rows, intentRows...)
+	}
+	return SettlementRefundPage{Rows: rows, Page: page, PageSize: pageSize, Total: total}, nil
+}
+
+func readSettlementIntent(ctx context.Context, reader *agentsettlement.Reader, validator *agentsettlement.Client, chainID, intentID string, token agentsettlement.PaymentToken) ([]SettlementRefund, error) {
+	intent, err := reader.ReadIntent(ctx, intentID)
+	if err != nil {
+		return nil, err
+	}
+	taskIDs, err := reader.TasksOfIntent(ctx, intentID)
+	if err != nil {
+		return nil, err
+	}
+	tasks := make([]agentsettlement.OnChainTask, 0, len(taskIDs))
+	// Task IDs are also append-ordered in the contract, so show the newest task
+	// first within each intent.
+	for i := len(taskIDs) - 1; i >= 0; i-- {
+		task, err := reader.ReadTask(ctx, taskIDs[i])
+		if err != nil {
+			return nil, err
+		}
+		tasks = append(tasks, task)
+	}
+	rows := settlementRefundRows(chainID, intent, tasks, token)
+	for i := range rows {
+		if rows[i].TaskID == "" || rows[i].TaskStatus == "unassigned" {
+			continue
+		}
+		execution, found, err := validator.Execution(ctx, rows[i].TaskID)
+		if err != nil || !found {
+			continue
+		}
+		rows[i].ValidatorState = execution.State
+		rows[i].ValidatorError = execution.LastError
+		rows[i].TaskStatus = settlementDisplayStatus(execution.State, execution.LastError, rows[i].TaskStatus)
+	}
 	return rows, nil
+}
+
+func normalizeSettlementPage(page, pageSize int) (int, int) {
+	if page < 1 {
+		page = 1
+	}
+	if pageSize <= 0 {
+		pageSize = defaultSettlementPageSize
+	}
+	if pageSize > maxSettlementPageSize {
+		pageSize = maxSettlementPageSize
+	}
+	return page, pageSize
 }
 
 // settlementDisplayStatus uses the validator's persisted lifecycle when a

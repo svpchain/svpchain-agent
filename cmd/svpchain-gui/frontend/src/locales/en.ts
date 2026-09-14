@@ -28,7 +28,7 @@ export default {
             refundBody: 'This returns {amount} associated with settlement entry {task} to the payer wallet.',
         },
         status: {
-            empty: 'No settlement intents', count: 'Loaded {n} settlement task(s)', loadFailed: 'Could not load settlement status: {err}',
+            empty: 'No settlement intents', count: '{n} settlement intent(s)', loadFailed: 'Could not load settlement status: {err}',
             cancelled: 'Task cancelled, transaction {tx}', cancelFailed: 'Could not cancel task: {err}',
             refunded: 'Refund broadcast, transaction {tx}', refundFailed: 'Could not refund: {err}',
         },
